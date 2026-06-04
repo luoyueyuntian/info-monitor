@@ -1,0 +1,22 @@
+[project]
+name = "info-monitor-scheduler"
+version = "0.0.1"
+description = "Scheduling service for Info Monitor source runs"
+requires-python = ">=3.9"
+dependencies = [
+  "apscheduler>=3.10.4",
+  "sqlalchemy>=2.0.36",
+  "psycopg[binary]>=3.2.3",
+]
+
+[project.scripts]
+info-monitor-scheduler = "info_monitor_scheduler.main:main"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []

@@ -1,0 +1,35 @@
+{
+  "name": "info-monitor",
+  "private": true,
+  "workspaces": [
+    "apps/frontend",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace @info-monitor/frontend",
+    "dev:api": "npm run dev --workspace @info-monitor/api",
+    "preview": "bash ./scripts/preview.sh",
+    "preview:prepare": "bash ./scripts/preview.sh --prepare-only",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "node ./scripts/db-apply-migrations.mjs",
+    "db:seed:demo": "node ./scripts/db-seed-demo.mjs",
+    "db:seed:eastmoney-demo": "node ./scripts/db-seed-eastmoney-stock-demo.mjs",
+    "db:seed:pbc-news-demo": "node ./scripts/db-seed-pbc-news-demo.mjs",
+    "db:seed:pbc-open-market-demo": "node ./scripts/db-seed-pbc-open-market-demo.mjs",
+    "db:seed:stats-data-release-demo": "node ./scripts/db-seed-stats-data-release-demo.mjs",
+    "db:enqueue:demo": "node ./scripts/db-enqueue-demo-run.mjs",
+    "db:enqueue:eastmoney-demo": "node ./scripts/db-enqueue-demo-run.mjs source_eastmoney_moutai_kline theme_eastmoney_moutai_demo",
+    "db:enqueue:pbc-news-demo": "node ./scripts/db-enqueue-demo-run.mjs source_pbc_news_list_demo theme_pbc_news_demo",
+    "db:enqueue:pbc-open-market-demo": "node ./scripts/db-enqueue-demo-run.mjs source_pbc_open_market_demo theme_pbc_open_market_demo",
+    "db:enqueue:stats-data-release-demo": "node ./scripts/db-enqueue-demo-run.mjs source_stats_data_release_demo theme_stats_data_release_demo",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint:frontend && npm run lint:api && npm run lint:python-worker && npm run lint:python-scheduler",
+    "lint:frontend": "npm run lint --workspace @info-monitor/frontend",
+    "lint:api": "npm run lint --workspace @info-monitor/api",
+    "lint:python-worker": "apps/python-worker/.venv/bin/python -m ruff check apps/python-worker/src",
+    "lint:python-scheduler": "apps/python-scheduler/.venv/bin/python -m ruff check apps/python-scheduler/src",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:frontend": "npm run test --workspace @info-monitor/frontend"
+  }
+}

@@ -1,0 +1,57 @@
+import type { FastifyInstance } from "fastify";
+
+import { getEventDetail, inboxSectionIds, listInboxSectionEvents, updateEventState } from "../services/event-service.js";
+
+export async function registerEventRoutes(app: FastifyInstance) {
+  app.get<{ Params: { sectionId: string } }>("/api/inbox/sections/:sectionId/events", async (request, reply) => {
+    if (!inboxSectionIds.includes(request.params.sectionId as (typeof inboxSectionIds)[number])) {
+      reply.code(404);
+      return { message: "Inbox section not found" };
+    }
+
+    return listInboxSectionEvents(request.params.sectionId);
+  });
+
+  app.get("/api/events", async () => listInboxSectionEvents());
+
+  app.get<{ Params: { eventId: string } }>("/api/events/:eventId", async (request, reply) => {
+    const event = await getEventDetail(request.params.eventId);
+
+    if (!event) {
+      reply.code(404);
+      return { message: "Event not found" };
+    }
+
+    return event;
+  });
+
+  app.patch<{ Params: { eventId: string } }>("/api/events/:eventId", async (request, reply) => {
+    const body = request.body as {
+      status?: string;
+      isRead?: boolean;
+      isBookmarked?: boolean;
+    };
+
+    if (
+      typeof body?.status !== "string" &&
+      typeof body?.isRead !== "boolean" &&
+      typeof body?.isBookmarked !== "boolean"
+    ) {
+      reply.code(400);
+      return { message: "at least one event field is required" };
+    }
+
+    const updated = await updateEventState(request.params.eventId, {
+      status: body.status,
+      isRead: body.isRead,
+      isBookmarked: body.isBookmarked,
+    });
+
+    if (!updated) {
+      reply.code(404);
+      return { message: "Event not found" };
+    }
+
+    return updated;
+  });
+}

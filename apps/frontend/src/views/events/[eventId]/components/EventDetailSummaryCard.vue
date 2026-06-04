@@ -1,0 +1,32 @@
+<template>
+  <article class="card stack">
+    <div class="meta-row">
+      <span :class="pillToneClass(detail.signal)">{{ eventSignalLabel(detail.signal) }}</span>
+      <span :class="pillToneClass(detail.status)">{{ eventStatusLabel(detail.status) }}</span>
+      <span class="pill" v-if="detail.eventType">{{ eventTypeLabel(detail.eventType) }}</span>
+      <span class="pill" :class="detail.isRead ? 'tone-positive' : 'tone-neutral'">{{ eventReadLabel(detail.isRead) }}</span>
+      <span class="pill" :class="detail.isBookmarked ? 'tone-price' : 'tone-neutral'">{{ eventBookmarkLabel(detail.isBookmarked) }}</span>
+    </div>
+    <div class="meta">
+      主题: {{ detail.themeName }} · 时间: {{ formatDateTimeLabel(detail.occurredAt) }}
+      <span v-if="detail.sourceName"> · 来源: {{ detail.sourceName }}</span>
+    </div>
+  </article>
+</template>
+
+<script setup lang="ts">
+import type { EventDetail } from "../../../../lib/api";
+import {
+  eventBookmarkLabel,
+  eventReadLabel,
+  eventSignalLabel,
+  eventStatusLabel,
+  eventTypeLabel,
+  formatDateTimeLabel,
+  pillToneClass,
+} from "../../../../lib/presentation";
+
+defineProps<{
+  detail: EventDetail;
+}>();
+</script>

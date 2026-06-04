@@ -1,0 +1,27 @@
+[project]
+name = "info-monitor-worker"
+version = "0.0.1"
+description = "Crawler and data processing worker for Info Monitor"
+requires-python = ">=3.9"
+dependencies = [
+  "httpx>=0.28.1",
+  "feedparser>=6.0.11",
+  "beautifulsoup4>=4.12.3",
+  "pydantic>=2.10.4",
+  "pandas>=2.2.3",
+  "playwright>=1.49.1",
+  "sqlalchemy>=2.0.36",
+  "psycopg[binary]>=3.2.3",
+]
+
+[project.scripts]
+info-monitor-worker = "info_monitor_worker.main:main"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

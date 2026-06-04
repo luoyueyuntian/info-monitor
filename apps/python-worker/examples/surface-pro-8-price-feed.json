@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Surface Pro 8 16G + 512G - seller A",
+    "occurred_at": "2026-06-01T09:30:00Z",
+    "price": 3999,
+    "currency": "CNY",
+    "spec": "16G+512G",
+    "url": "https://example.com/xianyu/surface-pro-8-a"
+  },
+  {
+    "title": "Surface Pro 8 16G + 512G - seller B",
+    "occurred_at": "2026-06-01T09:30:00Z",
+    "price": 4150,
+    "currency": "CNY",
+    "spec": "16G+512G",
+    "url": "https://example.com/xianyu/surface-pro-8-b"
+  }
+]
