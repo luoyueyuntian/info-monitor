@@ -1,77 +1,77 @@
 <template>
   <div>
-    <section class="toolbar toolbar-panel">
-      <div class="toolbar-group">
-        <span class="toolbar-label">快速视角</span>
+    <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">快速视角</span>
         <button
           v-for="preset in presets"
           :key="preset.id"
-          class="button secondary quick-preset-button"
-          :class="{ 'quick-preset-button--active': activePresetId === preset.id }"
+          class="quick-preset-button inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
+          :class="activePresetId === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
           @click="applyPreset(preset.id)"
         >
           {{ preset.label }}
         </button>
       </div>
-      <div class="toolbar-summary">
+      <div class="flex flex-wrap items-center gap-2.5 text-[#625847]">
         <strong>当前筛选</strong>
         <span>{{ filterSummary }}</span>
-        <button class="button secondary" @click="resetFilters">重置筛选</button>
+        <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" @click="resetFilters">重置筛选</button>
       </div>
     </section>
 
-    <section class="toolbar">
-      <input :value="query" placeholder="搜索事件标题或主题..." @input="setQuery(($event.target as HTMLInputElement).value)" />
-      <select :value="themeFilter" @change="setThemeFilter(($event.target as HTMLSelectElement).value)">
+    <section class="mt-3 flex flex-wrap items-center gap-3">
+      <input class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="query" placeholder="搜索事件标题或主题..." @input="setQuery(($event.target as HTMLInputElement).value)" />
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="themeFilter" @change="setThemeFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部主题</option>
         <option v-for="option in themeOptions" :key="option.id" :value="option.id">
           {{ option.name }}
         </option>
       </select>
-      <select :value="statusFilter" @change="setStatusFilter(($event.target as HTMLSelectElement).value)">
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="statusFilter" @change="setStatusFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部状态</option>
         <option value="open">待处理</option>
         <option value="tracking">关注中</option>
         <option value="ignored">已忽略</option>
       </select>
-      <select :value="typeFilter" @change="setTypeFilter(($event.target as HTMLSelectElement).value)">
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="typeFilter" @change="setTypeFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部类型</option>
         <option value="price">价格</option>
         <option value="news_announcement">公告</option>
         <option value="financial_event">金融事件</option>
       </select>
-      <select :value="readFilter" @change="setReadFilter(($event.target as HTMLSelectElement).value)">
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="readFilter" @change="setReadFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部阅读状态</option>
         <option value="unread">未读</option>
         <option value="read">已读</option>
       </select>
-      <select :value="bookmarkFilter" @change="setBookmarkFilter(($event.target as HTMLSelectElement).value)">
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="bookmarkFilter" @change="setBookmarkFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部收藏状态</option>
         <option value="bookmarked">仅收藏</option>
       </select>
-      <select :value="sortBy" @change="setSortBy(($event.target as HTMLSelectElement).value)">
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="sortBy" @change="setSortBy(($event.target as HTMLSelectElement).value)">
         <option value="occurredAt">按事件时间</option>
         <option value="statusChanged">按最近状态变化</option>
       </select>
-      <label class="checkbox-row">
+      <label class="flex items-center gap-2.5 font-semibold">
         <input :checked="recentOnly24h" type="checkbox" @change="setRecentOnly24h(($event.target as HTMLInputElement).checked)" />
         仅最近24小时
       </label>
     </section>
 
-    <section v-if="sinceFilter" class="toolbar toolbar-panel change-focus-banner">
-      <div class="toolbar-group">
+    <section v-if="sinceFilter" class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-wrap items-center gap-2.5">
         <strong>增量视图</strong>
-        <span class="meta">
+        <span class="text-[0.88rem] text-[#766f63]">
           当前只看 {{ formatSmartDateTimeLabel(sinceFilter) }} 之后新增或发生状态变化的事件，共 {{ incrementalEventCount }} 条。
         </span>
       </div>
-      <button class="button secondary" @click="clearSinceFilter">退出增量视图</button>
+      <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" @click="clearSinceFilter">退出增量视图</button>
     </section>
 
-    <section class="toolbar toolbar-panel">
-      <div class="toolbar-group">
-        <label class="checkbox-row">
+    <section class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <label class="flex items-center gap-2.5 font-semibold">
           <input
             :checked="allVisibleSelected"
             type="checkbox"
@@ -79,46 +79,46 @@
           />
           选中当前筛选结果
         </label>
-        <span class="meta">已选 {{ selectedCount }} 条事件</span>
+        <span class="text-[0.88rem] text-[#766f63]">已选 {{ selectedCount }} 条事件</span>
       </div>
-      <div class="actions">
+      <div class="flex flex-wrap gap-3">
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateStatus('open')"
         >
           {{ bulkUpdating && pendingBulkStatus === 'open' ? "正在更新..." : "批量标记待处理" }}
         </button>
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateStatus('tracking')"
         >
           {{ bulkUpdating && pendingBulkStatus === 'tracking' ? "正在更新..." : "批量标记关注中" }}
         </button>
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateStatus('ignored')"
         >
           {{ bulkUpdating && pendingBulkStatus === 'ignored' ? "正在更新..." : "批量标记已忽略" }}
         </button>
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateMeta({ isRead: true }, 'read')"
         >
           {{ bulkUpdating && pendingBulkStatus === 'read' ? "正在更新..." : "批量标记已读" }}
         </button>
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateMeta({ isBookmarked: true }, 'bookmark')"
         >
           {{ bulkUpdating && pendingBulkStatus === 'bookmark' ? "正在更新..." : "批量加入收藏" }}
         </button>
         <button
-          class="button secondary"
+          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedCount || bulkUpdating"
           @click="handleBulkUpdateMeta({ isBookmarked: false }, 'unbookmark')"
         >

@@ -1,45 +1,45 @@
 <template>
-  <article class="card">
-    <div class="card-topline inbox-card-header">
-      <div class="inbox-card-copy">
-        <h3>来源健康</h3>
-        <p>{{ description }}</p>
+  <article class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+    <div class="mb-3 flex flex-wrap items-start justify-between gap-4">
+      <div class="grid min-w-0 gap-1">
+        <h3 class="m-0 text-[1.02rem] font-semibold text-[#2f2618]">来源健康</h3>
+        <p class="m-0 text-[0.9rem] leading-[1.45] text-[#756a5b]">{{ description }}</p>
       </div>
-      <RouterLink class="text-action" :to="sourceStatusPanelTarget">
+      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="sourceStatusPanelTarget">
         查看来源状态
-        <span aria-hidden="true">›</span>
+        <span aria-hidden="true" class="text-base leading-none">›</span>
       </RouterLink>
     </div>
-    <div class="inbox-subtoolbar">
-      <div class="toolbar-group">
+    <div class="mb-2.5 flex flex-wrap items-center justify-between gap-x-3.5 gap-y-2.5">
+      <div class="flex flex-wrap items-center gap-2.5">
         <button
           v-for="preset in sourcePanelPresets"
           :key="preset.id"
-          class="button secondary quick-preset-button quick-preset-button--compact"
-          :class="{ 'quick-preset-button--active': sourcePanelFocus === preset.id }"
+          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.88rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+          :class="sourcePanelFocus === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
           @click="sourcePanelFocus = preset.id"
         >
           {{ preset.label }}
         </button>
       </div>
     </div>
-    <div class="meta inbox-panel-summary">{{ summary }}</div>
-    <div v-if="sortedSources.length" class="list">
+    <div class="mb-3 text-[0.88rem] text-[#766f63]">{{ summary }}</div>
+    <div v-if="sortedSources.length" class="flex flex-col gap-3">
       <RouterLink
         v-for="source in sortedSources"
         :key="source.id"
-        class="list-item"
+        class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         :to="`/sources/${source.id}`"
       >
         <strong>{{ source.name }}</strong>
-        <div class="meta">
+        <div class="text-[0.88rem] text-[#766f63]">
           {{ source.themeName }} · {{ sourceStatusLabel(source.status) }} · {{ sourceTypeLabel(source.sourceType) }}
         </div>
-        <div class="meta-row">
-          <span class="meta" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
-          <span class="meta" v-if="source.isPaused">已暂停</span>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <span class="text-[0.88rem] text-[#766f63]" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
+          <span class="text-[0.88rem] text-[#766f63]" v-if="source.isPaused">已暂停</span>
         </div>
-        <div class="muted">
+        <div class="text-[#6f665a]">
           {{
             source.lastErrorMessage
               ? `最近错误：${source.lastErrorMessage}`
@@ -48,7 +48,7 @@
         </div>
       </RouterLink>
     </div>
-    <div v-else class="empty-state">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前视角下没有匹配的来源。
     </div>
   </article>

@@ -20,8 +20,8 @@
       :diagnostic="longTermWatch"
     />
 
-    <div class="inbox-layout">
-      <section class="section-stack inbox-main">
+    <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.95fr)]">
+      <section class="grid content-start gap-4">
         <HomeInboxFocusToolbar />
         <HomeInboxEventSectionsList
           :sections="eventSections"
@@ -32,7 +32,7 @@
         />
       </section>
 
-      <aside class="section-stack inbox-side">
+      <aside class="grid content-start gap-4">
         <HomeInboxThemesPanelSection
           :themes="dashboard.themes"
           :theme-detail-target="themeDetailTarget"
@@ -349,18 +349,18 @@ function eventDetails(event: EventSummary) {
 
 function eventHeaderToneClass(event: EventSummary) {
   if (event.infoType === "price") {
-    return "tone-price";
+    return "bg-[rgba(232,216,188,0.92)]";
   }
 
   if (event.infoType === "news_announcement") {
-    return "tone-announcement";
+    return "bg-[rgba(217,231,242,0.92)]";
   }
 
   if (event.infoType === "financial_event") {
-    return "tone-financial";
+    return "bg-[rgba(226,221,241,0.92)]";
   }
 
-  return "tone-neutral";
+  return "bg-[rgba(231,228,220,0.92)]";
 }
 
 function themeDetailTarget(theme: ThemeSummary) {

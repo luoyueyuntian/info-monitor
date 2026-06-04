@@ -1,5 +1,5 @@
 <template>
-  <section class="page">
+  <section class="flex flex-col gap-5">
     <HomeInboxHeader />
     <HomeInboxBoard />
   </section>

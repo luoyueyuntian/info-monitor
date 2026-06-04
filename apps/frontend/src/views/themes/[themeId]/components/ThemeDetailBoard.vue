@@ -346,14 +346,14 @@ function timelineMeta(entry: ThemeDetail["timeline"][number]) {
 
 function timelineItemClass(entry: ThemeDetail["timeline"][number]) {
   if (entry.kind === "event") {
-    return "timeline-event";
+    return "bg-[rgba(247,249,252,0.96)] border-slate-400/20 shadow-[0_10px_26px_rgba(15,23,42,0.04)]";
   }
 
   if (entry.kind === "change") {
-    return "timeline-change";
+    return "bg-[rgba(244,247,250,0.94)] border-slate-400/20";
   }
 
-  return "timeline-run";
+  return "bg-[rgba(242,246,250,0.96)] border-slate-400/20";
 }
 
 const priceTrendPoints = computed(() => {

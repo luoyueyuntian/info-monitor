@@ -1,110 +1,110 @@
 <template>
-  <section class="stat-grid">
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/themes', query: { sort: 'priority' } }"
     >
-      <span class="stat-label">活跃主题</span>
-      <span class="stat-value">{{ summary.activeThemes }}</span>
-      <span v-if="summaryDeltaLabel('activeThemes')" class="stat-delta">
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">活跃主题</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.activeThemes }}</span>
+      <span v-if="summaryDeltaLabel('activeThemes')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("activeThemes") }}
       </span>
-      <span class="stat-meta">先看当前最值得优先处理的主题</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">先看当前最值得优先处理的主题</span>
     </RouterLink>
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/events', query: { status: 'open', sort: 'statusChanged' } }"
     >
-      <span class="stat-label">待处理事件</span>
-      <span class="stat-value">{{ summary.openEvents }}</span>
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">待处理事件</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.openEvents }}</span>
       <button
         v-if="summaryDeltaTarget('openEvents')"
         type="button"
-        class="stat-delta stat-delta-link"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
         @click.stop.prevent="openSummaryDelta('openEvents')"
       >
         {{ summaryDeltaLabel("openEvents") }}
       </button>
-      <span v-else-if="summaryDeltaLabel('openEvents')" class="stat-delta">
+      <span v-else-if="summaryDeltaLabel('openEvents')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("openEvents") }}
       </span>
-      <span class="stat-meta">直接进入事件工作台清待处理队列</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">直接进入事件工作台清待处理队列</span>
     </RouterLink>
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/events', query: { status: 'tracking', sort: 'statusChanged' } }"
     >
-      <span class="stat-label">关注中事件</span>
-      <span class="stat-value">{{ summary.trackingEvents }}</span>
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">关注中事件</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.trackingEvents }}</span>
       <button
         v-if="summaryDeltaTarget('trackingEvents')"
         type="button"
-        class="stat-delta stat-delta-link"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
         @click.stop.prevent="openSummaryDelta('trackingEvents')"
       >
         {{ summaryDeltaLabel("trackingEvents") }}
       </button>
-      <span v-else-if="summaryDeltaLabel('trackingEvents')" class="stat-delta">
+      <span v-else-if="summaryDeltaLabel('trackingEvents')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("trackingEvents") }}
       </span>
-      <span class="stat-meta">回看已经进入持续跟进的事件</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">回看已经进入持续跟进的事件</span>
     </RouterLink>
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/events', query: { recent: '24h', sort: 'occurredAt' } }"
     >
-      <span class="stat-label">最近24小时事件</span>
-      <span class="stat-value">{{ summary.recentEvents }}</span>
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">最近24小时事件</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.recentEvents }}</span>
       <button
         v-if="summaryDeltaTarget('recentEvents')"
         type="button"
-        class="stat-delta stat-delta-link"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
         @click.stop.prevent="openSummaryDelta('recentEvents')"
       >
         {{ summaryDeltaLabel("recentEvents") }}
       </button>
-      <span v-else-if="summaryDeltaLabel('recentEvents')" class="stat-delta">
+      <span v-else-if="summaryDeltaLabel('recentEvents')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("recentEvents") }}
       </span>
-      <span class="stat-meta">快速巡检本轮新增信号</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">快速巡检本轮新增信号</span>
     </RouterLink>
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/sources/status', query: { focus: 'warning' } }"
     >
-      <span class="stat-label">异常来源</span>
-      <span class="stat-value">{{ summary.warningSources }}</span>
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">异常来源</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.warningSources }}</span>
       <button
         v-if="summaryDeltaTarget('warningSources')"
         type="button"
-        class="stat-delta stat-delta-link"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
         @click.stop.prevent="openSummaryDelta('warningSources')"
       >
         {{ summaryDeltaLabel("warningSources") }}
       </button>
-      <span v-else-if="summaryDeltaLabel('warningSources')" class="stat-delta">
+      <span v-else-if="summaryDeltaLabel('warningSources')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("warningSources") }}
       </span>
-      <span class="stat-meta">优先排查抓取异常和失真来源</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">优先排查抓取异常和失真来源</span>
     </RouterLink>
     <RouterLink
-      class="stat-card"
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/sources/status', query: { focus: 'pending' } }"
     >
-      <span class="stat-label">待运行来源</span>
-      <span class="stat-value">{{ summary.pendingSources }}</span>
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">待运行来源</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.pendingSources }}</span>
       <button
         v-if="summaryDeltaTarget('pendingSources')"
         type="button"
-        class="stat-delta stat-delta-link"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
         @click.stop.prevent="openSummaryDelta('pendingSources')"
       >
         {{ summaryDeltaLabel("pendingSources") }}
       </button>
-      <span v-else-if="summaryDeltaLabel('pendingSources')" class="stat-delta">
+      <span v-else-if="summaryDeltaLabel('pendingSources')" class="text-[0.82rem] font-semibold text-slate-500">
         {{ summaryDeltaLabel("pendingSources") }}
       </span>
-      <span class="stat-meta">查看还没完成本轮抓取的来源</span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">查看还没完成本轮抓取的来源</span>
     </RouterLink>
   </section>
 </template>

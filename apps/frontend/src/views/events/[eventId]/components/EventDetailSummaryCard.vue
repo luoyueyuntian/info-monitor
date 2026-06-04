@@ -1,13 +1,13 @@
 <template>
-  <article class="card stack">
-    <div class="meta-row">
+  <article class="card flex flex-col gap-3">
+    <div class="flex flex-wrap gap-x-2.5 gap-y-2">
       <span :class="pillToneClass(detail.signal)">{{ eventSignalLabel(detail.signal) }}</span>
       <span :class="pillToneClass(detail.status)">{{ eventStatusLabel(detail.status) }}</span>
-      <span class="pill" v-if="detail.eventType">{{ eventTypeLabel(detail.eventType) }}</span>
-      <span class="pill" :class="detail.isRead ? 'tone-positive' : 'tone-neutral'">{{ eventReadLabel(detail.isRead) }}</span>
-      <span class="pill" :class="detail.isBookmarked ? 'tone-price' : 'tone-neutral'">{{ eventBookmarkLabel(detail.isBookmarked) }}</span>
+      <span :class="pillToneClass()" v-if="detail.eventType">{{ eventTypeLabel(detail.eventType) }}</span>
+      <span :class="pillToneClass(detail.isRead ? 'active' : 'pending')">{{ eventReadLabel(detail.isRead) }}</span>
+      <span :class="pillToneClass(detail.isBookmarked ? '30d_low' : 'neutral')">{{ eventBookmarkLabel(detail.isBookmarked) }}</span>
     </div>
-    <div class="meta">
+    <div class="text-[0.88rem] text-[#766f63]">
       主题: {{ detail.themeName }} · 时间: {{ formatDateTimeLabel(detail.occurredAt) }}
       <span v-if="detail.sourceName"> · 来源: {{ detail.sourceName }}</span>
     </div>

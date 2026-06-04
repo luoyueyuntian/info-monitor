@@ -2,49 +2,49 @@
   <article class="card">
     <div class="card-topline">
       <h3>主题列表</h3>
-      <span class="meta">共 {{ themes.length }} 个主题</span>
+      <span class="text-[0.88rem] text-[#766f63]">共 {{ themes.length }} 个主题</span>
     </div>
-    <div v-if="themes.length" class="list">
+    <div v-if="themes.length" class="flex flex-col gap-3">
       <RouterLink
         v-for="theme in themes"
         :key="theme.id"
-        class="list-item theme-card"
+        class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         :to="`/themes/${theme.id}`"
       >
-        <div class="theme-topline">
-          <span class="pill">{{ themeTypeLabel(theme.type) }}</span>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <span :class="pillToneClass()">{{ themeTypeLabel(theme.type) }}</span>
           <span :class="pillToneClass(theme.sourceHealth)" v-if="theme.sourceHealth">
             {{ sourceHealthLabel(theme.sourceHealth) }}
           </span>
           <span :class="pillToneClass(theme.latestEventSignal)" v-if="theme.latestEventSignal">
             {{ eventSignalLabel(theme.latestEventSignal) }}
           </span>
-          <span class="pill tone-neutral" v-if="theme.openEventCount">
+          <span :class="pillToneClass('neutral')" v-if="theme.openEventCount">
             待处理 {{ theme.openEventCount }}
           </span>
-          <span class="pill tone-positive" v-if="theme.trackingEventCount">
+          <span :class="pillToneClass('tracking')" v-if="theme.trackingEventCount">
             关注中 {{ theme.trackingEventCount }}
           </span>
-          <span class="pill tone-neutral" v-if="theme.unreadEventCount">
+          <span :class="pillToneClass('neutral')" v-if="theme.unreadEventCount">
             未读 {{ theme.unreadEventCount }}
           </span>
-          <span class="pill tone-price" v-if="theme.bookmarkedEventCount">
+          <span :class="pillToneClass('30d_low')" v-if="theme.bookmarkedEventCount">
             收藏 {{ theme.bookmarkedEventCount }}
           </span>
         </div>
         <strong>{{ theme.name }}</strong>
-        <div class="meta-row">
-          <span class="meta">状态: {{ themeStatusLabel(theme.status) }}</span>
-          <span class="meta">来源数: {{ theme.sourceCount }}</span>
-          <span class="meta">最近运行: {{ formatDateTimeLabel(theme.latestRunAt) }}</span>
-          <span class="meta">最近事件: {{ formatDateTimeLabel(theme.latestEventAt) }}</span>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <span class="text-[0.88rem] text-[#766f63]">状态: {{ themeStatusLabel(theme.status) }}</span>
+          <span class="text-[0.88rem] text-[#766f63]">来源数: {{ theme.sourceCount }}</span>
+          <span class="text-[0.88rem] text-[#766f63]">最近运行: {{ formatDateTimeLabel(theme.latestRunAt) }}</span>
+          <span class="text-[0.88rem] text-[#766f63]">最近事件: {{ formatDateTimeLabel(theme.latestEventAt) }}</span>
         </div>
-        <div class="muted">
+        <div class="text-[#6f665a]">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
       </RouterLink>
     </div>
-    <div v-else class="empty-state">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前筛选条件下没有匹配的主题。
     </div>
   </article>

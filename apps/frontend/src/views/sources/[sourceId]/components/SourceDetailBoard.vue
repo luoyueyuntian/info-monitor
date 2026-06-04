@@ -131,14 +131,14 @@ const runSequenceItems = computed(() => {
 
 function runBarClass(status: string) {
   if (status === "completed") {
-    return "run-trend-bar--completed";
+    return "bg-slate-400";
   }
 
   if (status === "failed") {
-    return "run-trend-bar--failed";
+    return "bg-amber-500";
   }
 
-  return "run-trend-bar--pending";
+  return "bg-slate-300";
 }
 
 function recordDetails(record: SourceDetail["records"][number]) {

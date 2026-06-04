@@ -1,17 +1,17 @@
 <template>
   <article class="card">
     <h3>最近运行</h3>
-    <div class="list">
-      <div v-for="run in runs" :key="run.id" class="list-item">
-        <div class="theme-topline">
+    <div class="flex flex-col gap-3">
+      <div v-for="run in runs" :key="run.id" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass(run.status)">{{ runStatusLabel(run.status) }}</span>
-          <span class="pill">{{ run.triggerType }}</span>
+          <span :class="pillToneClass()">{{ run.triggerType }}</span>
         </div>
-        <div class="meta-row">
-          <span class="meta">开始: {{ formatDateTimeLabel(run.startedAt) }}</span>
-          <span class="meta">结束: {{ formatDateTimeLabel(run.finishedAt) }}</span>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <span class="text-[0.88rem] text-[#766f63]">开始: {{ formatDateTimeLabel(run.startedAt) }}</span>
+          <span class="text-[0.88rem] text-[#766f63]">结束: {{ formatDateTimeLabel(run.finishedAt) }}</span>
         </div>
-        <div v-if="run.errorMessage" class="muted">错误: {{ run.errorMessage }}</div>
+        <div v-if="run.errorMessage" class="text-[#6f665a]">错误: {{ run.errorMessage }}</div>
       </div>
     </div>
   </article>

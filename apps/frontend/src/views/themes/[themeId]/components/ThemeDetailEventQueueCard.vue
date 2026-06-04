@@ -2,61 +2,61 @@
   <article class="card" v-if="events.length">
     <div class="card-topline">
       <h3>事件处理队列</h3>
-      <span class="meta">
+      <span class="text-[0.88rem] text-[#766f63]">
         待处理 {{ openCount }} · 关注中 {{ trackingCount }} · 未读 {{ unreadCount }} · 收藏 {{ bookmarkedCount }}
       </span>
     </div>
-    <section class="toolbar">
+    <section class="flex flex-wrap items-center gap-3">
       <button
         v-for="preset in queuePresets"
         :key="preset.id"
-        class="button secondary quick-preset-button"
-        :class="{ 'quick-preset-button--active': filter === preset.id }"
+        class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
+        :class="filter === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
         @click="filter = preset.id"
       >
         {{ preset.label }}
       </button>
     </section>
-    <div v-if="filteredEvents.length" class="list">
-      <div v-for="event in filteredEvents" :key="event.id" class="list-item">
-        <div class="theme-topline">
+    <div v-if="filteredEvents.length" class="flex flex-col gap-3">
+      <div v-for="event in filteredEvents" :key="event.id" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass(event.signal)">{{ eventSignalLabel(event.signal) }}</span>
           <span :class="pillToneClass(event.status)">{{ eventStatusLabel(event.status) }}</span>
           <span :class="pillToneClass(event.isRead ? 'active' : 'pending')">{{ eventReadLabel(event.isRead) }}</span>
           <span :class="pillToneClass(event.isBookmarked ? '30d_low' : 'neutral')">{{ eventBookmarkLabel(event.isBookmarked) }}</span>
         </div>
-        <RouterLink class="text-action" :to="`/events/${event.id}`">
+        <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="`/events/${event.id}`">
           {{ event.title }}
-          <span aria-hidden="true">›</span>
+          <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
-        <div class="meta-row">
-          <span class="meta">时间: {{ formatSmartDateTimeLabel(event.occurredAt) }}</span>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <span class="text-[0.88rem] text-[#766f63]">时间: {{ formatSmartDateTimeLabel(event.occurredAt) }}</span>
         </div>
-        <div class="muted">{{ event.summary }}</div>
-        <div class="actions inline">
+        <div class="text-[#6f665a]">{{ event.summary }}</div>
+        <div class="mt-3 flex flex-wrap gap-3">
           <button
-            class="button secondary"
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && pendingEventStatus === 'open'"
             @click="handleUpdateStatus(event.id, 'open')"
           >
             {{ savingEventId === event.id && pendingEventStatus === 'open' ? "正在更新..." : "待处理" }}
           </button>
           <button
-            class="button secondary"
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && pendingEventStatus === 'tracking'"
             @click="handleUpdateStatus(event.id, 'tracking')"
           >
             {{ savingEventId === event.id && pendingEventStatus === 'tracking' ? "正在更新..." : "关注中" }}
           </button>
           <button
-            class="button secondary"
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && pendingEventStatus === 'ignored'"
             @click="handleUpdateStatus(event.id, 'ignored')"
           >
             {{ savingEventId === event.id && pendingEventStatus === 'ignored' ? "正在更新..." : "已忽略" }}
           </button>
           <button
-            class="button secondary"
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && (pendingEventStatus === 'read' || pendingEventStatus === 'unread')"
             @click="handleUpdateMeta(event.id, { isRead: !(event.isRead ?? false) }, (event.isRead ?? false) ? 'unread' : 'read')"
           >
@@ -69,7 +69,7 @@
             }}
           </button>
           <button
-            class="button secondary"
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && (pendingEventStatus === 'bookmark' || pendingEventStatus === 'unbookmark')"
             @click="handleUpdateMeta(event.id, { isBookmarked: !(event.isBookmarked ?? false) }, (event.isBookmarked ?? false) ? 'unbookmark' : 'bookmark')"
           >
@@ -84,7 +84,7 @@
         </div>
       </div>
     </div>
-    <div v-else class="empty-state">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前筛选条件下没有匹配的事件。
     </div>
   </article>

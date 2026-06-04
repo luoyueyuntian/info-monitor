@@ -16,49 +16,49 @@
     </header>
 
     <article class="card">
-      <form class="form" @submit.prevent="handleSubmit">
-        <section class="form-section">
-          <div class="section-title">
+      <form class="grid gap-4" @submit.prevent="handleSubmit">
+        <section class="grid gap-3.5">
+          <div class="grid gap-1">
             <h3>Preset</h3>
-            <p>Choose a source template, then adjust the fields below if needed.</p>
+            <p class="m-0 text-[#6f665a]">Choose a source template, then adjust the fields below if needed.</p>
           </div>
 
-          <div class="preset-grid">
+          <div class="grid gap-3 md:grid-cols-2">
             <label
               v-for="preset in presetOptions"
               :key="preset.id"
-              class="preset-option"
-              :class="{ active: form.presetId === preset.id }"
+              class="grid gap-2 rounded-2xl border p-3.5"
+              :class="form.presetId === preset.id ? 'border-slate-500/35 bg-slate-200/80' : 'border-slate-400/20 bg-slate-50/85'"
             >
-              <div class="preset-head">
+              <div class="flex items-start gap-2.5">
                 <input v-model="form.presetId" type="radio" :value="preset.id" />
-                <div class="preset-copy">
-                  <strong>{{ preset.label }}</strong>
-                  <p>{{ preset.description }}</p>
+                <div>
+                  <strong class="mb-1 block">{{ preset.label }}</strong>
+                  <p class="m-0 leading-[1.45] text-[#6d6659]">{{ preset.description }}</p>
                 </div>
               </div>
-              <div class="meta">
+              <div class="text-[0.88rem] text-[#766f63]">
                 {{ preset.themeType }} · {{ preset.infoType }} · {{ preset.sourceType }}
               </div>
             </label>
           </div>
         </section>
 
-        <section class="form-section">
-          <div class="section-title">
-            <h3>Theme</h3>
-            <p>These fields define the long-running topic that will appear in your workspace.</p>
+        <section class="grid gap-3.5">
+          <div class="grid gap-1">
+            <h3 class="m-0 text-base font-semibold">Theme</h3>
+            <p class="m-0 text-[#6f665a]">These fields define the long-running topic that will appear in your workspace.</p>
           </div>
 
-          <label>
+          <label class="grid gap-2 font-semibold">
             Theme Name
-            <input v-model="form.name" placeholder="Surface Pro 8 16G + 512G Price" />
+            <input class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.name" placeholder="Surface Pro 8 16G + 512G Price" />
           </label>
 
           <div class="grid two">
-            <label>
+            <label class="grid gap-2 font-semibold">
               Theme Type
-              <select v-model="form.themeType">
+              <select class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.themeType">
                 <option value="price">price</option>
                 <option value="financial_event">financial_event</option>
                 <option value="news_announcement">news_announcement</option>
@@ -66,9 +66,9 @@
               </select>
             </label>
 
-            <label>
+            <label class="grid gap-2 font-semibold">
               Info Type
-              <select v-model="form.infoType">
+              <select class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.infoType">
                 <option value="price">price</option>
                 <option value="financial_event">financial_event</option>
                 <option value="news_announcement">news_announcement</option>
@@ -77,73 +77,75 @@
             </label>
           </div>
 
-          <label>
+          <label class="grid gap-2 font-semibold">
             Description
-            <textarea v-model="form.description" placeholder="Describe what the theme should monitor."></textarea>
+            <textarea class="min-h-[120px] resize-y rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.description" placeholder="Describe what the theme should monitor."></textarea>
           </label>
         </section>
 
-        <section class="form-section">
-          <div class="section-title">
-            <h3>Source</h3>
-            <p>Define the first source attached to this theme.</p>
+        <section class="grid gap-3.5">
+          <div class="grid gap-1">
+            <h3 class="m-0 text-base font-semibold">Source</h3>
+            <p class="m-0 text-[#6f665a]">Define the first source attached to this theme.</p>
           </div>
 
-          <label>
+          <label class="grid gap-2 font-semibold">
             Source Name
-            <input v-model="form.sourceName" placeholder="Xianyu Search Results" />
+            <input class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.sourceName" placeholder="Xianyu Search Results" />
           </label>
 
           <div class="grid two">
-            <label>
+            <label class="grid gap-2 font-semibold">
               Source Type
-              <select v-model="form.sourceType">
+              <select class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.sourceType">
                 <option value="page_list">page_list</option>
                 <option value="api">api</option>
                 <option value="rss">rss</option>
               </select>
             </label>
 
-            <label>
+            <label class="grid gap-2 font-semibold">
               Adapter Key
-              <input v-model="form.adapterKey" placeholder="demo_price_feed" />
+              <input class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.adapterKey" placeholder="demo_price_feed" />
             </label>
           </div>
         </section>
 
-        <section class="form-section">
-          <div class="section-title">
-            <h3>Adapter Config</h3>
-            <p>{{ activePreset.description }}</p>
+        <section class="grid gap-3.5">
+          <div class="grid gap-1">
+            <h3 class="m-0 text-base font-semibold">Adapter Config</h3>
+            <p class="m-0 text-[#6f665a]">{{ activePreset.description }}</p>
           </div>
 
           <template v-if="activePreset.id !== 'custom'">
             <div class="grid two">
               <template v-for="field in activePreset.fields" :key="field.key">
-                <label v-if="field.type !== 'boolean'">
+                <label v-if="field.type !== 'boolean'" class="grid gap-2 font-semibold">
                   {{ field.label }}
                   <input
+                    class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3"
                     v-model="form.config[field.key]"
                     :placeholder="field.placeholder ?? ''"
                     :type="field.type === 'number' ? 'number' : 'text'"
                   />
                 </label>
-                <label v-else class="checkbox-row">
+                <label v-else class="flex items-center gap-2.5 font-semibold">
                   <input v-model="form.config[field.key]" type="checkbox" />
                   <span>{{ field.label }}</span>
                 </label>
               </template>
             </div>
-            <p v-if="activePreset.help" class="helper-text">{{ activePreset.help }}</p>
+            <p v-if="activePreset.help" class="m-0 text-[0.9rem] leading-[1.5] text-[#746a5d]">{{ activePreset.help }}</p>
           </template>
 
           <template v-else>
-            <p class="helper-text">
+            <p class="m-0 text-[0.9rem] leading-[1.5] text-[#746a5d]">
               Custom mode keeps the form flexible, but you need to know the adapter and config shape.
             </p>
-            <label>
+            <label class="grid gap-2 font-semibold">
               Config JSON
               <textarea
+                class="min-h-[120px] resize-y rounded-xl border border-slate-400/20 bg-white px-3.5 py-3"
                 v-model="form.customConfigJson"
                 placeholder='{"path": "/example", "schedule_interval_seconds": 3600}'
               ></textarea>
@@ -151,25 +153,25 @@
           </template>
         </section>
 
-        <section class="form-section">
-          <div class="section-title">
-            <h3>Run Behavior</h3>
-            <p>Choose whether the first source should be queued immediately after the theme is created.</p>
+        <section class="grid gap-3.5">
+          <div class="grid gap-1">
+            <h3 class="m-0 text-base font-semibold">Run Behavior</h3>
+            <p class="m-0 text-[#6f665a]">Choose whether the first source should be queued immediately after the theme is created.</p>
           </div>
 
-          <label class="checkbox-row">
+          <label class="flex items-center gap-2.5 font-semibold">
             <input v-model="form.runImmediately" type="checkbox" />
             <span>Run the first source immediately after save</span>
           </label>
         </section>
 
-        <div class="actions">
-          <button class="button" type="submit" :disabled="submitting">
+        <div class="flex flex-wrap gap-3">
+          <button class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-4 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting">
             {{ submitting ? "Saving..." : "Save Theme" }}
           </button>
-          <button class="button secondary" type="button" @click="handleCancel">Cancel</button>
+          <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" type="button" @click="handleCancel">Cancel</button>
         </div>
-        <div v-if="status" class="muted">{{ status }}</div>
+        <div v-if="status" class="text-[#6f665a]">{{ status }}</div>
       </form>
     </article>
   </section>

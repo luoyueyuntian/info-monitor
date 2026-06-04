@@ -2,36 +2,36 @@
   <article class="card">
     <div class="card-topline">
       <h3>按主题聚合</h3>
-      <span class="meta">先看哪个主题压了更多待处理或关注中的事件</span>
+      <span class="text-[0.88rem] text-[#766f63]">先看哪个主题压了更多待处理或关注中的事件</span>
     </div>
-    <div class="breakdown-grid">
+    <div class="grid gap-3 md:grid-cols-2">
       <article
         v-for="item in items"
         :key="item.themeId"
-        class="breakdown-item comparison-card"
+        class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
       >
         <strong>{{ item.themeName }}</strong>
-        <div class="meta-row">
-          <span class="pill tone-neutral" v-if="item.openCount">待处理 {{ item.openCount }}</span>
-          <span class="pill tone-positive" v-if="item.trackingCount">关注中 {{ item.trackingCount }}</span>
-          <span class="pill tone-negative" v-if="item.ignoredCount">已忽略 {{ item.ignoredCount }}</span>
-          <span class="pill tone-neutral" v-if="item.unreadCount">未读 {{ item.unreadCount }}</span>
-          <span class="pill tone-price" v-if="item.bookmarkedCount">收藏 {{ item.bookmarkedCount }}</span>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <span :class="pillToneClass('neutral')" v-if="item.openCount">待处理 {{ item.openCount }}</span>
+          <span :class="pillToneClass('tracking')" v-if="item.trackingCount">关注中 {{ item.trackingCount }}</span>
+          <span :class="pillToneClass('ignored')" v-if="item.ignoredCount">已忽略 {{ item.ignoredCount }}</span>
+          <span :class="pillToneClass('neutral')" v-if="item.unreadCount">未读 {{ item.unreadCount }}</span>
+          <span :class="pillToneClass('30d_low')" v-if="item.bookmarkedCount">收藏 {{ item.bookmarkedCount }}</span>
         </div>
-        <div class="meta">
+        <div class="text-[0.88rem] text-[#766f63]">
           {{ item.summary }}
         </div>
-        <div class="actions inline">
-          <RouterLink class="text-action" :to="eventWorkbenchTarget(item.themeId, item.primaryStatus)">
+        <div class="mt-3 flex flex-wrap gap-3">
+          <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="eventWorkbenchTarget(item.themeId, item.primaryStatus)">
             只看该主题事件
-            <span aria-hidden="true">›</span>
+            <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="text-action"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
             :to="{ path: `/themes/${item.themeId}`, query: { section: item.openCount > 0 ? 'analysis' : 'timeline' } }"
           >
             查看主题
-            <span aria-hidden="true">›</span>
+            <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
         </div>
       </article>
@@ -41,6 +41,8 @@
 
 <script setup lang="ts">
 import type { RouteLocationRaw } from "vue-router";
+
+import { pillToneClass } from "../../../lib/presentation";
 
 defineProps<{
   items: Array<{

@@ -1,10 +1,10 @@
 <template>
-  <div class="actions">
-    <button class="button secondary" :disabled="runningAllSources" @click="handleRunAllSources">
+  <div class="flex flex-wrap gap-3">
+    <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60" :disabled="runningAllSources" @click="handleRunAllSources">
       {{ runningAllSources ? "正在入队..." : "立即运行全部来源" }}
     </button>
     <button
-      class="button secondary"
+      class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
       type="button"
       :disabled="savingThemeArchive"
       @click="handleToggleThemeArchived"
@@ -17,13 +17,13 @@
             : "归档主题"
       }}
     </button>
-    <button class="button secondary" type="button" @click="toggleEditThemeForm">
+    <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" type="button" @click="toggleEditThemeForm">
       {{ showEditThemeForm ? "收起编辑主题" : "编辑主题" }}
     </button>
-    <button class="button" type="button" @click="toggleAddSourceForm">
+    <button class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-4 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#241d12]" type="button" @click="toggleAddSourceForm">
       {{ showAddSourceForm ? "收起新增来源" : "新增来源" }}
     </button>
-    <button class="button secondary" type="button" :disabled="deletingTheme" @click="handleDeleteTheme">
+    <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60" type="button" :disabled="deletingTheme" @click="handleDeleteTheme">
       {{ deletingTheme ? "正在删除..." : "删除主题" }}
     </button>
   </div>

@@ -24,8 +24,9 @@
       :event-details="eventDetails"
     />
 
-    <div v-if="historicalEvents.length" class="section-divider">
-      <span>历史数据</span>
+    <div v-if="historicalEvents.length" class="relative text-center text-[0.9rem] font-bold text-[#7a6b57]">
+      <div class="absolute inset-x-0 top-1/2 border-t border-[rgba(96,74,40,0.18)]"></div>
+      <span class="relative bg-[#eceff3] px-3">历史数据</span>
     </div>
 
     <InboxSectionEventsCard
@@ -138,18 +139,18 @@ const totalCount = computed(() => events.value.length);
 
 function eventHeaderToneClass(event: EventSummary) {
   if (event.infoType === "price") {
-    return "tone-price";
+    return "bg-[rgba(232,216,188,0.92)]";
   }
 
   if (event.infoType === "news_announcement") {
-    return "tone-announcement";
+    return "bg-[rgba(217,231,242,0.92)]";
   }
 
   if (event.infoType === "financial_event") {
-    return "tone-financial";
+    return "bg-[rgba(226,221,241,0.92)]";
   }
 
-  return "tone-neutral";
+  return "bg-[rgba(231,228,220,0.92)]";
 }
 
 function eventDetails(event: EventSummary) {

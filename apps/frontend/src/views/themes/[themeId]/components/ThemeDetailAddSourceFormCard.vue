@@ -1,54 +1,55 @@
 <template>
   <article class="card">
-    <form class="form" @submit.prevent="submitForm">
-      <section class="form-section">
-        <div class="section-title">
+    <form class="grid gap-4" @submit.prevent="submitForm">
+      <section class="grid gap-3.5">
+        <div class="grid gap-1">
           <h3>新增来源</h3>
-          <p>给当前主题补充一个新的抓取来源，可选在保存后立即触发一次运行。</p>
+          <p class="m-0 text-[#6f665a]">给当前主题补充一个新的抓取来源，可选在保存后立即触发一次运行。</p>
         </div>
 
-        <label>
+        <label class="grid gap-2 font-semibold">
           来源名称
-          <input v-model="form.name" placeholder="人民银行公告列表" />
+          <input class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.name" placeholder="人民银行公告列表" />
         </label>
 
         <div class="grid two">
-          <label>
+          <label class="grid gap-2 font-semibold">
             来源类型
-            <select v-model="form.sourceType">
+            <select class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.sourceType">
               <option value="page_list">page_list</option>
               <option value="api">api</option>
               <option value="rss">rss</option>
             </select>
           </label>
 
-          <label>
+          <label class="grid gap-2 font-semibold">
             Adapter Key
-            <input v-model="form.adapterKey" placeholder="pbc_news_list" />
+            <input class="rounded-xl border border-slate-400/20 bg-white px-3.5 py-3" v-model="form.adapterKey" placeholder="pbc_news_list" />
           </label>
         </div>
 
-        <label>
+        <label class="grid gap-2 font-semibold">
           Config JSON
           <textarea
+            class="min-h-[120px] resize-y rounded-xl border border-slate-400/20 bg-white px-3.5 py-3"
             v-model="form.configJson"
             placeholder='{"path": "/example", "schedule_interval_seconds": 21600}'
           ></textarea>
         </label>
 
-        <label class="checkbox-row">
+        <label class="flex items-center gap-2.5 font-semibold">
           <input v-model="form.runImmediately" type="checkbox" />
           <span>保存后立即运行这个来源</span>
         </label>
       </section>
 
-      <div class="actions">
-        <button class="button" type="submit" :disabled="saving">
+      <div class="flex flex-wrap gap-3">
+        <button class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-4 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="saving">
           {{ saving ? "正在保存..." : "保存来源" }}
         </button>
-        <button class="button secondary" type="button" @click="resetForm">重置</button>
+        <button class="button secondary inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" type="button" @click="resetForm">重置</button>
       </div>
-      <div v-if="statusMessage" class="muted">{{ statusMessage }}</div>
+      <div v-if="statusMessage" class="text-[#6f665a]">{{ statusMessage }}</div>
     </form>
   </article>
 </template>

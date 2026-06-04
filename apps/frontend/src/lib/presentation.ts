@@ -261,37 +261,42 @@ export function timelineKindLabel(kind?: string | null) {
   }
 }
 
-export function pillToneClass(value?: string | null) {
+export function pillToneClass(value?: string | null, variant: "default" | "text" = "default") {
+  const base =
+    variant === "text"
+      ? "inline-flex items-center gap-1.5 text-[0.8rem] font-semibold"
+      : "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.84rem] font-semibold";
+
   switch (value) {
     case "30d_low":
-      return "pill tone-price";
+      return `${base} ${variant === "text" ? "text-[#7a4a11]" : "bg-[#e8d8bc] text-[#7a4a11]"}`;
     case "new_announcement":
-      return "pill tone-announcement";
+      return `${base} ${variant === "text" ? "text-[#1d537f]" : "bg-[#d9e7f2] text-[#1d537f]"}`;
     case "new_financial_event":
-      return "pill tone-financial";
+      return `${base} ${variant === "text" ? "text-[#4f4178]" : "bg-[#e2ddf1] text-[#4f4178]"}`;
     case "liquidity_injection":
-      return "pill tone-positive";
+      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
     case "liquidity_withdrawal":
-      return "pill tone-negative";
+      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
     case "neutral":
-      return "pill tone-neutral";
+      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
     case "open":
-      return "pill tone-neutral";
+      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
     case "tracking":
-      return "pill tone-positive";
+      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
     case "ignored":
-      return "pill tone-negative";
+      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
     case "healthy":
     case "completed":
     case "active":
-      return "pill tone-positive";
+      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
     case "warning":
     case "failed":
-      return "pill tone-negative";
+      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
     case "pending":
     case "running":
-      return "pill tone-neutral";
+      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
     default:
-      return "pill";
+      return `${base} ${variant === "text" ? "text-[#6a4b14]" : "bg-[#efe2c2] text-[#6a4b14]"}`;
   }
 }
