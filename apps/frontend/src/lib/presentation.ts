@@ -188,6 +188,12 @@ export function eventSignalLabel(signal?: string | null) {
   switch (signal) {
     case "30d_low":
       return "30天新低";
+    case "bullish":
+      return "偏利好";
+    case "bearish":
+      return "偏利空";
+    case "content_update":
+      return "内容更新";
     case "new_announcement":
       return "新公告";
     case "new_financial_event":
@@ -268,8 +274,16 @@ export function pillToneClass(value?: string | null, variant: "default" | "text"
       : "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.84rem] font-semibold";
 
   switch (value) {
+    case "positive":
+    case "bullish":
+      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
+    case "negative":
+    case "bearish":
+      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
     case "30d_low":
       return `${base} ${variant === "text" ? "text-[#7a4a11]" : "bg-[#e8d8bc] text-[#7a4a11]"}`;
+    case "content_update":
+      return `${base} ${variant === "text" ? "text-[#8a5b1f]" : "bg-[#f1e4cc] text-[#8a5b1f]"}`;
     case "new_announcement":
       return `${base} ${variant === "text" ? "text-[#1d537f]" : "bg-[#d9e7f2] text-[#1d537f]"}`;
     case "new_financial_event":

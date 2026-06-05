@@ -35,6 +35,12 @@
         <div class="text-[0.88rem] text-[#766f63]">
           {{ source.themeName }} · {{ sourceStatusLabel(source.status) }} · {{ sourceTypeLabel(source.sourceType) }}
         </div>
+        <div class="flex flex-wrap gap-x-2.5 gap-y-2" v-if="source.themeType || source.latestEventSignal">
+          <span :class="pillToneClass()" v-if="source.themeType">{{ themeTypeLabel(source.themeType) }}</span>
+          <span :class="pillToneClass(themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }))" v-if="source.latestEventSignal">
+            {{ impactToneLabel(themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null })) }}
+          </span>
+        </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
           <span class="text-[0.88rem] text-[#766f63]" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
           <span class="text-[0.88rem] text-[#766f63]" v-if="source.isPaused">已暂停</span>
@@ -45,6 +51,29 @@
               ? `最近错误：${source.lastErrorMessage}`
               : `最近运行：${formatSmartDateTimeLabel(source.latestRunAt ?? source.latestSuccessAt ?? source.latestFailureAt)}`
           }}
+        </div>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            :to="`/sources/${source.id}`"
+          >
+            查看来源详情
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            :to="{ path: `/themes/${source.themeId}`, query: { section: themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) === 'negative' ? 'analysis' : 'timeline' } }"
+          >
+            {{ themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "negative" ? "查看主题分析" : "查看主题时间线" }}
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            :to="{ path: '/events', query: { themeId: source.themeId, impact: themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) !== 'neutral' ? themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) : undefined, sort: 'occurredAt' } }"
+          >
+            查看相关事件
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
         </div>
       </RouterLink>
     </div>
@@ -58,13 +87,16 @@
 import { computed, ref } from "vue";
 
 import type { SourceStatus } from "../../../lib/api";
+import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import { sourcePriorityScore } from "../../../lib/source-ranking";
 import { toTimestamp } from "../../../lib/time";
 import {
   formatSmartDateTimeLabel,
+  pillToneClass,
   runStatusLabel,
   sourceStatusLabel,
   sourceTypeLabel,
+  themeTypeLabel,
 } from "../../../lib/presentation";
 
 const props = defineProps<{
@@ -86,6 +118,16 @@ const pendingSourceCount = computed(() =>
   props.sources.filter((source) => source.latestRunStatus === "pending" || source.status === "pending").length,
 );
 const healthySourceCount = computed(() => props.sources.filter((source) => source.status === "healthy").length);
+const negativeImpactSourceCount = computed(() =>
+  props.sources.filter((source) =>
+    themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "negative",
+  ).length,
+);
+const positiveImpactSourceCount = computed(() =>
+  props.sources.filter((source) =>
+    themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "positive",
+  ).length,
+);
 
 const filteredSources = computed(() =>
   props.sources.filter((source) => {
@@ -107,7 +149,7 @@ const filteredSources = computed(() =>
 
 const description = computed(() => {
   if (sourcePanelFocus.value === "warning") {
-    return "优先排查最近运行异常、抓取失败或解析失真的来源。";
+    return "优先排查最近运行异常、抓取失败或解析失真的来源，尤其是关联高优先级主题的来源。";
   }
 
   if (sourcePanelFocus.value === "pending") {
@@ -118,12 +160,12 @@ const description = computed(() => {
     return "回看最近运行稳定、当前可作为基线参考的来源。";
   }
 
-  return "快速查看来源运行状态，判断哪些抓取链路需要优先处理。";
+  return "快速查看来源运行状态，并结合所属主题最近信号判断哪些抓取链路更值得优先处理。";
 });
 
 const summary = computed(() => {
   if (sourcePanelFocus.value === "warning") {
-    return `当前有 ${filteredSources.value.length} 个异常来源需要优先排查。`;
+    return `当前有 ${filteredSources.value.length} 个异常来源需要优先排查，其中关联偏利空主题的来源更值得先看。`;
   }
 
   if (sourcePanelFocus.value === "pending") {
@@ -134,7 +176,7 @@ const summary = computed(() => {
     return `当前有 ${filteredSources.value.length} 个来源运行状态稳定。`;
   }
 
-  return `共 ${props.sources.length} 个来源，其中 ${warningSourceCount.value} 个异常，${pendingSourceCount.value} 个待运行，${healthySourceCount.value} 个正常。`;
+  return `共 ${props.sources.length} 个来源，其中 ${warningSourceCount.value} 个异常，${pendingSourceCount.value} 个待运行，${healthySourceCount.value} 个正常；关联主题判断上有 ${negativeImpactSourceCount.value} 个偏利空来源、${positiveImpactSourceCount.value} 个偏利好来源。`;
 });
 
 const sourceStatusPanelTarget = computed(() => ({

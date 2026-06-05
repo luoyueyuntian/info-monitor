@@ -5,6 +5,7 @@ import {
   buildThemeComparisons,
   buildThemeDiagnostics,
   buildThemeFilterSummary,
+  buildThemeWorkspaceActions,
   filterThemes,
 } from "./themes-model";
 
@@ -38,6 +39,7 @@ describe("themes-model", () => {
       typeFilter: "all",
       eventQueueFilter: "open",
       healthFilter: "all",
+      impactFilter: "all",
       sortBy: "latestEvent",
       recentOnly24h: false,
     });
@@ -53,12 +55,32 @@ describe("themes-model", () => {
           typeFilter: "financial_event",
           eventQueueFilter: "bookmarked",
           healthFilter: "warning",
+          impactFilter: "negative",
           sortBy: "attention",
           recentOnly24h: true,
         },
         (value) => value,
       ),
     ).toContain("搜索“pbc”");
+  });
+
+  it("sorts bookmarked themes by latest bookmarked time", () => {
+    const themes = [
+      makeTheme({ id: "t1", bookmarkedEventCount: 1, latestBookmarkedAt: "2026-01-02T02:00:00.000Z" }),
+      makeTheme({ id: "t2", bookmarkedEventCount: 1, latestBookmarkedAt: "2026-01-02T05:00:00.000Z" }),
+    ];
+
+    const result = filterThemes(themes, {
+      query: "",
+      typeFilter: "all",
+      eventQueueFilter: "bookmarked",
+      healthFilter: "all",
+      impactFilter: "all",
+      sortBy: "latestBookmarked",
+      recentOnly24h: false,
+    });
+
+    expect(result.map((item) => item.id)).toEqual(["t2", "t1"]);
   });
 
   it("builds warning diagnostics when warning themes exist", () => {
@@ -74,11 +96,42 @@ describe("themes-model", () => {
   it("builds comparison cards by theme type", () => {
     const comparisons = buildThemeComparisons([
       makeTheme({ id: "t1", type: "price", latestEventSignal: "30d_low" }),
+      makeTheme({ id: "t-content", type: "content_update", latestEventSignal: "content_update" }),
       makeTheme({ id: "t2", type: "news_announcement", latestEventSignal: "new_announcement" }),
     ]);
 
-    expect(comparisons).toHaveLength(3);
+    expect(comparisons).toHaveLength(4);
     expect(comparisons[0].theme?.id).toBe("t1");
-    expect(comparisons[1].theme).toBeNull();
+    expect(comparisons[1].theme?.id).toBe("t-content");
+    expect(comparisons[1].summary).toContain("内容更新");
+    expect(comparisons[2].theme).toBeNull();
+  });
+
+  it("builds workspace actions around the top theme", () => {
+    const workspace = buildThemeWorkspaceActions(
+      [
+        makeTheme({ id: "t1", name: "Theme One", openEventCount: 2, latestEventSignal: "bearish" }),
+        makeTheme({ id: "t2", name: "Theme Two", latestEventSignal: "bullish" }),
+      ],
+      {
+        query: "",
+        typeFilter: "all",
+        eventQueueFilter: "all",
+        healthFilter: "all",
+        impactFilter: "all",
+        sortBy: "attention",
+        recentOnly24h: false,
+      },
+    );
+
+    expect(workspace?.summary).toContain("Theme One");
+    expect(workspace?.actions[0]).toEqual({
+      label: "处理 Theme One 事件",
+      to: { path: "/themes/t1", query: { section: "events" } },
+    });
+    expect(workspace?.actions[1]).toEqual({
+      label: "查看 Theme One 来源状态",
+      to: { path: "/sources/status", query: { themeId: "t1" } },
+    });
   });
 });

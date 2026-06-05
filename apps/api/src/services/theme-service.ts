@@ -60,6 +60,23 @@ function signalLabel(signal?: string | null) {
   }
 }
 
+function contentUpdateTypeLabel(value: unknown) {
+  switch (value) {
+    case "feature_release":
+      return "功能发布";
+    case "version_release":
+      return "版本发布";
+    case "bug_fix":
+      return "修复更新";
+    case "marketing_campaign":
+      return "营销活动";
+    case "policy_update":
+      return "政策更新";
+    default:
+      return formatNumberForInsight(value);
+  }
+}
+
 function buildLatestInsight(
   infoType: string,
   record: { content: Record<string, unknown> } | undefined,
@@ -107,6 +124,13 @@ function buildLatestInsight(
     const publisher = formatNumberForInsight(content.publisher);
 
     return [topic, categoryLabel, !topic && !categoryLabel ? publisher : null].filter(Boolean).join(" · ");
+  }
+
+  if (infoType === "content_update") {
+    const updateType = contentUpdateTypeLabel(content.update_type);
+    const objectName = formatNumberForInsight(content.object_name);
+
+    return [updateType, objectName].filter(Boolean).join(" · ");
   }
 
   return null;
@@ -172,10 +196,39 @@ function buildFinancialEventBreakdown(records: Array<{ content: Record<string, u
   };
 }
 
+function buildContentUpdateBreakdown(records: Array<{ content: Record<string, unknown> }>) {
+  const counts = new Map<string, number>();
+
+  for (const record of records) {
+    const content = record.content ?? {};
+    const label = contentUpdateTypeLabel(content.update_type) || formatNumberForInsight(content.object_name) || "未分类";
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+
+  const items = [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 8);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return {
+    title: "更新类型分布",
+    description: "按最近抓到的内容更新类型聚合，帮助你快速判断当前是功能发布、营销动作还是其他页面变更。",
+    items,
+  };
+}
+
 function buildThemeBreakdown(
   infoType: string,
   records: Array<{ content: Record<string, unknown> }>,
 ) {
+  if (infoType === "content_update") {
+    return buildContentUpdateBreakdown(records);
+  }
+
   if (infoType === "news_announcement") {
     return buildNewsAnnouncementBreakdown(records);
   }
@@ -349,6 +402,58 @@ function buildThemeAnalysis(input: {
     };
   }
 
+  if (input.themeType === "content_update") {
+    return {
+      tone: "neutral",
+      headline: latestEvent ? "近期内容更新值得优先复核" : "当前以持续跟踪内容更新为主",
+      summary:
+        latestEvent?.summary ??
+        "当前还没有新的内容更新事件，建议继续保持监控，等待下一轮页面变化或版本发布。",
+      keyPoints: [
+        latestEvent ? `最新更新：${latestEvent.title}` : "最近没有新的内容更新事件。",
+        input.latestInsight ? `最近更新摘要：${input.latestInsight}` : "最近没有可用的结构化更新摘要。",
+        `最近24小时新增 ${recentEventCount} 条事件。`,
+      ],
+      risks: [
+        warningCount > 0 ? `存在 ${warningCount} 个异常来源，可能漏掉部分更新内容。`
+          : "当前未发现异常来源。",
+        pausedCount > 0 ? `有 ${pausedCount} 个来源已暂停，跨渠道更新对比可能不完整。`
+          : "当前来源覆盖相对完整。",
+        staleCount > 0 ? `有 ${staleCount} 个来源超过48小时没有新结果，更新节奏判断可能滞后。`
+          : "最近来源更新时效基本正常。",
+      ],
+      actions: [
+        "优先打开原始更新页面，确认这次具体改了哪些功能、文案或页面结构。",
+        pendingCount > 0
+          ? "等待排队中的来源完成后，再汇总这轮更新对你的主题是否有实际影响。"
+          : "再结合历史更新节奏和竞品上下文，判断是否需要沉淀为新的结论或行动。",
+      ],
+      recentChange: {
+        headline: recentEventCount > 0 ? "最近24小时出现新的内容更新" : "最近24小时没有新的内容更新",
+        summary:
+          recentEventCount > 0
+            ? "建议把最近更新和更早版本变更放在一起看，判断这轮动作是单点更新还是连续推进。"
+            : "当前仍以历史更新记录作为主要参考，建议继续保持监控。",
+        highlights: [
+          recentEventCount > 0 ? `最近24小时新增 ${recentEventCount} 条内容更新事件。` : "最近24小时没有新增内容更新事件。",
+          latestEvent ? `最新内容更新为 ${latestEvent.title}。` : "当前没有可比较的最新内容更新。",
+        ],
+      },
+      trend: {
+        headline: recentEventCount > 0 ? "近阶段内容更新节奏在推进" : "近阶段内容更新节奏较平稳",
+        summary:
+          recentEventCount > 0
+            ? "最近24小时已有新的内容更新事件，说明当前对象仍在持续变化。"
+            : "最近没有新的内容更新事件，当前更适合结合既有更新历史做低频回看。",
+        highlights: [
+          `最近24小时新增 ${recentEventCount} 条内容更新事件。`,
+          latestEvent ? `最新更新：${latestEvent.title}` : "当前没有最新更新。",
+          input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
+        ],
+      },
+    };
+  }
+
   return {
     tone: "neutral",
     headline: latestEvent ? "近期官方发布值得继续跟踪" : "当前以持续跟踪为主",
@@ -412,6 +517,7 @@ function mapDatabaseThemeSummary(row: {
   ignored_event_count: number | string | bigint;
   unread_event_count: number | string | bigint;
   bookmarked_event_count: number | string | bigint;
+  latest_bookmarked_at: Date | null;
 }) {
   const latestSuccessAt = row.latest_success_at?.toISOString?.() ?? null;
   const latestFailureAt = row.latest_failure_at?.toISOString?.() ?? null;
@@ -434,6 +540,7 @@ function mapDatabaseThemeSummary(row: {
     ignoredEventCount: Number(row.ignored_event_count ?? 0),
     unreadEventCount: Number(row.unread_event_count ?? 0),
     bookmarkedEventCount: Number(row.bookmarked_event_count ?? 0),
+    latestBookmarkedAt: row.latest_bookmarked_at?.toISOString?.() ?? null,
   };
 }
 
@@ -456,6 +563,7 @@ async function listThemesFromDb(db: Kysely<Database>) {
       sql<number>`count(distinct e.id) filter (where e.status = 'ignored')`.as("ignored_event_count"),
       sql<number>`count(distinct e.id) filter (where coalesce(e.is_read, false) = false)`.as("unread_event_count"),
       sql<number>`count(distinct e.id) filter (where coalesce(e.is_bookmarked, false) = true)`.as("bookmarked_event_count"),
+      fn.max("e.bookmarked_at").as("latest_bookmarked_at"),
       fn.max("s.latest_success_at").as("latest_success_at"),
       fn.max("s.latest_failure_at").as("latest_failure_at"),
     ])
@@ -839,6 +947,9 @@ export async function listThemes() {
         ignoredEventCount: themeEvents.filter((event) => event.status === "ignored").length,
         unreadEventCount: themeEvents.filter((event) => !event.isRead).length,
         bookmarkedEventCount: themeEvents.filter((event) => Boolean(event.isBookmarked)).length,
+        latestBookmarkedAt: themeEvents
+          .filter((event) => event.isBookmarked && event.bookmarkedAt)
+          .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
       };
     });
   }

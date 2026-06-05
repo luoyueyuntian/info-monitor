@@ -12,6 +12,7 @@ export type ThemeSummary = {
   latestEventTitle?: string | null;
   latestEventSignal?: string | null;
   latestInsight?: string | null;
+  latestBookmarkedAt?: string | null;
   openEventCount?: number;
   trackingEventCount?: number;
   ignoredEventCount?: number;
@@ -28,6 +29,7 @@ export type EventSummary = {
   status?: string | null;
   isRead?: boolean;
   isBookmarked?: boolean;
+  bookmarkedAt?: string | null;
   latestStatusChangedAt?: string | null;
   eventType?: string;
   occurredAt: string;
@@ -59,6 +61,7 @@ export type SourceStatus = {
   themeId: string;
   themeName: string;
   themeType?: string;
+  latestEventSignal?: string | null;
   name: string;
   status: string;
   sourceType?: string;
@@ -156,6 +159,8 @@ export type DashboardSummary = {
   activeThemes: number;
   openEvents: number;
   trackingEvents: number;
+  unreadEvents: number;
+  bookmarkedEvents: number;
   recentEvents: number;
   warningSources: number;
   pendingSources: number;
@@ -163,6 +168,10 @@ export type DashboardSummary = {
 
 export type InboxSectionCounts = {
   "price-signals": {
+    total: number;
+    recent: number;
+  };
+  "content-updates": {
     total: number;
     recent: number;
   };
@@ -263,6 +272,19 @@ const fallbackThemes: ThemeSummary[] = [
     latestEventSignal: null,
     latestInsight: null,
   },
+  {
+    id: "theme-figma-updates",
+    name: "Figma Product Updates",
+    type: "content_update",
+    status: "active",
+    latestRunAt: "2026-06-01T07:30:00Z",
+    latestEventAt: "2026-06-01T07:35:00Z",
+    sourceCount: 1,
+    sourceHealth: "healthy",
+    latestEventTitle: "Figma released a new dev mode update",
+    latestEventSignal: "content_update",
+    latestInsight: "feature_release · Figma",
+  },
 ];
 
 const fallbackEvents: EventSummary[] = [
@@ -275,6 +297,7 @@ const fallbackEvents: EventSummary[] = [
     status: "open",
     isRead: false,
     isBookmarked: true,
+    bookmarkedAt: "2026-06-01T10:00:00Z",
     occurredAt: "2026-06-01T09:31:00Z",
     summary: "A new cross-platform low price was detected for the same configuration.",
   },
@@ -287,8 +310,29 @@ const fallbackEvents: EventSummary[] = [
     status: "tracking",
     isRead: true,
     isBookmarked: false,
+    bookmarkedAt: null,
     occurredAt: "2026-05-31T03:00:00Z",
     summary: "A macro release was classified as a potentially bullish event.",
+  },
+  {
+    id: "event-figma-release",
+    themeId: "theme-figma-updates",
+    themeName: "Figma Product Updates",
+    title: "Figma released a new dev mode update",
+    signal: "content_update",
+    status: "open",
+    isRead: false,
+    isBookmarked: true,
+    bookmarkedAt: "2026-06-01T08:30:00Z",
+    occurredAt: "2026-06-01T07:35:00Z",
+    summary: "A new product update was detected on the Figma release notes page.",
+    infoType: "content_update",
+    context: {
+      object_name: "Figma",
+      update_type: "feature_release",
+      url: "https://www.figma.com/release-notes/",
+      summary: "New dev mode improvements announced in the latest release notes.",
+    },
   },
 ];
 
@@ -297,6 +341,8 @@ const fallbackSources: SourceStatus[] = [
     id: "source-xianyu-surface",
     themeId: "theme-surface-pro-8",
     themeName: "Surface Pro 8 16G + 512G Price",
+    themeType: "price",
+    latestEventSignal: "30d_low",
     name: "Xianyu Search Results",
     status: "healthy",
     latestSuccessAt: "2026-06-01T09:30:00Z",
@@ -306,10 +352,29 @@ const fallbackSources: SourceStatus[] = [
     id: "source-pbc-policy",
     themeId: "theme-macro-gdp-cpi",
     themeName: "Macro Releases: GDP / CPI",
+    themeType: "financial_event",
+    latestEventSignal: "bullish",
     name: "PBOC Policy Page",
     status: "warning",
     latestSuccessAt: "2026-05-31T23:00:00Z",
     latestFailureAt: "2026-06-01T06:00:00Z",
+  },
+  {
+    id: "source-figma-release-notes",
+    themeId: "theme-figma-updates",
+    themeName: "Figma Product Updates",
+    themeType: "content_update",
+    latestEventSignal: "content_update",
+    name: "Figma Release Notes",
+    status: "healthy",
+    sourceType: "page_list",
+    adapterKey: "generic_content_update_list",
+    isPaused: false,
+    latestRunStatus: "completed",
+    latestRunAt: "2026-06-01T07:30:00Z",
+    latestSuccessAt: "2026-06-01T07:30:00Z",
+    latestFailureAt: null,
+    lastErrorMessage: null,
   },
 ];
 
@@ -340,6 +405,21 @@ function buildFallbackEventExplanation(event: EventSummary) {
       actions: [
         "优先读取结构化字段，确认方向、金额、期限和操作类型。",
         "再结合后续公告和市场表现，判断是否需要调整自己的观察或交易计划。",
+      ],
+    };
+  }
+
+  if (event.infoType === "content_update") {
+    return {
+      headline: "这是一个需要快速判断影响范围的内容更新",
+      impact: "当前事件说明监控对象刚刚发生了新的功能、版本或页面内容变化，重点是先判断它会影响哪些主题和后续动作。",
+      whyItMatters: [
+        "内容更新通常是产品能力、运营动作或竞品节奏变化的直接信号。",
+        "如果相似更新连续出现，往往说明当前路线图或市场动作正在被持续强化。",
+      ],
+      actions: [
+        "优先查看更新类型、原文链接和摘要，确认这次具体改了什么。",
+        "再结合历史更新和你的关注主题，判断是否需要跟进分析、记录竞品动作或转成新的任务。",
       ],
     };
   }
@@ -493,6 +573,54 @@ function buildFallbackThemeAnalysis(input: {
     } satisfies ThemeAnalysis;
   }
 
+  if (input.type === "content_update") {
+    return {
+      tone: "neutral",
+      headline: latestEvent ? "近期内容更新值得优先复核" : "当前以持续跟踪内容更新为主",
+      summary:
+        latestEvent?.summary ??
+        "当前还没有新的内容更新事件，建议继续保持监控，等待下一轮页面变化或版本发布。",
+      keyPoints: [
+        latestEvent ? `最新更新：${latestEvent.title}` : "最近没有新的内容更新事件。",
+        input.latestInsight ? `最近更新摘要：${input.latestInsight}` : "最近没有可用的结构化更新摘要。",
+        `来源状态：${input.sources.length} 个来源中，${warningCount} 个异常，${pausedCount} 个暂停。`,
+      ],
+      risks: [
+        warningCount > 0 ? "存在异常来源，可能漏掉部分更新内容。" : "当前未发现异常来源。",
+        pausedCount > 0 ? "有来源处于暂停状态，跨渠道更新对比可能不完整。" : "当前来源覆盖相对完整。",
+      ],
+      actions: [
+        "优先打开原始更新页面，确认这次具体改了哪些功能、文案或页面结构。",
+        pendingCount > 0
+          ? "等待排队中的来源完成后，再汇总这轮更新对你的主题是否有实际影响。"
+          : "再结合历史更新节奏和竞品上下文，判断是否需要沉淀为新的结论或行动。",
+      ],
+      recentChange: {
+        headline: recentEventCount > 0 ? "最近24小时出现新的内容更新" : "最近24小时没有新的内容更新",
+        summary:
+          recentEventCount > 0
+            ? "建议把最近更新和更早版本变更放在一起看，判断这轮动作是单点更新还是连续推进。"
+            : "当前仍以历史更新记录作为主要参考，建议继续保持监控。",
+        highlights: [
+          recentEventCount > 0 ? `最近24小时新增 ${recentEventCount} 条内容更新事件。` : "最近24小时没有新增内容更新事件。",
+          latestEvent ? `最新内容更新为 ${latestEvent.title}。` : "当前没有可比较的最新内容更新。",
+        ],
+      },
+      trend: {
+        headline: recentEventCount > 0 ? "近阶段内容更新节奏在推进" : "近阶段内容更新节奏较平稳",
+        summary:
+          recentEventCount > 0
+            ? "最近24小时已有新的内容更新事件，说明当前对象仍在持续变化。"
+            : "最近没有新的内容更新事件，当前更适合结合既有更新历史做低频回看。",
+        highlights: [
+          `最近24小时新增 ${recentEventCount} 条内容更新事件。`,
+          latestEvent ? `最新更新：${latestEvent.title}` : "当前没有最新更新。",
+          input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
+        ],
+      },
+    } satisfies ThemeAnalysis;
+  }
+
   return {
     tone: latestEvent ? "neutral" : "neutral",
     headline: latestEvent ? "近期官方发布值得继续跟踪" : "当前以持续跟踪为主",
@@ -536,6 +664,281 @@ function buildFallbackThemeAnalysis(input: {
   } satisfies ThemeAnalysis;
 }
 
+function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]) {
+  if (theme.type === "price") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        title: "跨平台同配置价格快照",
+        occurredAt: "2026-05-28T09:30:00Z",
+        infoType: "price",
+        content: {
+          price: 4288,
+          currency: "CNY",
+          spec: "16G+512G",
+          symbol: "surface-pro-8",
+          url: "https://www.goofish.com/",
+        },
+      },
+      {
+        id: `${theme.id}-record-2`,
+        title: "跨平台同配置价格快照",
+        occurredAt: "2026-05-31T09:30:00Z",
+        infoType: "price",
+        content: {
+          price: 4120,
+          currency: "CNY",
+          spec: "16G+512G",
+          symbol: "surface-pro-8",
+          url: "https://2.taobao.com/",
+        },
+      },
+      {
+        id: `${theme.id}-record-3`,
+        title: "跨平台同配置价格快照",
+        occurredAt: "2026-06-01T09:31:00Z",
+        infoType: "price",
+        content: {
+          price: 3999,
+          currency: "CNY",
+          spec: "16G+512G",
+          symbol: "surface-pro-8",
+          url: "https://www.goofish.com/",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-05-28T09:30:00Z", label: "首个价格样本已入库" },
+        { at: "2026-05-31T09:30:00Z", label: "同配置价格继续下探" },
+        { at: "2026-06-01T09:31:00Z", label: "触发 30 天新低事件" },
+      ],
+      breakdown: null,
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-01T09:30:00Z",
+          title: "最新抓取完成",
+          summary: "已完成跨平台同配置价格采集与去重。",
+          meta: { status: "completed", triggerType: "manual", sourceName: "Xianyu Search Results" },
+        },
+        {
+          id: `${theme.id}-timeline-change-1`,
+          kind: "change",
+          at: "2026-06-01T09:31:00Z",
+          title: "价格下探到新低区间",
+          summary: "最新样本价格低于近 30 天同配置记录。",
+          meta: {
+            sourceName: "Xianyu Search Results",
+            details: { title: "3999 CNY", logical_key: "surface-pro-8-16g-512g" },
+          },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: "2026-06-01T09:31:00Z",
+          title: events[0]?.title ?? "30-day low detected",
+          summary: events[0]?.summary ?? "A new low price event was emitted.",
+          meta: {
+            signal: events[0]?.signal ?? "30d_low",
+            eventType: events[0]?.eventType ?? "price_low",
+            sourceName: "Xianyu Search Results",
+          },
+        },
+      ],
+      records,
+    };
+  }
+
+  if (theme.type === "content_update") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        title: "Figma release notes item",
+        occurredAt: "2026-05-29T07:30:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "bug_fix",
+          url: "https://www.figma.com/release-notes/",
+          summary: "A batch of editor bug fixes and performance improvements was published.",
+        },
+      },
+      {
+        id: `${theme.id}-record-2`,
+        title: "Figma release notes item",
+        occurredAt: "2026-05-31T07:30:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "marketing_campaign",
+          url: "https://www.figma.com/release-notes/",
+          summary: "Figma highlighted dev mode onboarding improvements in a new release note card.",
+        },
+      },
+      {
+        id: `${theme.id}-record-3`,
+        title: "Figma release notes item",
+        occurredAt: "2026-06-01T07:35:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "feature_release",
+          url: "https://www.figma.com/release-notes/",
+          summary: "New dev mode improvements announced in the latest release notes.",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-05-29T07:30:00Z", label: "检测到一轮修复类更新" },
+        { at: "2026-05-31T07:30:00Z", label: "新增营销活动类更新卡片" },
+        { at: "2026-06-01T07:35:00Z", label: "检测到新的功能发布更新" },
+      ],
+      breakdown: {
+        title: "更新类型分布",
+        description: "按最近抓到的内容更新类型聚合，帮助你快速判断当前是功能发布、营销动作还是修复类更新。",
+        items: [
+          { label: "功能发布", count: 1 },
+          { label: "营销活动", count: 1 },
+          { label: "修复更新", count: 1 },
+        ],
+      },
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-01T07:30:00Z",
+          title: "最新抓取完成",
+          summary: "已完成 release notes 页面抓取与列表标准化。",
+          meta: { status: "completed", triggerType: "schedule", sourceName: "Figma Release Notes" },
+        },
+        {
+          id: `${theme.id}-timeline-change-1`,
+          kind: "change",
+          at: "2026-06-01T07:34:00Z",
+          title: "发现新的更新卡片",
+          summary: "列表顶部出现新的 dev mode 更新项。",
+          meta: {
+            sourceName: "Figma Release Notes",
+            details: { title: "Dev mode improvements", logical_key: "figma-dev-mode-update-20260601" },
+          },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: "2026-06-01T07:35:00Z",
+          title: events[0]?.title ?? "Figma released a new update",
+          summary: events[0]?.summary ?? "A new content update event was emitted.",
+          meta: {
+            signal: events[0]?.signal ?? "content_update",
+            eventType: events[0]?.eventType ?? "new_release",
+            sourceName: "Figma Release Notes",
+          },
+        },
+      ],
+      records,
+    };
+  }
+
+  if (theme.type === "financial_event") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        title: "公开市场操作结构化记录",
+        occurredAt: "2026-05-29T23:00:00Z",
+        infoType: "financial_event",
+        content: {
+          direction_label: "neutral",
+          announcement_no: "[2026]第84号",
+          operation_type: "逆回购",
+          amount_billion_cny: 320,
+          term_days: 7,
+          rate_percent: 1.5,
+          bidding_method: "固定数量、利率招标",
+          direction_reason: "当日投放和到期规模接近，整体偏中性。",
+        },
+      },
+      {
+        id: `${theme.id}-record-2`,
+        title: "公开市场操作结构化记录",
+        occurredAt: "2026-05-31T23:00:00Z",
+        infoType: "financial_event",
+        content: {
+          direction_label: "liquidity_injection",
+          announcement_no: "[2026]第88号",
+          operation_type: "逆回购",
+          amount_billion_cny: 980,
+          term_days: 7,
+          rate_percent: 1.4,
+          bidding_method: "固定利率、数量招标",
+          direction_reason: "净投放规模放大，短期流动性信号偏宽松。",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-05-29T23:00:00Z", label: "公开市场操作记录已入库" },
+        { at: "2026-05-31T23:00:00Z", label: "本轮操作方向转向偏宽松" },
+        { at: "2026-06-01T06:00:00Z", label: "最新来源抓取失败，等待复核" },
+      ],
+      breakdown: {
+        title: "方向分布",
+        description: "按结构化金融事件的方向标签聚合，帮助你快速判断近期流动性倾向。",
+        items: [
+          { label: "流动性投放", count: 1 },
+          { label: "中性", count: 1 },
+        ],
+      },
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-01T06:00:00Z",
+          title: "最新抓取失败",
+          summary: "来源抓取完成但解析失败，等待复核页面结构变化。",
+          meta: { status: "failed", triggerType: "schedule", sourceName: "PBOC Policy Page" },
+        },
+        {
+          id: `${theme.id}-timeline-change-1`,
+          kind: "change",
+          at: "2026-05-31T23:01:00Z",
+          title: "本轮净投放规模扩大",
+          summary: "与上一轮相比，金额和方向标签都发生变化。",
+          meta: {
+            sourceName: "PBOC Policy Page",
+            details: { title: "[2026]第88号", logical_key: "pbc-omo-20260531-88" },
+          },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: "2026-05-31T23:02:00Z",
+          title: events[0]?.title ?? "Potential bullish macro event recorded",
+          summary: events[0]?.summary ?? "A new financial event was emitted.",
+          meta: {
+            signal: events[0]?.signal ?? "liquidity_injection",
+            eventType: events[0]?.eventType ?? "new_release",
+            sourceName: "PBOC Policy Page",
+          },
+        },
+      ],
+      records,
+    };
+  }
+
+  return {
+    history: [],
+    breakdown: null,
+    timeline: [],
+    records: [],
+  };
+}
+
 async function requestJson<T>(path: string, fallback: T): Promise<T> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`);
@@ -556,6 +959,8 @@ export async function fetchDashboard() {
       activeThemes: 2,
       openEvents: fallbackEvents.filter((event) => (event.status ?? "open") === "open").length,
       trackingEvents: fallbackEvents.filter((event) => event.status === "tracking").length,
+      unreadEvents: fallbackEvents.filter((event) => !event.isRead).length,
+      bookmarkedEvents: fallbackEvents.filter((event) => Boolean(event.isBookmarked)).length,
       recentEvents: 2,
       warningSources: 1,
       pendingSources: 0,
@@ -566,6 +971,10 @@ export async function fetchDashboard() {
       "price-signals": {
         total: fallbackEvents.filter((event) => event.infoType === "price").length,
         recent: fallbackEvents.filter((event) => event.infoType === "price").length,
+      },
+      "content-updates": {
+        total: fallbackEvents.filter((event) => event.infoType === "content_update").length,
+        recent: fallbackEvents.filter((event) => event.infoType === "content_update").length,
       },
       "official-releases": {
         total: fallbackEvents.filter((event) => event.signal === "new_announcement").length,
@@ -592,6 +1001,9 @@ export async function fetchThemes() {
       ignoredEventCount: themeEvents.filter((event) => event.status === "ignored").length,
       unreadEventCount: themeEvents.filter((event) => !event.isRead).length,
       bookmarkedEventCount: themeEvents.filter((event) => Boolean(event.isBookmarked)).length,
+      latestBookmarkedAt: themeEvents
+        .filter((event) => event.isBookmarked && event.bookmarkedAt)
+        .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
     };
   });
 
@@ -602,24 +1014,22 @@ export async function fetchThemeDetail(themeId: string) {
   const theme = fallbackThemes.find((item) => item.id === themeId) ?? fallbackThemes[0];
   const events = fallbackEvents.filter((item) => item.themeId === theme.id);
   const sources = fallbackSources.filter((item) => item.themeId === theme.id);
+  const artifacts = buildFallbackThemeArtifacts(theme, events);
 
   return requestJson<ThemeDetail>(`/themes/${themeId}`, {
     theme,
     events,
     sources,
-    history: [
-      { at: "2026-05-30T09:30:00Z", label: "Historical snapshot stored" },
-      { at: "2026-05-31T09:30:00Z", label: "Minor price decline detected" },
-      { at: "2026-06-01T09:31:00Z", label: "30-day low event emitted" },
-    ],
-    breakdown: null,
-    timeline: [],
-    records: [],
+    history: artifacts.history,
+    breakdown: artifacts.breakdown,
+    timeline: artifacts.timeline,
+    records: artifacts.records,
     analysis: buildFallbackThemeAnalysis({
       type: theme.type,
       latestInsight: theme.latestInsight,
       events,
       sources,
+      records: artifacts.records,
     }),
   });
 }
@@ -660,6 +1070,7 @@ export async function updateEvent(eventId: string, input: {
     status: string;
     isRead: boolean;
     isBookmarked: boolean;
+    bookmarkedAt: string | null;
   };
 }
 
@@ -671,6 +1082,10 @@ export async function fetchInboxSectionEvents(sectionId: string) {
   const filteredFallback = fallbackEvents.filter((event) => {
     if (sectionId === "price-signals") {
       return event.infoType === "price";
+    }
+
+    if (sectionId === "content-updates") {
+      return event.infoType === "content_update";
     }
 
     if (sectionId === "official-releases") {

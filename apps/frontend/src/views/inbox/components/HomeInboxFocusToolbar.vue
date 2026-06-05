@@ -3,6 +3,9 @@
     <RouterLink class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" :to="{ path: '/', query: { focus: 'events-price' } }">
       只看价格信号
     </RouterLink>
+    <RouterLink class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" :to="{ path: '/', query: { focus: 'events-content' } }">
+      只看内容更新
+    </RouterLink>
     <RouterLink class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" :to="{ path: '/', query: { focus: 'events-official' } }">
       只看官方发布
     </RouterLink>

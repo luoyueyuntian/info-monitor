@@ -1,4 +1,5 @@
 import type { SourceStatus } from "./api";
+import { themeImpactTone } from "./impact";
 import { toTimestamp } from "./time";
 
 export function sourcePriorityScore(source: SourceStatus, now = Date.now()) {
@@ -22,6 +23,12 @@ export function sourcePriorityScore(source: SourceStatus, now = Date.now()) {
 
   if (source.lastErrorMessage) {
     score += 10;
+  }
+
+  if (themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "negative") {
+    score += 30;
+  } else if (themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "positive") {
+    score += 15;
   }
 
   const latestActivity = Math.max(

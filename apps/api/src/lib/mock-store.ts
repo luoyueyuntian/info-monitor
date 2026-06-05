@@ -17,6 +17,7 @@ type EventSummary = {
   status?: string;
   isRead?: boolean;
   isBookmarked?: boolean;
+  bookmarkedAt?: string | null;
   eventType?: string;
   occurredAt: string;
   summary: string;
@@ -38,6 +39,7 @@ type SourceStatus = {
   themeId: string;
   themeName: string;
   themeType?: string;
+  latestEventSignal?: string | null;
   name: string;
   status: string;
   sourceType?: string;
@@ -69,6 +71,15 @@ export const mockThemes: ThemeSummary[] = [
     latestEventAt: null,
     sourceCount: 3,
   },
+  {
+    id: "theme-figma-updates",
+    name: "Figma Product Updates",
+    type: "content_update",
+    status: "active",
+    latestRunAt: "2026-06-01T07:30:00Z",
+    latestEventAt: "2026-06-01T07:35:00Z",
+    sourceCount: 1,
+  },
 ];
 
 export const mockEvents: EventSummary[] = [
@@ -81,6 +92,7 @@ export const mockEvents: EventSummary[] = [
     status: "open",
     isRead: false,
     isBookmarked: true,
+    bookmarkedAt: "2026-06-01T10:00:00Z",
     eventType: "price_low",
     occurredAt: "2026-06-01T09:31:00Z",
     summary: "A new cross-platform low price was detected for the same configuration.",
@@ -105,6 +117,7 @@ export const mockEvents: EventSummary[] = [
     status: "tracking",
     isRead: true,
     isBookmarked: false,
+    bookmarkedAt: null,
     eventType: "new_release",
     occurredAt: "2026-05-31T03:00:00Z",
     summary: "A macro release was classified as a potentially bullish event.",
@@ -120,6 +133,32 @@ export const mockEvents: EventSummary[] = [
       "Official release captured from a monitored source.",
       "Financial event normalizer produced a structured snapshot.",
       "Direction tag assigned by the current rule set.",
+    ],
+  },
+  {
+    id: "event-figma-release",
+    themeId: "theme-figma-updates",
+    themeName: "Figma Product Updates",
+    title: "Figma released a new dev mode update",
+    signal: "content_update",
+    status: "open",
+    isRead: false,
+    isBookmarked: true,
+    bookmarkedAt: "2026-06-01T08:30:00Z",
+    eventType: "new_release",
+    occurredAt: "2026-06-01T07:35:00Z",
+    summary: "A new product update was detected on the Figma release notes page.",
+    infoType: "content_update",
+    context: {
+      object_name: "Figma",
+      update_type: "feature_release",
+      url: "https://www.figma.com/release-notes/",
+      summary: "New dev mode improvements announced in the latest release notes.",
+    },
+    evidence: [
+      "Release notes list page fetched successfully.",
+      "Latest update card normalized into content_update format.",
+      "New release event emitted for latest content update.",
     ],
   },
 ];
@@ -140,6 +179,7 @@ export const mockSources: SourceStatus[] = [
     themeId: "theme-surface-pro-8",
     themeName: "Surface Pro 8 16G + 512G Price",
     themeType: "price",
+    latestEventSignal: "30d_low",
     name: "Xianyu Search Results",
     status: "healthy",
     sourceType: "page_list",
@@ -156,6 +196,7 @@ export const mockSources: SourceStatus[] = [
     themeId: "theme-macro-gdp-cpi",
     themeName: "Macro Releases: GDP / CPI",
     themeType: "financial_event",
+    latestEventSignal: "bullish",
     name: "PBOC Policy Page",
     status: "warning",
     sourceType: "page_list",
@@ -166,5 +207,22 @@ export const mockSources: SourceStatus[] = [
     latestSuccessAt: "2026-05-31T23:00:00Z",
     latestFailureAt: "2026-06-01T06:00:00Z",
     lastErrorMessage: "Parsing failed on latest page fetch.",
+  },
+  {
+    id: "source-figma-release-notes",
+    themeId: "theme-figma-updates",
+    themeName: "Figma Product Updates",
+    themeType: "content_update",
+    latestEventSignal: "content_update",
+    name: "Figma Release Notes",
+    status: "healthy",
+    sourceType: "page_list",
+    adapterKey: "generic_content_update_list",
+    isPaused: false,
+    latestRunStatus: "completed",
+    latestRunAt: "2026-06-01T07:30:00Z",
+    latestSuccessAt: "2026-06-01T07:30:00Z",
+    latestFailureAt: null,
+    lastErrorMessage: null,
   },
 ];

@@ -13,6 +13,7 @@ describe("ThemesFiltersPanel", () => {
     const setTypeFilter = vi.fn();
     const setEventQueueFilter = vi.fn();
     const setHealthFilter = vi.fn();
+    const setImpactFilter = vi.fn();
     const setRecentOnly24h = vi.fn();
     const setSortBy = vi.fn();
     const clearQuery = vi.fn();
@@ -26,6 +27,7 @@ describe("ThemesFiltersPanel", () => {
         typeFilter: "all",
         eventQueueFilter: "all",
         healthFilter: "all",
+        impactFilter: "all",
         recentOnly24h: false,
         sortBy: "priority",
         applyThemePreset,
@@ -34,6 +36,7 @@ describe("ThemesFiltersPanel", () => {
         setTypeFilter,
         setEventQueueFilter,
         setHealthFilter,
+        setImpactFilter,
         setRecentOnly24h,
         setSortBy,
         clearQuery,
@@ -45,8 +48,9 @@ describe("ThemesFiltersPanel", () => {
     await wrapper.findAll("select")[0].setValue("price");
     await wrapper.findAll("select")[1].setValue("open");
     await wrapper.findAll("select")[2].setValue("warning");
+    await wrapper.findAll("select")[3].setValue("negative");
     await wrapper.find("input[type='checkbox']").setValue(true);
-    await wrapper.findAll("select")[3].setValue("latestEvent");
+    await wrapper.findAll("select")[4].setValue("latestEvent");
     const buttons = wrapper.findAll("button");
     await buttons.find((item) => item.text() === "重置筛选")!.trigger("click");
     await buttons.find((item) => item.text() === "清空搜索")!.trigger("click");
@@ -56,6 +60,7 @@ describe("ThemesFiltersPanel", () => {
     expect(setTypeFilter).toHaveBeenCalledWith("price");
     expect(setEventQueueFilter).toHaveBeenCalledWith("open");
     expect(setHealthFilter).toHaveBeenCalledWith("warning");
+    expect(setImpactFilter).toHaveBeenCalledWith("negative");
     expect(setRecentOnly24h).toHaveBeenCalledWith(true);
     expect(setSortBy).toHaveBeenCalledWith("latestEvent");
     expect(resetFilters).toHaveBeenCalledTimes(1);

@@ -27,6 +27,19 @@
         <option value="pending">待运行来源</option>
         <option value="healthy">正常来源</option>
       </select>
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="themeFilter" @change="setThemeFilter(($event.target as HTMLSelectElement).value)">
+        <option value="all">全部主题</option>
+        <option v-if="themeContextLabel" :value="themeFilter">{{ themeContextLabel }}</option>
+        <option v-for="option in themeOptions" :key="option.id" :value="option.id">
+          {{ option.name }}
+        </option>
+      </select>
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="impactFilter" @change="setImpactFilter(($event.target as HTMLSelectElement).value)">
+        <option value="all">全部关联判断</option>
+        <option value="negative">关联偏利空主题</option>
+        <option value="positive">关联偏利好主题</option>
+        <option value="neutral">关联中性主题</option>
+      </select>
       <label class="flex items-center gap-2.5 font-semibold">
         <input :checked="recentOnly24h" type="checkbox" @change="setRecentOnly24h(($event.target as HTMLInputElement).checked)" />
         仅最近24小时运行
@@ -53,12 +66,18 @@ defineProps<{
   activePresetId: string;
   filterSummary: string;
   focusFilter: string;
+  themeFilter: string;
+  themeOptions: Array<{ id: string; name: string }>;
+  themeContextLabel?: string;
+  impactFilter: string;
   recentOnly24h: boolean;
   sinceFilter: string;
   incrementalSourceCount: number;
   applySourcePreset: (presetId: string) => void;
   resetFilters: () => void;
   setFocusFilter: (value: string) => void;
+  setThemeFilter: (value: string) => void;
+  setImpactFilter: (value: string) => void;
   setRecentOnly24h: (value: boolean) => void;
   clearSinceFilter: () => void;
 }>();

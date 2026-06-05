@@ -27,6 +27,12 @@
         </RouterLink>
         <RouterLink
           class="rounded-xl px-3 py-2 text-[#53452f] transition-colors hover:bg-white/60 hover:text-[#3f3424] [&.router-link-active]:bg-[rgba(111,91,58,0.12)] [&.router-link-active]:text-[#3f3424]"
+          to="/watchlist"
+        >
+          Watchlist
+        </RouterLink>
+        <RouterLink
+          class="rounded-xl px-3 py-2 text-[#53452f] transition-colors hover:bg-white/60 hover:text-[#3f3424] [&.router-link-active]:bg-[rgba(111,91,58,0.12)] [&.router-link-active]:text-[#3f3424]"
           to="/themes"
         >
           Themes

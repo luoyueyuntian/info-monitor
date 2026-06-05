@@ -1,7 +1,10 @@
 import type { ThemeSummary } from "../../../lib/api";
+import type { RouteLocationRaw } from "vue-router";
+import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import {
   hasRecentThemeActivity,
   themeAttentionScore,
+  themeLatestBookmarkedScore,
   themePriorityScore,
 } from "../../../lib/theme-ranking";
 import { toTimestamp } from "../../../lib/time";
@@ -11,8 +14,29 @@ export type ThemesBoardFilters = {
   typeFilter: string;
   eventQueueFilter: string;
   healthFilter: string;
+  impactFilter: string;
   sortBy: string;
   recentOnly24h: boolean;
+};
+
+export type ThemeWorkspaceActions = {
+  summary: string;
+  actions: Array<{
+    label: string;
+    to: RouteLocationRaw;
+  }>;
+};
+
+export type ThemeDiagnostics = {
+  tone: string;
+  toneLabel: string;
+  headline: string;
+  summary: string;
+  priorityItems: string[];
+  actions: Array<{
+    label: string;
+    to: RouteLocationRaw;
+  }>;
 };
 
 export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters) {
@@ -37,9 +61,10 @@ export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters
         );
       const matchesHealth =
         filters.healthFilter === "all" || (theme.sourceHealth ?? "healthy") === filters.healthFilter;
+      const matchesImpact = filters.impactFilter === "all" || themeImpactTone(theme) === filters.impactFilter;
       const matchesRecent = !filters.recentOnly24h || hasRecentThemeActivity(theme);
 
-      return matchesQuery && matchesType && matchesQueue && matchesHealth && matchesRecent;
+      return matchesQuery && matchesType && matchesQueue && matchesHealth && matchesImpact && matchesRecent;
     })
     .sort((left, right) => {
       if (filters.sortBy === "latestEvent") {
@@ -48,6 +73,10 @@ export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters
 
       if (filters.sortBy === "latestRun") {
         return toTimestamp(right.latestRunAt) - toTimestamp(left.latestRunAt);
+      }
+
+      if (filters.sortBy === "latestBookmarked") {
+        return themeLatestBookmarkedScore(right) - themeLatestBookmarkedScore(left);
       }
 
       if (filters.sortBy === "name") {
@@ -75,10 +104,14 @@ export function buildThemeFilterSummary(
     filters.eventQueueFilter === "unread" ? "有未读事件" : "",
     filters.eventQueueFilter === "bookmarked" ? "有收藏事件" : "",
     filters.healthFilter === "warning" ? "只看异常来源主题" : "",
+    filters.impactFilter === "positive" ? "影响 偏利好" : "",
+    filters.impactFilter === "negative" ? "影响 偏利空" : "",
+    filters.impactFilter === "neutral" ? "影响 中性" : "",
     filters.recentOnly24h ? "最近24小时更新" : "",
     filters.sortBy === "attention" ? "按优先处理排序" : "",
     filters.sortBy === "latestEvent" ? "按最近事件排序" : "",
     filters.sortBy === "latestRun" ? "按最近运行排序" : "",
+    filters.sortBy === "latestBookmarked" ? "按最近收藏排序" : "",
     filters.sortBy === "name" ? "按名称排序" : "",
   ].filter(Boolean);
 
@@ -89,6 +122,10 @@ export function buildThemeDiagnostics(visibleThemes: ThemeSummary[]) {
   const warningCount = visibleThemes.filter((theme) => theme.sourceHealth === "warning").length;
   const pausedCount = visibleThemes.filter((theme) => theme.status === "paused").length;
   const recentCount = visibleThemes.filter((theme) => hasRecentThemeActivity(theme)).length;
+  const positiveCount = visibleThemes.filter((theme) => themeImpactTone(theme) === "positive").length;
+  const negativeCount = visibleThemes.filter((theme) => themeImpactTone(theme) === "negative").length;
+  const neutralCount = visibleThemes.length - positiveCount - negativeCount;
+  const impactSummary = `影响判断上共有 ${positiveCount} 个偏利好主题、${negativeCount} 个偏利空主题、${neutralCount} 个中性主题。`;
   const priorityItems = [...visibleThemes]
     .sort((left, right) => themeAttentionScore(right) - themeAttentionScore(left))
     .filter((theme) => themeAttentionScore(theme) > 0)
@@ -114,6 +151,18 @@ export function buildThemeDiagnostics(visibleThemes: ThemeSummary[]) {
         return `${theme.name}：出现新低类信号，适合优先确认是否值得跟进。`;
       }
 
+      if (themeImpactTone(theme) === "negative") {
+        return `${theme.name}：当前最新信号偏利空，建议优先确认是否需要调整判断。`;
+      }
+
+      if (themeImpactTone(theme) === "positive") {
+        return `${theme.name}：当前最新信号偏利好，适合优先确认机会是否成立。`;
+      }
+
+      if (theme.latestEventSignal === "content_update") {
+        return `${theme.name}：最近抓到新的内容更新，适合优先判断影响范围和后续动作。`;
+      }
+
       if (theme.latestEventSignal === "new_financial_event" || theme.latestEventSignal === "new_announcement") {
         return `${theme.name}：最近有新的关键事件，建议优先阅读并更新判断。`;
       }
@@ -126,13 +175,23 @@ export function buildThemeDiagnostics(visibleThemes: ThemeSummary[]) {
       tone: "warning",
       toneLabel: "优先处理异常",
       headline: "当前主题里存在明显异常，建议先处理来源问题再继续判断主题价值。",
-      summary: `当前筛选结果里有 ${warningCount} 个异常主题、${pausedCount} 个暂停主题、${recentCount} 个最近24小时有更新的主题。`,
+      summary: `当前筛选结果里有 ${warningCount} 个异常主题、${pausedCount} 个暂停主题、${recentCount} 个最近24小时有更新的主题。${impactSummary}`,
       priorityItems: priorityItems.length ? priorityItems : ["当前异常主题需要优先复核来源状态和最近结果。"],
       actions: [
-        "先看异常主题的来源状态，判断是否因为抓取失败导致当前结论不可靠。",
-        "处理完异常后，再回到最近有新事件的主题继续做判断。",
+        {
+          label: "查看异常主题",
+          to: { path: "/themes", query: { health: "warning", sort: "attention" } },
+        },
+        {
+          label: "查看异常来源状态",
+          to: { path: "/sources/status", query: { focus: "warning", recent: "24h" } },
+        },
+        {
+          label: "查看最近更新主题",
+          to: { path: "/themes", query: { recent: "24h", sort: "latestEvent" } },
+        },
       ],
-    };
+    } satisfies ThemeDiagnostics;
   }
 
   const openCount = visibleThemes.reduce((sum, theme) => sum + (theme.openEventCount ?? 0), 0);
@@ -145,17 +204,41 @@ export function buildThemeDiagnostics(visibleThemes: ThemeSummary[]) {
       tone: "pending",
       toneLabel: "有处理压力",
       headline: "当前主题里已经积累了待处理、未读或收藏事件，建议按处理压力继续推进。",
-      summary: `当前筛选结果里共有 ${openCount} 条待处理事件、${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。`,
+      summary: `当前筛选结果里共有 ${openCount} 条待处理事件、${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。${impactSummary}`,
       priorityItems: priorityItems.length ? priorityItems : ["优先查看待处理事件较多的主题，避免判断堆积。"],
       actions: [
         openCount > 0
-          ? "优先进入待处理事件更多的主题，快速清理处理队列。"
+          ? {
+              label: "处理待处理主题",
+              to: { path: "/themes", query: { queue: "open", sort: "attention" } },
+            }
           : unreadCount > 0
-            ? "优先回看未读事件较多的主题，先完成一轮快速巡检。"
-            : "先回看关注中的主题，确认是否需要升级或关闭。",
-        "处理完事件状态后，再结合最近变化和趋势判断继续排优先级。",
+            ? {
+                label: "回看未读主题",
+                to: { path: "/themes", query: { queue: "unread", sort: "attention" } },
+              }
+            : {
+                label: "回看关注中主题",
+                to: { path: "/themes", query: { queue: "tracking", sort: "attention" } },
+              },
+        {
+          label: "查看相关事件工作台",
+          to: {
+            path: "/events",
+            query: {
+              status: openCount > 0 ? "open" : trackingCount > 0 ? "tracking" : undefined,
+              read: unreadCount > 0 ? "unread" : undefined,
+              impact: filtersImpactFromThemes(visibleThemes),
+              sort: openCount > 0 ? "statusChanged" : "occurredAt",
+            },
+          },
+        },
+        {
+          label: "查看来源状态",
+          to: { path: "/sources/status", query: { recent: "24h" } },
+        },
       ],
-    };
+    } satisfies ThemeDiagnostics;
   }
 
   if (recentCount > 0 || pausedCount > 0) {
@@ -163,31 +246,57 @@ export function buildThemeDiagnostics(visibleThemes: ThemeSummary[]) {
       tone: "pending",
       toneLabel: "值得继续跟进",
       headline: "当前主题整体可用，但最近有更新或状态变化，适合继续跟进。",
-      summary: `当前筛选结果里有 ${recentCount} 个最近24小时更新主题、${pausedCount} 个暂停主题。`,
+      summary: `当前筛选结果里有 ${recentCount} 个最近24小时更新主题、${pausedCount} 个暂停主题。${impactSummary}`,
       priorityItems: priorityItems.length ? priorityItems : ["优先看最近有新信号或最近刚运行过的主题。"],
       actions: [
-        "优先打开最近有新事件的主题，确认当前判断是否需要变化。",
-        pausedCount > 0 ? "顺手检查暂停主题是否仍需要暂停，避免长期遗漏。" : "如需更高把握，可按主题价值手动补跑关键来源。",
+        {
+          label: "查看最近更新主题",
+          to: { path: "/themes", query: { recent: "24h", sort: "latestEvent" } },
+        },
+        pausedCount > 0
+          ? {
+              label: "查看暂停主题来源",
+              to: { path: "/sources/status", query: { focus: "all", recent: "24h" } },
+            }
+          : {
+              label: "查看最近24小时事件",
+              to: { path: "/events", query: { recent: "24h", impact: filtersImpactFromThemes(visibleThemes), sort: "occurredAt" } },
+            },
+        {
+          label: "查看主题中心成组处理",
+          to: { path: "/themes", query: { impact: filtersImpactFromThemes(visibleThemes), sort: "attention" } },
+        },
       ],
-    };
+    } satisfies ThemeDiagnostics;
   }
 
   return {
     tone: "healthy",
     toneLabel: "整体稳定",
     headline: "当前主题整体状态稳定，暂时没有特别紧急的处理项。",
-    summary: `当前筛选结果里共 ${visibleThemes.length} 个主题，整体以持续观察为主。`,
+    summary: `当前筛选结果里共 ${visibleThemes.length} 个主题，整体以持续观察为主。${impactSummary}`,
     priorityItems: ["当前更适合按主题价值和个人关注度安排后续查看顺序。"],
     actions: [
-      "继续保持监控，重点关注下一轮新事件或来源状态变化。",
-      "如果要主动发现机会，可优先查看最近运行过但暂未产生事件的主题。",
+      {
+        label: "查看最近24小时事件",
+        to: { path: "/events", query: { recent: "24h", impact: filtersImpactFromThemes(visibleThemes), sort: "occurredAt" } },
+      },
+      {
+        label: "查看主题中心",
+        to: { path: "/themes", query: { impact: filtersImpactFromThemes(visibleThemes), sort: "attention" } },
+      },
+      {
+        label: "查看来源状态",
+        to: { path: "/sources/status", query: { recent: "24h" } },
+      },
     ],
-  };
+  } satisfies ThemeDiagnostics;
 }
 
 export function buildThemeComparisons(visibleThemes: ThemeSummary[]) {
   const candidates = [
     { type: "price", label: "价格主题" },
+    { type: "content_update", label: "内容更新主题" },
     { type: "financial_event", label: "金融事件主题" },
     { type: "news_announcement", label: "公告主题" },
   ];
@@ -212,6 +321,12 @@ export function buildThemeComparisons(visibleThemes: ThemeSummary[]) {
       summary = "来源状态异常，优先处理后再继续判断其价值。";
     } else if (topTheme.latestEventSignal === "30d_low") {
       summary = "最近出现了低价类信号，适合优先确认是否值得跟进。";
+    } else if (themeImpactTone(topTheme) === "negative") {
+      summary = `当前最新信号${impactToneLabel(themeImpactTone(topTheme))}，建议优先确认是否需要调整判断。`;
+    } else if (themeImpactTone(topTheme) === "positive") {
+      summary = `当前最新信号${impactToneLabel(themeImpactTone(topTheme))}，适合优先确认机会是否成立。`;
+    } else if (topTheme.latestEventSignal === "content_update") {
+      summary = "最近抓到新的内容更新，适合优先判断影响范围和后续动作。";
     } else if (topTheme.latestEventSignal === "new_financial_event" || topTheme.latestEventSignal === "new_announcement") {
       summary = "最近有新的关键事件，适合优先阅读并更新判断。";
     } else if (hasRecentThemeActivity(topTheme)) {
@@ -224,4 +339,73 @@ export function buildThemeComparisons(visibleThemes: ThemeSummary[]) {
       summary,
     };
   });
+}
+
+export function buildThemeWorkspaceActions(
+  visibleThemes: ThemeSummary[],
+  filters: ThemesBoardFilters,
+) {
+  if (!visibleThemes.length) {
+    return null;
+  }
+
+  const topTheme = [...visibleThemes].sort((left, right) => themeAttentionScore(right) - themeAttentionScore(left))[0];
+  const topImpact = themeImpactTone(topTheme);
+  const eventImpact =
+    filters.impactFilter !== "all" ? filters.impactFilter : topImpact !== "neutral" ? topImpact : undefined;
+
+  return {
+    summary: `当前筛选结果里共有 ${visibleThemes.length} 个主题，优先处理对象是 ${topTheme.name}。`,
+    actions: [
+      {
+        label:
+          (topTheme.openEventCount ?? 0) > 0
+            ? `处理 ${topTheme.name} 事件`
+            : topTheme.sourceHealth === "warning"
+              ? `排查 ${topTheme.name} 来源`
+              : topTheme.type === "price"
+                ? `查看 ${topTheme.name} 趋势`
+                : `查看 ${topTheme.name} 分析`,
+        to:
+          (topTheme.openEventCount ?? 0) > 0
+            ? { path: `/themes/${topTheme.id}`, query: { section: "events" } }
+            : topTheme.sourceHealth === "warning"
+              ? { path: "/sources/status", query: { themeId: topTheme.id, focus: "warning" } }
+              : topTheme.type === "price"
+                ? { path: `/themes/${topTheme.id}`, query: { section: "trend" } }
+                : { path: `/themes/${topTheme.id}`, query: { section: "analysis" } },
+      },
+      {
+        label: `查看 ${topTheme.name} 来源状态`,
+        to: { path: "/sources/status", query: { themeId: topTheme.id } },
+      },
+      {
+        label: `查看 ${topTheme.name} 相关事件`,
+        to: {
+          path: "/events",
+          query: {
+            themeId: topTheme.id,
+            impact: eventImpact,
+            status: (topTheme.openEventCount ?? 0) > 0 ? "open" : undefined,
+            sort: (topTheme.openEventCount ?? 0) > 0 ? "statusChanged" : "occurredAt",
+          },
+        },
+      },
+    ],
+  } satisfies ThemeWorkspaceActions;
+}
+
+function filtersImpactFromThemes(themes: ThemeSummary[]) {
+  const negativeCount = themes.filter((theme) => themeImpactTone(theme) === "negative").length;
+  const positiveCount = themes.filter((theme) => themeImpactTone(theme) === "positive").length;
+
+  if (negativeCount > 0 && positiveCount === 0) {
+    return "negative";
+  }
+
+  if (positiveCount > 0 && negativeCount === 0) {
+    return "positive";
+  }
+
+  return undefined;
 }

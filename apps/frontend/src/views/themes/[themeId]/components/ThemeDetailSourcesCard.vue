@@ -1,6 +1,12 @@
 <template>
   <article class="card">
-    <h3>来源</h3>
+    <div class="card-topline">
+      <h3>来源</h3>
+      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="{ path: '/sources/status', query: { themeId } }">
+        查看本主题来源状态
+        <span aria-hidden="true" class="text-base leading-none">›</span>
+      </RouterLink>
+    </div>
     <div class="flex flex-col gap-3">
       <div v-for="source in sources" :key="source.id" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
         <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -23,6 +29,12 @@
           <span class="text-[0.88rem] text-[#766f63]">最近失败: {{ formatDateTimeLabel(source.latestFailureAt) }}</span>
         </div>
         <div class="mt-3 flex flex-wrap gap-3">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: '/sources/status', query: { themeId, focus: source.status === 'warning' ? 'warning' : undefined } }"
+          >
+            在来源状态页查看
+          </RouterLink>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
             type="button"
@@ -105,6 +117,7 @@ import {
 } from "../../../../lib/presentation";
 
 const props = defineProps<{
+  themeId: string;
   sources: ThemeDetail["sources"];
   onToggleSourcePaused: (sourceId: string, isPaused: boolean) => Promise<void>;
   onDeleteSource: (sourceId: string) => Promise<void>;

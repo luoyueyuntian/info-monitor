@@ -5,16 +5,26 @@
       <span class="text-[0.88rem] text-[#766f63]">共 {{ themes.length }} 个主题</span>
     </div>
     <div v-if="themes.length" class="flex flex-col gap-3">
-      <RouterLink
+      <article
         v-for="theme in themes"
         :key="theme.id"
         class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
-        :to="`/themes/${theme.id}`"
       >
+        <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <input
+            :checked="selectedThemeIds.includes(theme.id)"
+            type="checkbox"
+            @change="toggleThemeSelection(theme.id)"
+          />
+          选中主题
+        </label>
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass()">{{ themeTypeLabel(theme.type) }}</span>
           <span :class="pillToneClass(theme.sourceHealth)" v-if="theme.sourceHealth">
             {{ sourceHealthLabel(theme.sourceHealth) }}
+          </span>
+          <span :class="pillToneClass(themeImpactTone(theme))" v-if="theme.latestEventSignal">
+            {{ impactToneLabel(themeImpactTone(theme)) }}
           </span>
           <span :class="pillToneClass(theme.latestEventSignal)" v-if="theme.latestEventSignal">
             {{ eventSignalLabel(theme.latestEventSignal) }}
@@ -32,7 +42,13 @@
             收藏 {{ theme.bookmarkedEventCount }}
           </span>
         </div>
-        <strong>{{ theme.name }}</strong>
+        <RouterLink
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          :to="themeDetailTarget(theme)"
+        >
+          {{ theme.name }}
+          <span aria-hidden="true" class="text-base leading-none">›</span>
+        </RouterLink>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
           <span class="text-[0.88rem] text-[#766f63]">状态: {{ themeStatusLabel(theme.status) }}</span>
           <span class="text-[0.88rem] text-[#766f63]">来源数: {{ theme.sourceCount }}</span>
@@ -42,7 +58,33 @@
         <div class="text-[#6f665a]">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
-      </RouterLink>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="themeDetailTarget(theme)"
+          >
+            查看主题
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: '/events', query: { themeId: theme.id, status: (theme.openEventCount ?? 0) > 0 ? 'open' : undefined, impact: themeImpactTone(theme) !== 'neutral' ? themeImpactTone(theme) : undefined, sort: (theme.openEventCount ?? 0) > 0 ? 'statusChanged' : 'occurredAt' } }"
+          >
+            查看相关事件
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
+          >
+            查看来源状态
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: `/themes/${theme.id}`, query: { section: theme.type === 'price' ? 'trend' : 'timeline' } }"
+          >
+            {{ theme.type === "price" ? "查看趋势" : "查看时间线" }}
+          </RouterLink>
+        </div>
+      </article>
     </div>
     <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前筛选条件下没有匹配的主题。
@@ -52,6 +94,7 @@
 
 <script setup lang="ts">
 import type { ThemeSummary } from "../../../lib/api";
+import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import {
   eventSignalLabel,
   formatDateTimeLabel,
@@ -63,5 +106,23 @@ import {
 
 defineProps<{
   themes: ThemeSummary[];
+  selectedThemeIds: string[];
+  toggleThemeSelection: (themeId: string) => void;
 }>();
+
+function themeDetailTarget(theme: ThemeSummary) {
+  if ((theme.openEventCount ?? 0) > 0 || (theme.unreadEventCount ?? 0) > 0) {
+    return { path: `/themes/${theme.id}`, query: { section: "events" } };
+  }
+
+  if (theme.sourceHealth === "warning") {
+    return { path: `/themes/${theme.id}`, query: { section: "sources" } };
+  }
+
+  if (theme.type === "price") {
+    return { path: `/themes/${theme.id}`, query: { section: "trend" } };
+  }
+
+  return { path: `/themes/${theme.id}`, query: { section: "analysis" } };
+}
 </script>

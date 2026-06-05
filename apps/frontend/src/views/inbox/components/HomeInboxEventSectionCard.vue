@@ -37,6 +37,21 @@
         {{ section.digest.primaryActionLabel }}
         <span aria-hidden="true" class="text-base leading-none">›</span>
       </RouterLink>
+      <div class="mt-3 flex flex-wrap gap-3">
+        <RouterLink
+          class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+          :to="{ path: '/events', query: { impact: inferredSectionImpact(section), recent: section.recentCount > 0 ? '24h' : undefined, sort: section.events.some((event) => (event.status ?? 'open') === 'open') ? 'statusChanged' : 'occurredAt' } }"
+        >
+          查看本分区事件
+        </RouterLink>
+        <RouterLink
+          v-if="section.visibleEvents[0]"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+          :to="{ path: `/themes/${section.visibleEvents[0].themeId}`, query: { section: inferredSectionImpact(section) === 'negative' ? 'analysis' : section.visibleEvents[0].infoType === 'price' ? 'trend' : 'timeline' } }"
+        >
+          查看优先主题
+        </RouterLink>
+      </div>
     </div>
 
     <div v-if="section.events.length" class="flex flex-col gap-3">
@@ -77,6 +92,7 @@
 import type { RouteLocationRaw } from "vue-router";
 
 import type { EventSummary } from "../../../lib/api";
+import { eventImpactTone } from "../../../lib/impact";
 import {
   eventBookmarkLabel,
   eventReadLabel,
@@ -106,4 +122,19 @@ defineProps<{
   eventHeaderToneClass: (event: EventSummary) => string;
   eventDetails: (event: EventSummary) => Array<{ label: string; value: string }>;
 }>();
+
+function inferredSectionImpact(section: { events: EventSummary[] }) {
+  const negativeCount = section.events.filter((event) => eventImpactTone(event) === "negative").length;
+  const positiveCount = section.events.filter((event) => eventImpactTone(event) === "positive").length;
+
+  if (negativeCount > 0 && positiveCount === 0) {
+    return "negative";
+  }
+
+  if (positiveCount > 0 && negativeCount === 0) {
+    return "positive";
+  }
+
+  return undefined;
+}
 </script>

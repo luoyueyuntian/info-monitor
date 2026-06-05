@@ -16,6 +16,15 @@ describe("theme-editor-presets", () => {
     expect(state.adapterKey).toBe("pbc_news_list");
   });
 
+  it("loads content update preset defaults into form state", () => {
+    const state = buildThemePresetFormState("content-update-page");
+
+    expect(state.themeType).toBe("content_update");
+    expect(state.infoType).toBe("content_update");
+    expect(state.sourceName).toBe("Figma Release Notes");
+    expect(state.adapterKey).toBe("generic_content_update_list");
+  });
+
   it("builds typed source config from preset field values", () => {
     expect(
       buildThemeSourceConfig("eastmoney-price", "{}", {

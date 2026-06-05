@@ -11,6 +11,8 @@ export const themeManagedQueryKeys = [
   "eventQueue",
   "health",
   "healthFilter",
+  "impact",
+  "impactFilter",
   "sort",
   "sortBy",
   "recent",
@@ -35,6 +37,10 @@ export function buildThemeManagedQuery(filters: ThemesBoardFilters) {
     nextQuery.health = filters.healthFilter;
   }
 
+  if (filters.impactFilter !== "all") {
+    nextQuery.impact = filters.impactFilter;
+  }
+
   if (filters.sortBy !== "priority") {
     nextQuery.sort = filters.sortBy;
   }
@@ -51,13 +57,15 @@ export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
   const queryType = query.type ?? query.typeFilter;
   const queryQueue = query.queue ?? query.eventQueue;
   const queryHealth = query.health ?? query.healthFilter;
+  const queryImpact = query.impact ?? query.impactFilter;
   const querySort = query.sort ?? query.sortBy;
   const queryRecent = query.recent;
 
-  const allowedTypes = ["price", "news_announcement", "financial_event", "all"];
+  const allowedTypes = ["price", "content_update", "news_announcement", "financial_event", "all"];
   const allowedQueues = ["open", "tracking", "ignored", "unread", "bookmarked", "all"];
   const allowedHealth = ["healthy", "warning", "all"];
-  const allowedSort = ["attention", "priority", "latestEvent", "latestRun", "name"];
+  const allowedImpact = ["positive", "negative", "neutral", "all"];
+  const allowedSort = ["attention", "priority", "latestEvent", "latestRun", "latestBookmarked", "name"];
 
   return {
     query: typeof queryText === "string" ? queryText : "",
@@ -66,6 +74,8 @@ export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
       typeof queryQueue === "string" && allowedQueues.includes(queryQueue) ? queryQueue : "all",
     healthFilter:
       typeof queryHealth === "string" && allowedHealth.includes(queryHealth) ? queryHealth : "all",
+    impactFilter:
+      typeof queryImpact === "string" && allowedImpact.includes(queryImpact) ? queryImpact : "all",
     sortBy: typeof querySort === "string" && allowedSort.includes(querySort) ? querySort : "priority",
     recentOnly24h: queryRecent === "24h" || queryRecent === "true",
   };
@@ -80,6 +90,7 @@ export function matchesThemePresetFilters(
       type: string;
       queue: string;
       health: string;
+      impact?: string;
       sort: string;
       recent: boolean;
     };
@@ -97,6 +108,7 @@ export function matchesThemePresetFilters(
     filters.typeFilter === preset.filters.type &&
     filters.eventQueueFilter === preset.filters.queue &&
     filters.healthFilter === preset.filters.health &&
+    filters.impactFilter === (preset.filters.impact ?? "all") &&
     filters.sortBy === preset.filters.sort &&
     filters.recentOnly24h === preset.filters.recent
   );

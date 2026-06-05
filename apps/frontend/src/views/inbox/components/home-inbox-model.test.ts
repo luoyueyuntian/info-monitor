@@ -5,6 +5,7 @@ import {
   buildDiagnosisTrendSummary,
   buildInboxDiagnosis,
   buildInboxSectionDigest,
+  buildInboxWorkspaceActions,
   buildLongTermWatch,
 } from "./home-inbox-model";
 
@@ -12,6 +13,8 @@ const summary: DashboardSummary = {
   activeThemes: 2,
   openEvents: 3,
   trackingEvents: 1,
+  unreadEvents: 4,
+  bookmarkedEvents: 2,
   recentEvents: 4,
   warningSources: 1,
   pendingSources: 2,
@@ -66,12 +69,15 @@ describe("home-inbox-model", () => {
       activeThemes: 2,
       openEvents: 1,
       trackingEvents: 1,
+      unreadEvents: 1,
+      bookmarkedEvents: 1,
       recentEvents: 3,
       warningSources: 0,
       pendingSources: 4,
     });
 
     expect(result).toContain("待处理事件增加 2");
+    expect(result).toContain("未读事件增加 3");
     expect(result).toContain("异常来源增加 1");
   });
 
@@ -80,18 +86,23 @@ describe("home-inbox-model", () => {
 
     expect(digest.headline).toContain("价格");
     expect(digest.primaryActionLabel).toContain("查看重点主题");
+    expect(digest.highlights.some((item) => item.includes("影响判断"))).toBe(true);
   });
 
   it("builds warning inbox diagnosis when warnings exist", () => {
     const diagnosis = buildInboxDiagnosis(
       summary,
-      [makeTheme({ openEventCount: 2 })],
+      [makeTheme({ openEventCount: 2, latestEventSignal: "bearish" })],
       [makeSource({ status: "warning", latestRunStatus: "failed" })],
       (theme) => ({ path: `/themes/${theme.id}` }),
     );
 
     expect(diagnosis.tone).toBe("warning");
     expect(diagnosis.actions).toHaveLength(3);
+    expect(diagnosis.actions[2]).toEqual({
+      label: "查看偏利空主题",
+      to: { path: "/themes", query: { impact: "negative", sort: "attention" } },
+    });
   });
 
   it("builds long-term watch summary from bookmarked themes and events", () => {
@@ -103,5 +114,24 @@ describe("home-inbox-model", () => {
 
     expect(watch.tone).toBe("pending");
     expect(watch.summary).toContain("收藏主题");
+  });
+
+  it("builds inbox workspace actions around current pressure", () => {
+    const workspace = buildInboxWorkspaceActions(
+      summary,
+      [makeTheme({ id: "theme_open", name: "Theme Open", openEventCount: 2 })],
+      [makeSource({ id: "source_warning", status: "warning", themeId: "theme_open", themeName: "Theme Open" })],
+      [makeEvent({ id: "event_open", themeId: "theme_open", themeName: "Theme Open", status: "open" })],
+    );
+
+    expect(workspace?.summary).toContain("待处理事件");
+    expect(workspace?.actions[0]).toEqual({
+      label: "处理 Theme Open 主题",
+      to: { path: "/themes/theme_open", query: { section: "events" } },
+    });
+    expect(workspace?.actions[1]).toEqual({
+      label: "排查异常来源",
+      to: { path: "/sources/status", query: { focus: "warning", themeId: "theme_open", recent: "24h" } },
+    });
   });
 });

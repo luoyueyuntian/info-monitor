@@ -2,6 +2,19 @@ import type { EventWorkbenchFilters } from "./event-workbench-model";
 
 type QueryRecord = Record<string, unknown>;
 
+function normalizeThemeFilter(value: string, themeOptions: Array<{ id: string }>) {
+  const ids = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!ids.length) {
+    return "all";
+  }
+
+  return ids.every((id) => themeOptions.some((item) => item.id === id)) ? ids.join(",") : "all";
+}
+
 export const eventWorkbenchManagedQueryKeys = [
   "q",
   "query",
@@ -9,6 +22,7 @@ export const eventWorkbenchManagedQueryKeys = [
   "theme",
   "status",
   "type",
+  "impact",
   "read",
   "bookmark",
   "sort",
@@ -33,6 +47,10 @@ export function buildEventWorkbenchManagedQuery(filters: EventWorkbenchFilters) 
 
   if (filters.typeFilter !== "all") {
     nextQuery.type = filters.typeFilter;
+  }
+
+  if (filters.impactFilter !== "all") {
+    nextQuery.impact = filters.impactFilter;
   }
 
   if (filters.readFilter !== "all") {
@@ -67,24 +85,28 @@ export function readEventWorkbenchRouteFilters(
   const queryTheme = query.themeId ?? query.theme;
   const queryStatus = query.status;
   const queryType = query.type;
+  const queryImpact = query.impact;
   const queryRead = query.read;
   const queryBookmark = query.bookmark;
   const querySort = query.sort;
   const queryRecent = query.recent;
   const querySince = query.since;
   const allowedStatuses = ["all", "open", "tracking", "ignored"];
-  const allowedTypes = ["all", "price", "news_announcement", "financial_event"];
+  const allowedTypes = ["all", "price", "content_update", "news_announcement", "financial_event"];
+  const allowedImpact = ["all", "positive", "negative", "neutral"];
   const allowedReadStates = ["all", "unread", "read"];
   const allowedBookmarkStates = ["all", "bookmarked"];
-  const allowedSort = ["occurredAt", "statusChanged"];
+  const allowedSort = ["occurredAt", "statusChanged", "bookmarkedAt"];
 
   return {
     query: typeof queryText === "string" ? queryText : "",
     statusFilter:
       typeof queryStatus === "string" && allowedStatuses.includes(queryStatus) ? queryStatus : "all",
     themeFilter:
-      typeof queryTheme === "string" && themeOptions.some((item) => item.id === queryTheme) ? queryTheme : "all",
+      typeof queryTheme === "string" ? normalizeThemeFilter(queryTheme, themeOptions) : "all",
     typeFilter: typeof queryType === "string" && allowedTypes.includes(queryType) ? queryType : "all",
+    impactFilter:
+      typeof queryImpact === "string" && allowedImpact.includes(queryImpact) ? queryImpact : "all",
     readFilter:
       typeof queryRead === "string" && allowedReadStates.includes(queryRead) ? queryRead : "all",
     bookmarkFilter:
@@ -104,6 +126,7 @@ export function matchesEventWorkbenchPreset(
       theme: string;
       status: string;
       type: string;
+      impact?: string;
       sort: string;
       recent: boolean;
       read?: string;
@@ -123,6 +146,7 @@ export function matchesEventWorkbenchPreset(
     filters.themeFilter === preset.filters.theme &&
     filters.statusFilter === preset.filters.status &&
     filters.typeFilter === preset.filters.type &&
+    filters.impactFilter === (preset.filters.impact ?? "all") &&
     filters.readFilter === (preset.filters.read ?? "all") &&
     filters.bookmarkFilter === (preset.filters.bookmark ?? "all") &&
     filters.sortBy === preset.filters.sort &&

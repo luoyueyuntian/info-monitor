@@ -1,4 +1,6 @@
 import type { EventSummary } from "../../../lib/api";
+import type { RouteLocationRaw } from "vue-router";
+import { eventImpactTone } from "../../../lib/impact";
 import { toTimestamp } from "../../../lib/time";
 
 export type EventWorkbenchFilters = {
@@ -6,11 +8,32 @@ export type EventWorkbenchFilters = {
   themeFilter: string;
   statusFilter: string;
   typeFilter: string;
+  impactFilter: string;
   readFilter: string;
   bookmarkFilter: string;
   sortBy: string;
   recentOnly24h: boolean;
   sinceFilter: string;
+};
+
+export type EventDiagnostics = {
+  tone: string;
+  toneLabel: string;
+  headline: string;
+  summary: string;
+  priorityItems: string[];
+  actions: Array<{
+    label: string;
+    to: RouteLocationRaw;
+  }>;
+};
+
+export type EventWorkspaceActions = {
+  summary: string;
+  actions: Array<{
+    label: string;
+    to: RouteLocationRaw;
+  }>;
 };
 
 export function buildEventThemeOptions(events: EventSummary[]) {
@@ -32,6 +55,13 @@ export function filterWorkbenchEvents(
   filters: EventWorkbenchFilters,
 ) {
   let items = [...events];
+  const themeIds =
+    filters.themeFilter === "all"
+      ? []
+      : filters.themeFilter
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
 
   if (filters.query) {
     const normalized = filters.query.toLowerCase();
@@ -46,12 +76,16 @@ export function filterWorkbenchEvents(
     items = items.filter((event) => (event.status ?? "open") === filters.statusFilter);
   }
 
-  if (filters.themeFilter !== "all") {
-    items = items.filter((event) => event.themeId === filters.themeFilter);
+  if (themeIds.length) {
+    items = items.filter((event) => themeIds.includes(event.themeId));
   }
 
   if (filters.typeFilter !== "all") {
     items = items.filter((event) => event.infoType === filters.typeFilter);
+  }
+
+  if (filters.impactFilter !== "all") {
+    items = items.filter((event) => eventImpactTone(event) === filters.impactFilter);
   }
 
   if (filters.readFilter === "read") {
@@ -78,6 +112,10 @@ export function filterWorkbenchEvents(
   }
 
   items.sort((left, right) => {
+    if (filters.sortBy === "bookmarkedAt") {
+      return toTimestamp(right.bookmarkedAt) - toTimestamp(left.bookmarkedAt);
+    }
+
     if (filters.sortBy === "statusChanged") {
       return toTimestamp(right.latestStatusChangedAt) - toTimestamp(left.latestStatusChangedAt);
     }
@@ -97,6 +135,10 @@ export function buildEventDiagnostics(
   const ignoredCount = visible.filter((event) => event.status === "ignored").length;
   const unreadCount = visible.filter((event) => !event.isRead).length;
   const bookmarkedCount = visible.filter((event) => Boolean(event.isBookmarked)).length;
+  const positiveCount = visible.filter((event) => eventImpactTone(event) === "positive").length;
+  const negativeCount = visible.filter((event) => eventImpactTone(event) === "negative").length;
+  const neutralCount = visible.length - positiveCount - negativeCount;
+  const impactSummary = `影响判断上共有 ${positiveCount} 条偏利好、${negativeCount} 条偏利空、${neutralCount} 条中性事件。`;
   const priorityItems = visible
     .filter((event) => (event.status ?? "open") === "open" || event.status === "tracking")
     .slice(0, 3)
@@ -107,13 +149,23 @@ export function buildEventDiagnostics(
       tone: "warning",
       toneLabel: "优先清理待处理",
       headline: "当前仍有待处理事件积压，适合先集中清理这一批事件。",
-      summary: `当前筛选结果里有 ${openCount} 条待处理事件、${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。`,
+      summary: `当前筛选结果里有 ${openCount} 条待处理事件、${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。${impactSummary}`,
       priorityItems: priorityItems.length ? priorityItems : ["当前有待处理事件，建议优先逐条确认。"],
       actions: [
-        "先把最重要的待处理事件转成关注中或已忽略，减少积压。",
-        "处理完后，再回到首页或主题页看整体诊断是否有变化。",
+        {
+          label: "处理待处理事件",
+          to: { path: "/events", query: { status: "open", sort: "statusChanged" } },
+        },
+        {
+          label: "查看偏利空事件",
+          to: { path: "/events", query: { status: "open", impact: "negative", sort: "statusChanged" } },
+        },
+        {
+          label: "查看主题中心",
+          to: { path: "/themes", query: { queue: "open", sort: "attention" } },
+        },
       ],
-    };
+    } satisfies EventDiagnostics;
   }
 
   if (trackingCount > 0) {
@@ -121,13 +173,23 @@ export function buildEventDiagnostics(
       tone: "pending",
       toneLabel: "持续跟进中",
       headline: "当前主要是关注中的事件，适合回看哪些需要继续升级处理。",
-      summary: `当前筛选结果里有 ${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。`,
+      summary: `当前筛选结果里有 ${trackingCount} 条关注中事件、${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。${impactSummary}`,
       priorityItems: priorityItems.length ? priorityItems : ["当前主要以关注中的事件为主。"],
       actions: [
-        "优先检查关注中的事件是否已经需要升级或关闭。",
-        "如果信息价值下降，可及时标为已忽略。",
+        {
+          label: "回看关注中事件",
+          to: { path: "/events", query: { status: "tracking", sort: "statusChanged" } },
+        },
+        {
+          label: "查看偏利空事件",
+          to: { path: "/events", query: { status: "tracking", impact: "negative", sort: "statusChanged" } },
+        },
+        {
+          label: "查看主题中心",
+          to: { path: "/themes", query: { queue: "tracking", sort: "attention" } },
+        },
       ],
-    };
+    } satisfies EventDiagnostics;
   }
 
   if (bookmarkedCount > 0 || unreadCount > 0) {
@@ -135,7 +197,7 @@ export function buildEventDiagnostics(
       tone: "pending",
       toneLabel: "适合回看",
       headline: "当前更适合回看未读或已收藏事件，把高价值线索沉淀成长期观察素材。",
-      summary: `当前筛选结果里有 ${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。`,
+      summary: `当前筛选结果里有 ${unreadCount} 条未读事件、${bookmarkedCount} 条收藏事件。${impactSummary}`,
       priorityItems:
         priorityItems.length
           ? priorityItems
@@ -143,23 +205,51 @@ export function buildEventDiagnostics(
             ? ["当前收藏事件适合作为重点回看与持续跟踪对象。"]
             : ["当前未读事件适合先完成一轮快速巡检。"],
       actions: [
-        unreadCount > 0 ? "优先把未读事件快速过一遍，区分普通信号和真正值得收藏的线索。" : "先回看收藏事件，确认是否仍值得持续关注。",
-        bookmarkedCount > 0 ? "收藏事件建议结合主题详情和历史时间线做二次确认。" : "如发现值得长期跟踪的事件，可及时加入收藏。",
+        unreadCount > 0
+          ? {
+              label: "回看未读事件",
+              to: { path: "/events", query: { read: "unread", sort: "occurredAt" } },
+            }
+          : {
+              label: "回看收藏事件",
+              to: { path: "/events", query: { bookmark: "bookmarked", sort: "bookmarkedAt" } },
+            },
+        {
+          label: "查看长期观察清单",
+          to: { path: "/watchlist" },
+        },
+        {
+          label: "查看主题中心",
+          to: { path: "/themes", query: { queue: bookmarkedCount > 0 ? "bookmarked" : "unread", sort: "attention" } },
+        },
       ],
-    };
+    } satisfies EventDiagnostics;
   }
 
   return {
     tone: "healthy",
     toneLabel: "队列清爽",
     headline: "当前没有明显的事件处理积压，工作台整体较清爽。",
-    summary: ignoredCount > 0 ? `当前更多是已忽略事件，共 ${ignoredCount} 条。` : "当前筛选结果里没有需要优先处理的事件。",
+    summary:
+      ignoredCount > 0
+        ? `当前更多是已忽略事件，共 ${ignoredCount} 条。${impactSummary}`
+        : `当前筛选结果里没有需要优先处理的事件。${impactSummary}`,
     priorityItems: ["当前更适合返回首页或主题页继续做新的观察和判断。"],
     actions: [
-      "继续监控新的事件进入工作台。",
-      "按需要调整筛选条件，回看历史处理结果。",
+      {
+        label: "查看最近24小时事件",
+        to: { path: "/events", query: { recent: "24h", sort: "occurredAt" } },
+      },
+      {
+        label: "查看主题中心",
+        to: { path: "/themes", query: { sort: "attention" } },
+      },
+      {
+        label: "返回首页",
+        to: { path: "/" },
+      },
     ],
-  };
+  } satisfies EventDiagnostics;
 }
 
 export function buildEventThemeBuckets(visible: EventSummary[]) {
@@ -238,6 +328,44 @@ export function buildEventThemeBuckets(visible: EventSummary[]) {
     .slice(0, 6);
 }
 
+export function buildEventWorkspaceActions(
+  visible: EventSummary[],
+  filters: EventWorkbenchFilters,
+) {
+  if (!visible.length) {
+    return null;
+  }
+
+  const topEvent = [...visible].sort((left, right) => toTimestamp(right.latestStatusChangedAt) - toTimestamp(left.latestStatusChangedAt))[0];
+  const impact = filters.impactFilter !== "all" ? filters.impactFilter : eventImpactTone(topEvent) !== "neutral" ? eventImpactTone(topEvent) : undefined;
+
+  return {
+    summary: `当前筛选结果里共有 ${visible.length} 条事件，优先处理对象是「${topEvent.title}」。`,
+    actions: [
+      {
+        label: `查看 ${topEvent.themeName} 主题`,
+        to: { path: `/themes/${topEvent.themeId}`, query: { section: (topEvent.status ?? "open") === "open" ? "events" : "analysis" } },
+      },
+      {
+        label: `查看 ${topEvent.themeName} 来源状态`,
+        to: { path: "/sources/status", query: { themeId: topEvent.themeId } },
+      },
+      {
+        label: "只看同主题事件",
+        to: {
+          path: "/events",
+          query: {
+            themeId: topEvent.themeId,
+            impact,
+            status: filters.statusFilter !== "all" ? filters.statusFilter : (topEvent.status ?? "open") === "open" ? "open" : undefined,
+            sort: (topEvent.status ?? "open") === "open" ? "statusChanged" : "occurredAt",
+          },
+        },
+      },
+    ],
+  } satisfies EventWorkspaceActions;
+}
+
 export function buildEventFilterSummary(
   filters: EventWorkbenchFilters,
   themeOptions: Array<{ id: string; name: string }>,
@@ -245,14 +373,31 @@ export function buildEventFilterSummary(
   themeTypeLabel: (type: string) => string,
   formatSmartDateTimeLabel: (value?: string | null) => string,
 ) {
+  const themeIds =
+    filters.themeFilter === "all"
+      ? []
+      : filters.themeFilter
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+  const themeLabel =
+    themeIds.length === 0
+      ? ""
+      : themeIds.length === 1
+        ? themeOptions.find((item) => item.id === themeIds[0])?.name ?? themeIds[0]
+        : `${themeIds.length} 个主题`;
   const parts = [
     filters.query ? `搜索“${filters.query}”` : "",
-    filters.themeFilter !== "all" ? `主题 ${themeOptions.find((item) => item.id === filters.themeFilter)?.name ?? filters.themeFilter}` : "",
+    themeLabel ? `主题 ${themeLabel}` : "",
     filters.statusFilter !== "all" ? `状态 ${eventStatusLabel(filters.statusFilter)}` : "",
     filters.typeFilter !== "all" ? `类型 ${themeTypeLabel(filters.typeFilter)}` : "",
+    filters.impactFilter === "positive" ? "影响 偏利好" : "",
+    filters.impactFilter === "negative" ? "影响 偏利空" : "",
+    filters.impactFilter === "neutral" ? "影响 中性" : "",
     filters.readFilter === "read" ? "只看已读" : "",
     filters.readFilter === "unread" ? "只看未读" : "",
     filters.bookmarkFilter === "bookmarked" ? "只看收藏" : "",
+    filters.sortBy === "bookmarkedAt" ? "按最近收藏排序" : "",
     filters.sortBy === "statusChanged" ? "按最近状态变化排序" : "",
     filters.recentOnly24h ? "最近24小时" : "",
     filters.sinceFilter ? `仅看 ${formatSmartDateTimeLabel(filters.sinceFilter)} 之后变化` : "",

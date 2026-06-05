@@ -20,6 +20,8 @@
       :diagnostic="longTermWatch"
     />
 
+    <HomeInboxWorkspaceActionsCard :workspace="inboxWorkspaceActions" />
+
     <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.95fr)]">
       <section class="grid content-start gap-4">
         <HomeInboxFocusToolbar />
@@ -59,10 +61,12 @@ import HomeInboxFocusToolbar from "./HomeInboxFocusToolbar.vue";
 import HomeInboxSourcesPanelSection from "./HomeInboxSourcesPanelSection.vue";
 import HomeInboxSummaryGrid from "./HomeInboxSummaryGrid.vue";
 import HomeInboxThemesPanelSection from "./HomeInboxThemesPanelSection.vue";
+import HomeInboxWorkspaceActionsCard from "./HomeInboxWorkspaceActionsCard.vue";
 import {
   buildDiagnosisTrendSummary,
   buildInboxDiagnosis,
   buildInboxSectionDigest,
+  buildInboxWorkspaceActions,
   buildLongTermWatch,
 } from "./home-inbox-model";
 import {
@@ -94,6 +98,8 @@ const dashboard = reactive<{
     activeThemes: 0,
     openEvents: 0,
     trackingEvents: 0,
+    unreadEvents: 0,
+    bookmarkedEvents: 0,
     recentEvents: 0,
     warningSources: 0,
     pendingSources: 0,
@@ -102,6 +108,7 @@ const dashboard = reactive<{
   bookmarkedEvents: [],
   sectionCounts: {
     "price-signals": { total: 0, recent: 0 },
+    "content-updates": { total: 0, recent: 0 },
     "official-releases": { total: 0, recent: 0 },
     "financial-events": { total: 0, recent: 0 },
   },
@@ -127,6 +134,10 @@ const focusedSectionId = computed(() => {
 
   if (raw === "events-price") {
     return "price-signals";
+  }
+
+  if (raw === "events-content") {
+    return "content-updates";
   }
 
   if (raw === "events-official") {
@@ -185,6 +196,8 @@ function parseStoredDashboardSnapshot(raw: string | null) {
       typeof summary.activeThemes !== "number" ||
       typeof summary.openEvents !== "number" ||
       typeof summary.trackingEvents !== "number" ||
+      typeof summary.unreadEvents !== "number" ||
+      typeof summary.bookmarkedEvents !== "number" ||
       typeof summary.recentEvents !== "number" ||
       typeof summary.warningSources !== "number" ||
       typeof summary.pendingSources !== "number"
@@ -198,6 +211,8 @@ function parseStoredDashboardSnapshot(raw: string | null) {
         activeThemes: summary.activeThemes,
         openEvents: summary.openEvents,
         trackingEvents: summary.trackingEvents,
+        unreadEvents: summary.unreadEvents,
+        bookmarkedEvents: summary.bookmarkedEvents,
         recentEvents: summary.recentEvents,
         warningSources: summary.warningSources,
         pendingSources: summary.pendingSources,
@@ -261,6 +276,14 @@ function summaryDeltaTarget(key: keyof DashboardSummary) {
 
   if (key === "trackingEvents") {
     return { path: "/events", query: { status: "tracking", sort: "statusChanged", since } };
+  }
+
+  if (key === "unreadEvents") {
+    return { path: "/events", query: { read: "unread", sort: "occurredAt", since } };
+  }
+
+  if (key === "bookmarkedEvents") {
+    return { path: "/events", query: { bookmark: "bookmarked", sort: "statusChanged", since } };
   }
 
   if (key === "recentEvents") {
@@ -334,6 +357,14 @@ function eventDetails(event: EventSummary) {
     ];
   }
 
+  if (event.infoType === "content_update") {
+    return [
+      { label: "对象", value: formatMaybeLabel(context.object_name) },
+      { label: "更新类型", value: formatMaybeLabel(context.update_type) },
+      { label: "链接", value: formatMaybeLabel(context.url) },
+    ];
+  }
+
   if (event.infoType === "financial_event") {
     return [
       { label: "方向", value: eventSignalLabel(String(context.direction_label ?? "")) },
@@ -390,6 +421,12 @@ const eventSections = computed(() => [
     events: eventListForDashboard.value.filter((event) => event.infoType === "price"),
   },
   {
+    id: "content-updates",
+    title: "内容更新",
+    description: "查看产品更新、功能发布、活动页变化和其他内容类更新。",
+    events: eventListForDashboard.value.filter((event) => event.infoType === "content_update"),
+  },
+  {
     id: "official-releases",
     title: "官方发布",
     description: "重点关注机构官方渠道的新公告、新发布和制度类更新。",
@@ -432,6 +469,10 @@ const inboxDiagnosis = computed(() =>
 
 const longTermWatch = computed(() =>
   buildLongTermWatch(dashboard.themes, dashboard.bookmarkedEvents, themeDetailTarget),
+);
+
+const inboxWorkspaceActions = computed(() =>
+  buildInboxWorkspaceActions(dashboard.summary, dashboard.themes, dashboard.sources, dashboard.events),
 );
 
 onMounted(async () => {

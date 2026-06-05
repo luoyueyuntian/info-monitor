@@ -87,6 +87,13 @@ const sectionMeta = computed(() => {
     };
   }
 
+  if (sectionId === "content-updates") {
+    return {
+      title: "内容更新",
+      description: "查看产品更新、功能发布、活动页和文档更新等全部记录。",
+    };
+  }
+
   if (sectionId === "official-releases") {
     return {
       title: "官方发布",
@@ -146,6 +153,10 @@ function eventHeaderToneClass(event: EventSummary) {
     return "bg-[rgba(217,231,242,0.92)]";
   }
 
+  if (event.infoType === "content_update") {
+    return "bg-[rgba(241,228,204,0.92)]";
+  }
+
   if (event.infoType === "financial_event") {
     return "bg-[rgba(226,221,241,0.92)]";
   }
@@ -169,6 +180,14 @@ function eventDetails(event: EventSummary) {
       { label: "主题", value: formatMaybeLabel(context.release_topic_label) },
       { label: "发布方", value: formatMaybeLabel(context.publisher) },
       { label: "类别", value: formatMaybeLabel(context.category) },
+    ];
+  }
+
+  if (event.infoType === "content_update") {
+    return [
+      { label: "对象", value: formatMaybeLabel(context.object_name) },
+      { label: "更新类型", value: formatMaybeLabel(context.update_type) },
+      { label: "链接", value: formatMaybeLabel(context.url) },
     ];
   }
 

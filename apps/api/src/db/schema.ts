@@ -91,6 +91,7 @@ export interface EventsTable {
   status: string;
   is_read: boolean;
   is_bookmarked: boolean;
+  bookmarked_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
   occurred_at: TimestampColumn;
   created_at: TimestampColumn;
 }

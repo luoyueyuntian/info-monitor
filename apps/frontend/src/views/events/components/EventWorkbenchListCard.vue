@@ -22,6 +22,7 @@
         </label>
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass(event.signal)">{{ eventSignalLabel(event.signal) }}</span>
+          <span :class="pillToneClass(eventImpactTone(event))">{{ impactToneLabel(eventImpactTone(event)) }}</span>
           <span :class="pillToneClass(event.status)">{{ eventStatusLabel(event.status) }}</span>
           <span :class="pillToneClass()" v-if="event.infoType">{{ themeTypeLabel(event.infoType) }}</span>
           <span :class="pillToneClass(event.isRead ? 'active' : 'pending')">{{ eventReadLabel(event.isRead) }}</span>
@@ -100,6 +101,7 @@
 
 <script setup lang="ts">
 import type { EventSummary } from "../../../lib/api";
+import { eventImpactTone, impactToneLabel } from "../../../lib/impact";
 import {
   eventBookmarkLabel,
   eventReadLabel,

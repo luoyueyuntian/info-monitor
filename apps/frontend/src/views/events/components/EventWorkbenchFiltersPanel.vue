@@ -24,6 +24,7 @@
       <input class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="query" placeholder="搜索事件标题或主题..." @input="setQuery(($event.target as HTMLInputElement).value)" />
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="themeFilter" @change="setThemeFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部主题</option>
+        <option v-if="themeContextLabel" :value="themeFilter">{{ themeContextLabel }}</option>
         <option v-for="option in themeOptions" :key="option.id" :value="option.id">
           {{ option.name }}
         </option>
@@ -37,8 +38,15 @@
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="typeFilter" @change="setTypeFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部类型</option>
         <option value="price">价格</option>
+        <option value="content_update">内容更新</option>
         <option value="news_announcement">公告</option>
         <option value="financial_event">金融事件</option>
+      </select>
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="impactFilter" @change="setImpactFilter(($event.target as HTMLSelectElement).value)">
+        <option value="all">全部影响</option>
+        <option value="positive">偏利好</option>
+        <option value="negative">偏利空</option>
+        <option value="neutral">中性</option>
       </select>
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="readFilter" @change="setReadFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部阅读状态</option>
@@ -52,6 +60,7 @@
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="sortBy" @change="setSortBy(($event.target as HTMLSelectElement).value)">
         <option value="occurredAt">按事件时间</option>
         <option value="statusChanged">按最近状态变化</option>
+        <option value="bookmarkedAt">按最近收藏</option>
       </select>
       <label class="flex items-center gap-2.5 font-semibold">
         <input :checked="recentOnly24h" type="checkbox" @change="setRecentOnly24h(($event.target as HTMLInputElement).checked)" />
@@ -140,6 +149,7 @@ defineProps<{
   themeFilter: string;
   statusFilter: string;
   typeFilter: string;
+  impactFilter: string;
   readFilter: string;
   bookmarkFilter: string;
   sortBy: string;
@@ -147,6 +157,7 @@ defineProps<{
   sinceFilter: string;
   incrementalEventCount: number;
   themeOptions: Array<{ id: string; name: string }>;
+  themeContextLabel?: string;
   selectedCount: number;
   allVisibleSelected: boolean;
   bulkUpdating: boolean;
@@ -157,6 +168,7 @@ defineProps<{
   setThemeFilter: (value: string) => void;
   setStatusFilter: (value: string) => void;
   setTypeFilter: (value: string) => void;
+  setImpactFilter: (value: string) => void;
   setReadFilter: (value: string) => void;
   setBookmarkFilter: (value: string) => void;
   setSortBy: (value: string) => void;

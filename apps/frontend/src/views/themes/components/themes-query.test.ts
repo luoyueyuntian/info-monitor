@@ -14,7 +14,8 @@ describe("themes-query", () => {
         typeFilter: "news_announcement",
         eventQueueFilter: "open",
         healthFilter: "warning",
-        sortBy: "latestEvent",
+        impactFilter: "negative",
+        sortBy: "latestBookmarked",
         recentOnly24h: true,
       }),
     ).toEqual({
@@ -22,7 +23,8 @@ describe("themes-query", () => {
       type: "news_announcement",
       queue: "open",
       health: "warning",
-      sort: "latestEvent",
+      impact: "negative",
+      sort: "latestBookmarked",
       recent: "24h",
     });
   });
@@ -34,6 +36,7 @@ describe("themes-query", () => {
         type: "financial_event",
         queue: "bookmarked",
         health: "warning",
+        impact: "positive",
         sort: "attention",
         recent: "24h",
       }),
@@ -42,6 +45,7 @@ describe("themes-query", () => {
       typeFilter: "financial_event",
       eventQueueFilter: "bookmarked",
       healthFilter: "warning",
+      impactFilter: "positive",
       sortBy: "attention",
       recentOnly24h: true,
     });
@@ -52,6 +56,7 @@ describe("themes-query", () => {
         type: "invalid",
         queue: "invalid",
         health: "invalid",
+        impact: "invalid",
         sort: "invalid",
       }),
     ).toEqual({
@@ -59,6 +64,7 @@ describe("themes-query", () => {
       typeFilter: "all",
       eventQueueFilter: "all",
       healthFilter: "all",
+      impactFilter: "all",
       sortBy: "priority",
       recentOnly24h: false,
     });
@@ -73,6 +79,7 @@ describe("themes-query", () => {
           type: "all",
           queue: "open",
           health: "all",
+          impact: "negative",
           sort: "attention",
           recent: false,
         },
@@ -85,6 +92,7 @@ describe("themes-query", () => {
         typeFilter: "all",
         eventQueueFilter: "open",
         healthFilter: "all",
+        impactFilter: "negative",
         sortBy: "attention",
         recentOnly24h: false,
       }),
@@ -96,6 +104,7 @@ describe("themes-query", () => {
         typeFilter: "all",
         eventQueueFilter: "open",
         healthFilter: "all",
+        impactFilter: "negative",
         sortBy: "attention",
         recentOnly24h: false,
       }),

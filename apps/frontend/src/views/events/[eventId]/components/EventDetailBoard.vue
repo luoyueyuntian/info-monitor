@@ -28,7 +28,7 @@
       :status-history="detail.statusHistory"
     />
 
-    <EventDetailExplanationCard :explanation="detail.explanation" />
+    <EventDetailExplanationCard :explanation="detail.explanation" :review-actions="reviewActions" />
 
     <EventDetailThemeCard
       :theme-name="detail.themeName"
@@ -53,6 +53,7 @@ import EventDetailEvidenceCard from "./EventDetailEvidenceCard.vue";
 import EventDetailExplanationCard from "./EventDetailExplanationCard.vue";
 import EventDetailHeader from "./EventDetailHeader.vue";
 import EventDetailMetaActionsCard from "./EventDetailMetaActionsCard.vue";
+import { buildEventDetailReviewActions } from "./event-detail-review-actions";
 import EventDetailStatusHistoryCard from "./EventDetailStatusHistoryCard.vue";
 import EventDetailStatusCard from "./EventDetailStatusCard.vue";
 import EventDetailSummaryCard from "./EventDetailSummaryCard.vue";
@@ -102,6 +103,15 @@ const detailRows = computed(() => {
       { label: "发布方", value: formatMaybeLabel(context.publisher) },
       { label: "类别", value: formatMaybeLabel(context.category) },
       { label: "说明", value: formatMaybeLabel(context.description) },
+    ];
+  }
+
+  if (detail.value.infoType === "content_update") {
+    return [
+      { label: "对象", value: formatMaybeLabel(context.object_name) },
+      { label: "更新类型", value: formatMaybeLabel(context.update_type) },
+      { label: "链接", value: formatMaybeLabel(context.url) },
+      { label: "摘要", value: formatMaybeLabel(context.summary) },
     ];
   }
 
@@ -196,6 +206,14 @@ const relatedThemeSummary = computed(() => {
   return "这条官方发布事件是该主题判断变化的上游输入，适合继续查看主题分析和时间线，确认是否需要升级关注。";
 });
 
+const reviewActions = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+
+  return buildEventDetailReviewActions(detail.value);
+});
+
 async function handleUpdateStatus(status: string) {
   if (!detail.value) {
     return;
@@ -236,6 +254,7 @@ async function handleUpdateMeta(
       ...detail.value,
       isRead: updated.isRead,
       isBookmarked: updated.isBookmarked,
+      bookmarkedAt: updated.bookmarkedAt,
     };
   } finally {
     savingMeta.value = false;

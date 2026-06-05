@@ -11,9 +11,20 @@
         class="rounded-2xl border px-4 py-3.5"
         :class="isIncrementalSource(source) ? 'border-[rgba(120,120,120,0.28)] bg-white/95 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)]' : 'border-slate-400/15 bg-slate-50/90'"
       >
+        <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <input
+            :checked="selectedSourceIds.includes(source.id)"
+            type="checkbox"
+            @change="toggleSourceSelection(source.id)"
+          />
+          选中来源
+        </label>
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass(source.status)">{{ sourceStatusLabel(source.status) }}</span>
           <span :class="pillToneClass()" v-if="source.themeType">{{ themeTypeLabel(source.themeType) }}</span>
+          <span :class="pillToneClass(themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }))" v-if="source.latestEventSignal">
+            {{ impactToneLabel(themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null })) }}
+          </span>
           <span :class="pillToneClass(source.latestRunStatus)" v-if="source.latestRunStatus">
             {{ runStatusLabel(source.latestRunStatus) }}
           </span>
@@ -38,6 +49,12 @@
           最近错误: {{ source.lastErrorMessage }}
         </div>
         <div class="mt-3 flex flex-wrap gap-3">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: `/themes/${source.themeId}`, query: { section: themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) === 'negative' ? 'analysis' : 'timeline' } }"
+          >
+            {{ themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "negative" ? "查看主题分析" : "查看主题时间线" }}
+          </RouterLink>
           <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60" :disabled="pendingSourceId === source.id" @click="handleTrigger(source.id)">
             {{ pendingSourceId === source.id ? "正在入队..." : "立即运行" }}
           </button>
@@ -62,6 +79,7 @@
 
 <script setup lang="ts">
 import type { SourceStatus } from "../../../../lib/api";
+import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
 import {
   formatDateTimeLabel,
   formatMaybeLabel,
@@ -74,9 +92,11 @@ import {
 
 defineProps<{
   sources: SourceStatus[];
+  selectedSourceIds: string[];
   pendingSourceId: string | null;
   togglingSourceId: string | null;
   isIncrementalSource: (source: SourceStatus) => boolean;
+  toggleSourceSelection: (sourceId: string) => void;
   handleTrigger: (sourceId: string) => void;
   handleToggleSourcePaused: (sourceId: string, isPaused: boolean) => void;
 }>();

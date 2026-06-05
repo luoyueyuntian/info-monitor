@@ -8,6 +8,7 @@
       :theme-filter="themeFilter"
       :status-filter="statusFilter"
       :type-filter="typeFilter"
+      :impact-filter="impactFilter"
       :read-filter="readFilter"
       :bookmark-filter="bookmarkFilter"
       :sort-by="sortBy"
@@ -15,6 +16,7 @@
       :since-filter="sinceFilter"
       :incremental-event-count="incrementalEventCount"
       :theme-options="themeOptions"
+      :theme-context-label="themeContextLabel"
       :selected-count="selectedEventIds.length"
       :all-visible-selected="allVisibleSelected"
       :bulk-updating="bulkUpdating"
@@ -25,6 +27,7 @@
       :set-theme-filter="setThemeFilter"
       :set-status-filter="setStatusFilter"
       :set-type-filter="setTypeFilter"
+      :set-impact-filter="setImpactFilter"
       :set-read-filter="setReadFilter"
       :set-bookmark-filter="setBookmarkFilter"
       :set-sort-by="setSortBy"
@@ -36,7 +39,27 @@
     />
 
     <EventWorkbenchDiagnosticsCard :diagnostic="eventDiagnostics" />
+    <EventWorkspaceActionsCard :workspace="eventWorkspaceActions" />
     <EventThemeBucketsCard :items="themeBuckets" :event-workbench-target="eventWorkbenchTarget" />
+
+    <article
+      v-if="operationNotice"
+      class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+    >
+      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
+      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <div v-if="operationNotice.actions.length" class="mt-3 grid gap-2.5 md:grid-cols-3">
+        <RouterLink
+          v-for="action in operationNotice.actions"
+          :key="action.label"
+          class="rounded-xl border border-slate-400/15 bg-white/70 px-4 py-3 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+          :to="action.to"
+        >
+          {{ action.label }}
+        </RouterLink>
+      </div>
+    </article>
+
     <EventWorkbenchListCard
       :events="filteredEvents"
       :selected-event-ids="selectedEventIds"
@@ -58,11 +81,13 @@ import EventWorkbenchDiagnosticsCard from "./EventWorkbenchDiagnosticsCard.vue";
 import EventWorkbenchFiltersPanel from "./EventWorkbenchFiltersPanel.vue";
 import EventWorkbenchListCard from "./EventWorkbenchListCard.vue";
 import EventThemeBucketsCard from "./EventThemeBucketsCard.vue";
+import EventWorkspaceActionsCard from "./EventWorkspaceActionsCard.vue";
 import {
   buildEventDiagnostics,
   buildEventFilterSummary,
   buildEventThemeBuckets,
   buildEventThemeOptions,
+  buildEventWorkspaceActions,
   filterWorkbenchEvents,
   type EventWorkbenchFilters,
 } from "./event-workbench-model";
@@ -86,6 +111,7 @@ const query = ref("");
 const themeFilter = ref("all");
 const statusFilter = ref("all");
 const typeFilter = ref("all");
+const impactFilter = ref("all");
 const readFilter = ref("all");
 const bookmarkFilter = ref("all");
 const sortBy = ref("occurredAt");
@@ -99,13 +125,19 @@ const savingEventId = ref("");
 const pendingStatus = ref("");
 const bulkUpdating = ref(false);
 const pendingBulkStatus = ref("");
+const operationNotice = ref<{
+  message: string;
+  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
+} | null>(null);
 const eventPresets = [
   { id: "all", label: "全部事件", filters: { query: "", theme: "all", status: "all", type: "all", sort: "occurredAt", recent: false } },
   { id: "open", label: "待处理", filters: { query: "", theme: "all", status: "open", type: "all", sort: "occurredAt", recent: false } },
   { id: "tracking", label: "关注中", filters: { query: "", theme: "all", status: "tracking", type: "all", sort: "occurredAt", recent: false } },
   { id: "ignored", label: "已忽略", filters: { query: "", theme: "all", status: "ignored", type: "all", sort: "occurredAt", recent: false } },
+  { id: "positive", label: "偏利好", filters: { query: "", theme: "all", status: "all", type: "all", impact: "positive", sort: "occurredAt", recent: false } },
+  { id: "negative", label: "偏利空", filters: { query: "", theme: "all", status: "all", type: "all", impact: "negative", sort: "occurredAt", recent: false } },
   { id: "unread", label: "未读", filters: { query: "", theme: "all", status: "all", type: "all", read: "unread", bookmark: "all", sort: "occurredAt", recent: false } },
-  { id: "bookmarked", label: "已收藏", filters: { query: "", theme: "all", status: "all", type: "all", read: "all", bookmark: "bookmarked", sort: "statusChanged", recent: false } },
+  { id: "bookmarked", label: "已收藏", filters: { query: "", theme: "all", status: "all", type: "all", read: "all", bookmark: "bookmarked", sort: "bookmarkedAt", recent: false } },
   { id: "recent-open", label: "24h 待处理", filters: { query: "", theme: "all", status: "open", type: "all", sort: "statusChanged", recent: true } },
 ] as const;
 
@@ -123,6 +155,10 @@ function setStatusFilter(value: string) {
 
 function setTypeFilter(value: string) {
   typeFilter.value = value;
+}
+
+function setImpactFilter(value: string) {
+  impactFilter.value = value;
 }
 
 function setReadFilter(value: string) {
@@ -172,6 +208,7 @@ function applyRouteFilters() {
   statusFilter.value = nextFilters.statusFilter;
   themeFilter.value = nextFilters.themeFilter;
   typeFilter.value = nextFilters.typeFilter;
+  impactFilter.value = nextFilters.impactFilter;
   readFilter.value = nextFilters.readFilter;
   bookmarkFilter.value = nextFilters.bookmarkFilter;
   sortBy.value = nextFilters.sortBy;
@@ -190,6 +227,7 @@ function applyPreset(presetId: string) {
   themeFilter.value = preset.filters.theme;
   statusFilter.value = preset.filters.status;
   typeFilter.value = preset.filters.type;
+  impactFilter.value = "impact" in preset.filters ? preset.filters.impact : "all";
   readFilter.value = "read" in preset.filters ? preset.filters.read : "all";
   bookmarkFilter.value = "bookmark" in preset.filters ? preset.filters.bookmark : "all";
   sortBy.value = preset.filters.sort;
@@ -203,6 +241,7 @@ function resetFilters() {
   statusFilter.value = "all";
   themeFilter.value = "all";
   typeFilter.value = "all";
+  impactFilter.value = "all";
   readFilter.value = "all";
   bookmarkFilter.value = "all";
   sortBy.value = "occurredAt";
@@ -229,6 +268,7 @@ const activeFilters = computed<EventWorkbenchFilters>(() => ({
   themeFilter: themeFilter.value,
   statusFilter: statusFilter.value,
   typeFilter: typeFilter.value,
+  impactFilter: impactFilter.value,
   readFilter: readFilter.value,
   bookmarkFilter: bookmarkFilter.value,
   sortBy: sortBy.value,
@@ -237,6 +277,14 @@ const activeFilters = computed<EventWorkbenchFilters>(() => ({
 }));
 
 const themeOptions = computed(() => buildEventThemeOptions(events.value));
+const themeContextLabel = computed(() => {
+  if (themeFilter.value === "all" || !themeFilter.value.includes(",")) {
+    return "";
+  }
+
+  const ids = themeFilter.value.split(",").map((item) => item.trim()).filter(Boolean);
+  return `当前 ${ids.length} 个主题`;
+});
 
 const allVisibleSelected = computed(() => {
   if (!filteredEvents.value.length) {
@@ -251,6 +299,7 @@ const filteredEvents = computed(() => filterWorkbenchEvents(events.value, active
 const eventDiagnostics = computed(() =>
   buildEventDiagnostics(filteredEvents.value, eventStatusLabel),
 );
+const eventWorkspaceActions = computed(() => buildEventWorkspaceActions(filteredEvents.value, activeFilters.value));
 
 const incrementalEventCount = computed(() => filteredEvents.value.filter((event) => isIncrementalEvent(event)).length);
 
@@ -297,6 +346,54 @@ function toggleSelectAllVisible(event: Event) {
   selectedEventIds.value = selectedEventIds.value.filter((id) => !visibleIds.includes(id));
 }
 
+function buildOperationNotice(action: "open" | "tracking" | "ignored" | "read" | "unread" | "bookmark" | "unbookmark", count: number) {
+  const themeId = themeFilter.value === "all" ? undefined : themeFilter.value;
+  const impact = impactFilter.value === "all" ? undefined : impactFilter.value;
+
+  if (action === "open" || action === "tracking" || action === "ignored") {
+    const statusLabel = action === "open" ? "待处理" : action === "tracking" ? "关注中" : "已忽略";
+    return {
+      message: `已将 ${count} 条事件批量标记为${statusLabel}。`,
+      actions: [
+        { label: `查看${statusLabel}事件`, to: { path: "/events", query: { themeId, impact, status: action, sort: action === "open" ? "statusChanged" : "occurredAt" } } },
+        { label: "查看主题中心", to: { path: "/themes", query: { impact, queue: action === "ignored" ? "ignored" : action, sort: "attention" } } },
+        { label: "回到事件工作台", to: { path: "/events", query: buildEventWorkbenchManagedQuery(activeFilters.value) } },
+      ],
+    };
+  }
+
+  if (action === "read" || action === "unread") {
+    const readValue = action === "read" ? "read" : "unread";
+    const label = action === "read" ? "已读" : "未读";
+
+    return {
+      message: `已将 ${count} 条事件批量标记为${label}。`,
+      actions: [
+        { label: `查看${label}事件`, to: { path: "/events", query: { themeId, impact, read: readValue, sort: "occurredAt" } } },
+        { label: action === "read" ? "查看观察清单" : "查看主题中心", to: action === "read" ? { path: "/watchlist" } : { path: "/themes", query: { impact, queue: "unread", sort: "attention" } } },
+        { label: "回到事件工作台", to: { path: "/events", query: buildEventWorkbenchManagedQuery(activeFilters.value) } },
+      ],
+    };
+  }
+
+  if (action === "bookmark" || action === "unbookmark") {
+    return {
+      message: action === "bookmark" ? `已将 ${count} 条事件加入收藏。` : `已将 ${count} 条事件取消收藏。`,
+      actions: [
+        action === "bookmark"
+          ? { label: "查看收藏事件", to: { path: "/events", query: { themeId, impact, bookmark: "bookmarked", sort: "bookmarkedAt" } } }
+          : { label: "查看事件工作台", to: { path: "/events", query: buildEventWorkbenchManagedQuery(activeFilters.value) } },
+        action === "bookmark"
+          ? { label: "查看观察清单", to: { path: "/watchlist" } }
+          : { label: "查看主题中心", to: { path: "/themes", query: { impact, sort: "attention" } } },
+        { label: "回到事件工作台", to: { path: "/events", query: buildEventWorkbenchManagedQuery(activeFilters.value) } },
+      ],
+    };
+  }
+
+  return null;
+}
+
 async function handleUpdateStatus(eventId: string, status: string) {
   savingEventId.value = eventId;
   pendingStatus.value = status;
@@ -325,7 +422,7 @@ async function handleUpdateMeta(
     const updated = await updateEvent(eventId, input);
     events.value = events.value.map((event) =>
       event.id === eventId
-        ? { ...event, isRead: updated.isRead, isBookmarked: updated.isBookmarked }
+        ? { ...event, isRead: updated.isRead, isBookmarked: updated.isBookmarked, bookmarkedAt: updated.bookmarkedAt }
         : event,
     );
   } finally {
@@ -354,6 +451,7 @@ async function handleBulkUpdateStatus(status: string) {
 
   bulkUpdating.value = true;
   pendingBulkStatus.value = status;
+  operationNotice.value = null;
 
   try {
     const ids = [...selectedEventIds.value];
@@ -362,6 +460,7 @@ async function handleBulkUpdateStatus(status: string) {
       ids.includes(event.id) ? { ...event, status } : event,
     );
     selectedEventIds.value = [];
+    operationNotice.value = buildOperationNotice(status as "open" | "tracking" | "ignored", ids.length);
   } finally {
     bulkUpdating.value = false;
     pendingBulkStatus.value = "";
@@ -381,6 +480,7 @@ async function handleBulkUpdateMeta(
 
   bulkUpdating.value = true;
   pendingBulkStatus.value = pendingKey;
+  operationNotice.value = null;
 
   try {
     const ids = [...selectedEventIds.value];
@@ -391,10 +491,17 @@ async function handleBulkUpdateMeta(
             ...event,
             isRead: typeof input.isRead === "boolean" ? input.isRead : event.isRead,
             isBookmarked: typeof input.isBookmarked === "boolean" ? input.isBookmarked : event.isBookmarked,
+            bookmarkedAt:
+              typeof input.isBookmarked === "boolean"
+                ? input.isBookmarked
+                  ? new Date().toISOString()
+                  : null
+                : event.bookmarkedAt,
           }
         : event,
     );
     selectedEventIds.value = [];
+    operationNotice.value = buildOperationNotice(pendingKey as "read" | "unread" | "bookmark" | "unbookmark", ids.length);
   } finally {
     bulkUpdating.value = false;
     pendingBulkStatus.value = "";
@@ -413,7 +520,7 @@ watch(
   },
 );
 
-watch([query, themeFilter, statusFilter, typeFilter, readFilter, bookmarkFilter, sortBy, recentOnly24h, sinceFilter], () => {
+watch([query, themeFilter, statusFilter, typeFilter, impactFilter, readFilter, bookmarkFilter, sortBy, recentOnly24h, sinceFilter], () => {
   if (selectedPresetId.value && !matchesPreset(selectedPresetId.value)) {
     selectedPresetId.value = "";
   }

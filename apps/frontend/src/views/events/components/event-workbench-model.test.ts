@@ -6,6 +6,7 @@ import {
   buildEventFilterSummary,
   buildEventThemeBuckets,
   buildEventThemeOptions,
+  buildEventWorkspaceActions,
   filterWorkbenchEvents,
 } from "./event-workbench-model";
 
@@ -50,6 +51,7 @@ describe("event-workbench-model", () => {
       themeFilter: "theme_2",
       statusFilter: "open",
       typeFilter: "all",
+      impactFilter: "all",
       readFilter: "all",
       bookmarkFilter: "bookmarked",
       sortBy: "occurredAt",
@@ -88,6 +90,7 @@ describe("event-workbench-model", () => {
         themeFilter: "theme_2",
         statusFilter: "tracking",
         typeFilter: "financial_event",
+        impactFilter: "negative",
         readFilter: "unread",
         bookmarkFilter: "bookmarked",
         sortBy: "statusChanged",
@@ -102,5 +105,37 @@ describe("event-workbench-model", () => {
 
     expect(summary).toContain("Theme Two");
     expect(summary).toContain("按最近状态变化排序");
+    expect(summary).toContain("影响 偏利空");
+  });
+
+  it("builds workspace actions around the top event", () => {
+    const workspace = buildEventWorkspaceActions(
+      [
+        makeEvent({ id: "e1", themeId: "t1", themeName: "Theme One", status: "open", signal: "bearish" }),
+        makeEvent({ id: "e2", themeId: "t2", themeName: "Theme Two", status: "tracking" }),
+      ],
+      {
+        query: "",
+        themeFilter: "all",
+        statusFilter: "all",
+        typeFilter: "all",
+        impactFilter: "all",
+        readFilter: "all",
+        bookmarkFilter: "all",
+        sortBy: "statusChanged",
+        recentOnly24h: false,
+        sinceFilter: "",
+      },
+    );
+
+    expect(workspace?.summary).toContain("Open Market Update");
+    expect(workspace?.actions[0]).toEqual({
+      label: "查看 Theme One 主题",
+      to: { path: "/themes/t1", query: { section: "events" } },
+    });
+    expect(workspace?.actions[1]).toEqual({
+      label: "查看 Theme One 来源状态",
+      to: { path: "/sources/status", query: { themeId: "t1" } },
+    });
   });
 });

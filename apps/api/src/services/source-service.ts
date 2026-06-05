@@ -139,6 +139,23 @@ export async function listSourceStatuses() {
     .orderBy("s.created_at desc")
     .execute();
 
+  const latestEvents = await Promise.all(
+    rows.map(async (row) => {
+      const latestEvent = await db
+        .selectFrom("events")
+        .select(["signal"])
+        .where("theme_id", "=", row.themeId)
+        .orderBy("occurred_at desc")
+        .limit(1)
+        .executeTakeFirst();
+
+      return {
+        sourceId: row.id,
+        latestEventSignal: latestEvent?.signal ?? null,
+      };
+    }),
+  );
+
   const latestRuns = await Promise.all(
     rows.map(async (row) => {
       const latestRun = await db
@@ -163,9 +180,11 @@ export async function listSourceStatuses() {
 
   return rows.map((row) => {
     const latestRun = latestRuns.find((item) => item.sourceId === row.id);
+    const latestEvent = latestEvents.find((item) => item.sourceId === row.id);
 
     return {
       ...row,
+      latestEventSignal: latestEvent?.latestEventSignal ?? null,
       latestSuccessAt: row.latestSuccessAt?.toISOString?.() ?? null,
       latestFailureAt: row.latestFailureAt?.toISOString?.() ?? null,
       latestRunStatus: latestRun?.latestRunStatus ?? null,
@@ -274,6 +293,14 @@ export async function getSourceDetail(sourceId: string) {
     .limit(10)
     .execute();
 
+  const latestThemeEvent = await db
+    .selectFrom("events")
+    .select(["signal"])
+    .where("theme_id", "=", source.themeId)
+    .orderBy("occurred_at desc")
+    .limit(1)
+    .executeTakeFirst();
+
   const events = await db
     .selectFrom("events")
     .select([
@@ -324,6 +351,7 @@ export async function getSourceDetail(sourceId: string) {
   const latestRun = runs[0];
   const normalizedSource = {
     ...source,
+    latestEventSignal: latestThemeEvent?.signal ?? null,
     latestSuccessAt: source.latestSuccessAt?.toISOString?.() ?? null,
     latestFailureAt: source.latestFailureAt?.toISOString?.() ?? null,
     latestRunStatus: latestRun?.status ?? null,

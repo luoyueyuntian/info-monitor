@@ -8,6 +8,7 @@
       :type-filter="typeFilter"
       :event-queue-filter="eventQueueFilter"
       :health-filter="healthFilter"
+      :impact-filter="impactFilter"
       :recent-only24h="recentOnly24h"
       :sort-by="sortBy"
       :apply-theme-preset="applyThemePreset"
@@ -16,15 +17,95 @@
       :set-type-filter="setTypeFilter"
       :set-event-queue-filter="setEventQueueFilter"
       :set-health-filter="setHealthFilter"
+      :set-impact-filter="setImpactFilter"
       :set-recent-only24h="setRecentOnly24h"
       :set-sort-by="setSortBy"
       :clear-query="clearQuery"
     />
 
     <ThemesDiagnosticsCard :diagnostic="themeDiagnostics" />
+    <ThemeWorkspaceActionsCard :workspace="themeWorkspaceActions" />
     <ThemeComparisonsCard :items="themeComparisons" :comparison-target="comparisonTarget" />
     <ThemeReviewCard :themes="bookmarkedThemesForReview" />
-    <ThemeListCard :themes="filteredThemes" />
+
+    <article
+      v-if="filteredThemes.length"
+      class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2.5 font-semibold">
+            <input
+              :checked="allVisibleSelected"
+              type="checkbox"
+              @change="toggleSelectAllVisible(($event.target as HTMLInputElement).checked)"
+            />
+            选中当前筛选主题
+          </label>
+          <span class="text-[0.88rem] text-[#766f63]">
+            {{ selectedThemeIds.length > 0 ? `已选 ${selectedThemeIds.length} 个主题` : `未单独选中时，默认使用当前筛选的 ${filteredThemes.length} 个主题` }}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="!selectedThemeIds.length || bulkUpdating"
+            @click="handleBulkUpdateThemes('archived')"
+          >
+            {{ bulkUpdating && pendingBulkAction === 'archived' ? "正在更新..." : "批量归档主题" }}
+          </button>
+          <button
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="!selectedThemeIds.length || bulkUpdating"
+            @click="handleBulkUpdateThemes('active')"
+          >
+            {{ bulkUpdating && pendingBulkAction === 'active' ? "正在更新..." : "批量恢复主题" }}
+          </button>
+          <RouterLink
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            :to="{ path: '/events', query: { themeId: selectedThemeContext ?? undefined, impact: impactFilter === 'all' ? undefined : impactFilter, status: eventQueueFilter === 'open' ? 'open' : eventQueueFilter === 'tracking' ? 'tracking' : undefined, sort: eventQueueFilter === 'open' ? 'statusChanged' : 'occurredAt' } }"
+          >
+            {{ selectedThemeIds.length > 0 ? "查看选中主题事件" : "查看当前筛选主题事件" }}
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            :to="{ path: '/sources/status', query: { themeId: selectedThemeContext ?? undefined, impact: impactFilter === 'all' ? undefined : impactFilter, focus: healthFilter === 'warning' ? 'warning' : undefined, recent: recentOnly24h ? '24h' : undefined } }"
+          >
+            {{ selectedThemeIds.length > 0 ? "查看选中主题来源" : "查看当前筛选主题来源" }}
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            :to="{ path: '/themes', query: buildThemeManagedQuery(activeFilters) }"
+          >
+            回到当前主题视图
+          </RouterLink>
+        </div>
+      </div>
+    </article>
+
+    <article
+      v-if="operationNotice"
+      class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+    >
+      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
+      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <div v-if="operationNotice.actions.length" class="mt-3 grid gap-2.5 md:grid-cols-3">
+        <RouterLink
+          v-for="action in operationNotice.actions"
+          :key="action.label"
+          class="rounded-xl border border-slate-400/15 bg-white/70 px-4 py-3 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+          :to="action.to"
+        >
+          {{ action.label }}
+        </RouterLink>
+      </div>
+    </article>
+
+    <ThemeListCard
+      :themes="filteredThemes"
+      :selected-theme-ids="selectedThemeIds"
+      :toggle-theme-selection="toggleThemeSelection"
+    />
   </div>
 </template>
 
@@ -37,10 +118,12 @@ import ThemesFiltersPanel from "./ThemesFiltersPanel.vue";
 import ThemesDiagnosticsCard from "./ThemesDiagnosticsCard.vue";
 import ThemeListCard from "./ThemeListCard.vue";
 import ThemeReviewCard from "./ThemeReviewCard.vue";
+import ThemeWorkspaceActionsCard from "./ThemeWorkspaceActionsCard.vue";
 import {
   buildThemeComparisons,
   buildThemeDiagnostics,
   buildThemeFilterSummary,
+  buildThemeWorkspaceActions,
   filterThemes,
   type ThemesBoardFilters,
 } from "./themes-model";
@@ -50,7 +133,7 @@ import {
   readThemeRouteFilters,
   themeManagedQueryKeys,
 } from "./themes-query";
-import { fetchThemes, type ThemeSummary } from "../../../lib/api";
+import { fetchThemes, type ThemeSummary, updateTheme } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
 import {
   themeAttentionScore,
@@ -62,9 +145,17 @@ const query = ref("");
 const typeFilter = ref("all");
 const eventQueueFilter = ref("all");
 const healthFilter = ref("all");
+const impactFilter = ref("all");
 const sortBy = ref("priority");
 const recentOnly24h = ref(false);
 const selectedThemePresetId = ref("");
+const selectedThemeIds = ref<string[]>([]);
+const bulkUpdating = ref(false);
+const pendingBulkAction = ref("");
+const operationNotice = ref<{
+  message: string;
+  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
+} | null>(null);
 const route = useRoute();
 const router = useRouter();
 const themePresets = [
@@ -79,6 +170,16 @@ const themePresets = [
     filters: { query: "", type: "price", queue: "all", health: "all", sort: "latestEvent", recent: true },
   },
   {
+    id: "positive",
+    label: "偏利好主题",
+    filters: { query: "", type: "all", queue: "all", health: "all", impact: "positive", sort: "attention", recent: false },
+  },
+  {
+    id: "negative",
+    label: "偏利空主题",
+    filters: { query: "", type: "all", queue: "all", health: "all", impact: "negative", sort: "attention", recent: false },
+  },
+  {
     id: "open-events",
     label: "待处理主题",
     filters: { query: "", type: "all", queue: "open", health: "all", sort: "attention", recent: false },
@@ -88,11 +189,11 @@ const themePresets = [
     label: "未读主题",
     filters: { query: "", type: "all", queue: "unread", health: "all", sort: "attention", recent: false },
   },
-  {
-    id: "bookmarked-events",
-    label: "收藏主题",
-    filters: { query: "", type: "all", queue: "bookmarked", health: "all", sort: "attention", recent: false },
-  },
+      {
+        id: "bookmarked-events",
+        label: "收藏主题",
+        filters: { query: "", type: "all", queue: "bookmarked", health: "all", sort: "latestBookmarked", recent: false },
+      },
   {
     id: "warning",
     label: "异常主题",
@@ -124,6 +225,10 @@ function setEventQueueFilter(value: string) {
 
 function setHealthFilter(value: string) {
   healthFilter.value = value;
+}
+
+function setImpactFilter(value: string) {
+  impactFilter.value = value;
 }
 
 function setRecentOnly24h(value: boolean) {
@@ -163,6 +268,7 @@ function applyQueryFilters() {
   typeFilter.value = nextFilters.typeFilter;
   eventQueueFilter.value = nextFilters.eventQueueFilter;
   healthFilter.value = nextFilters.healthFilter;
+  impactFilter.value = nextFilters.impactFilter;
   sortBy.value = nextFilters.sortBy;
   recentOnly24h.value = nextFilters.recentOnly24h;
 }
@@ -172,9 +278,11 @@ function resetFilters() {
   typeFilter.value = "all";
   eventQueueFilter.value = "all";
   healthFilter.value = "all";
+  impactFilter.value = "all";
   sortBy.value = "priority";
   recentOnly24h.value = false;
   selectedThemePresetId.value = "";
+  selectedThemeIds.value = [];
 }
 
 function applyThemePreset(presetId: string) {
@@ -188,6 +296,7 @@ function applyThemePreset(presetId: string) {
   typeFilter.value = preset.filters.type;
   eventQueueFilter.value = preset.filters.queue;
   healthFilter.value = preset.filters.health;
+  impactFilter.value = "impact" in preset.filters ? preset.filters.impact : "all";
   sortBy.value = preset.filters.sort;
   recentOnly24h.value = preset.filters.recent;
   selectedThemePresetId.value = preset.id;
@@ -210,6 +319,7 @@ const activeFilters = computed<ThemesBoardFilters>(() => ({
   typeFilter: typeFilter.value,
   eventQueueFilter: eventQueueFilter.value,
   healthFilter: healthFilter.value,
+  impactFilter: impactFilter.value,
   sortBy: sortBy.value,
   recentOnly24h: recentOnly24h.value,
 }));
@@ -219,6 +329,22 @@ const themeFilterSummary = computed(() =>
 );
 
 const filteredThemes = computed(() => filterThemes(themes.value, activeFilters.value));
+
+const allVisibleSelected = computed(() => {
+  if (!filteredThemes.value.length) {
+    return false;
+  }
+
+  return filteredThemes.value.every((theme) => selectedThemeIds.value.includes(theme.id));
+});
+
+const selectedThemeContext = computed(() => {
+  const ids = selectedThemeIds.value.length
+    ? selectedThemeIds.value
+    : filteredThemes.value.map((theme) => theme.id);
+
+  return ids.length ? ids.join(",") : null;
+});
 
 const bookmarkedThemesForReview = computed(() =>
   [...filteredThemes.value]
@@ -234,6 +360,7 @@ const bookmarkedThemesForReview = computed(() =>
 );
 
 const themeDiagnostics = computed(() => buildThemeDiagnostics(filteredThemes.value));
+const themeWorkspaceActions = computed(() => buildThemeWorkspaceActions(filteredThemes.value, activeFilters.value));
 
 const themeComparisons = computed(() => buildThemeComparisons(filteredThemes.value));
 
@@ -258,6 +385,74 @@ function comparisonTarget(item: { theme: ThemeSummary | null }) {
   };
 }
 
+function toggleThemeSelection(themeId: string) {
+  if (selectedThemeIds.value.includes(themeId)) {
+    selectedThemeIds.value = selectedThemeIds.value.filter((id) => id !== themeId);
+    return;
+  }
+
+  selectedThemeIds.value = [...selectedThemeIds.value, themeId];
+}
+
+function toggleSelectAllVisible(checked: boolean) {
+  const visibleIds = filteredThemes.value.map((theme) => theme.id);
+
+  if (checked) {
+    selectedThemeIds.value = Array.from(new Set([...selectedThemeIds.value, ...visibleIds]));
+    return;
+  }
+
+  selectedThemeIds.value = selectedThemeIds.value.filter((id) => !visibleIds.includes(id));
+}
+
+function buildBulkThemeOperationNotice(status: "active" | "archived", count: number) {
+  const impact = impactFilter.value === "all" ? undefined : impactFilter.value;
+  const themeId = selectedThemeContext.value ?? undefined;
+
+  if (status === "archived") {
+    return {
+      message: `已将 ${count} 个主题批量归档。`,
+      actions: [
+        { label: "查看当前主题视图", to: { path: "/themes", query: buildThemeManagedQuery(activeFilters.value) } },
+        { label: "查看相关来源状态", to: { path: "/sources/status", query: { themeId, impact, recent: recentOnly24h.value ? "24h" : undefined } } },
+        { label: "查看相关事件", to: { path: "/events", query: { themeId, impact, sort: "occurredAt" } } },
+      ],
+    };
+  }
+
+  return {
+    message: `已将 ${count} 个主题恢复为 active。`,
+    actions: [
+      { label: "查看当前主题视图", to: { path: "/themes", query: buildThemeManagedQuery(activeFilters.value) } },
+      { label: "查看相关事件", to: { path: "/events", query: { themeId, impact, sort: "occurredAt" } } },
+      { label: "查看相关来源状态", to: { path: "/sources/status", query: { themeId, impact, recent: recentOnly24h.value ? "24h" : undefined } } },
+    ],
+  };
+}
+
+async function handleBulkUpdateThemes(status: "active" | "archived") {
+  if (!selectedThemeIds.value.length) {
+    return;
+  }
+
+  bulkUpdating.value = true;
+  pendingBulkAction.value = status;
+  operationNotice.value = null;
+
+  try {
+    const ids = [...selectedThemeIds.value];
+    await Promise.all(ids.map((themeId) => updateTheme({ themeId, status })));
+    themes.value = themes.value.map((theme) =>
+      ids.includes(theme.id) ? { ...theme, status } : theme,
+    );
+    selectedThemeIds.value = [];
+    operationNotice.value = buildBulkThemeOperationNotice(status, ids.length);
+  } finally {
+    bulkUpdating.value = false;
+    pendingBulkAction.value = "";
+  }
+}
+
 onMounted(async () => {
   themes.value = await fetchThemes();
   applyQueryFilters();
@@ -270,7 +465,7 @@ watch(
   },
 );
 
-watch([query, typeFilter, eventQueueFilter, healthFilter, sortBy, recentOnly24h], () => {
+watch([query, typeFilter, eventQueueFilter, healthFilter, impactFilter, sortBy, recentOnly24h], () => {
   if (selectedThemePresetId.value && !matchesPresetFilters(selectedThemePresetId.value)) {
     selectedThemePresetId.value = "";
   }

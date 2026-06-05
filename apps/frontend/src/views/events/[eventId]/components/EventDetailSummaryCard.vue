@@ -2,6 +2,7 @@
   <article class="card flex flex-col gap-3">
     <div class="flex flex-wrap gap-x-2.5 gap-y-2">
       <span :class="pillToneClass(detail.signal)">{{ eventSignalLabel(detail.signal) }}</span>
+      <span :class="pillToneClass(eventImpactTone(detail))">{{ impactToneLabel(eventImpactTone(detail)) }}</span>
       <span :class="pillToneClass(detail.status)">{{ eventStatusLabel(detail.status) }}</span>
       <span :class="pillToneClass()" v-if="detail.eventType">{{ eventTypeLabel(detail.eventType) }}</span>
       <span :class="pillToneClass(detail.isRead ? 'active' : 'pending')">{{ eventReadLabel(detail.isRead) }}</span>
@@ -16,6 +17,7 @@
 
 <script setup lang="ts">
 import type { EventDetail } from "../../../../lib/api";
+import { eventImpactTone, impactToneLabel } from "../../../../lib/impact";
 import {
   eventBookmarkLabel,
   eventReadLabel,

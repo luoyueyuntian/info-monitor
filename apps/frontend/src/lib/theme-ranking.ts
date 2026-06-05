@@ -1,4 +1,5 @@
 import type { ThemeSummary } from "./api";
+import { themeImpactTone } from "./impact";
 import { toTimestamp } from "./time";
 
 export function themeHealthRank(value?: string | null) {
@@ -30,6 +31,10 @@ export function themePriorityScore(theme: ThemeSummary) {
   );
 }
 
+export function themeLatestBookmarkedScore(theme: ThemeSummary) {
+  return toTimestamp(theme.latestBookmarkedAt);
+}
+
 export function themeAttentionScore(theme: ThemeSummary, now = Date.now()) {
   let score = 0;
 
@@ -49,6 +54,10 @@ export function themeAttentionScore(theme: ThemeSummary, now = Date.now()) {
   if (theme.latestEventSignal === "30d_low") {
     score += 50;
   } else if (theme.latestEventSignal === "new_financial_event" || theme.latestEventSignal === "new_announcement") {
+    score += 35;
+  } else if (themeImpactTone(theme) === "negative") {
+    score += 40;
+  } else if (themeImpactTone(theme) === "positive") {
     score += 35;
   }
 

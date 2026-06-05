@@ -25,6 +25,7 @@
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="typeFilter" @change="setTypeFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部类型</option>
         <option value="price">价格</option>
+        <option value="content_update">内容更新</option>
         <option value="news_announcement">公告</option>
         <option value="financial_event">金融事件</option>
       </select>
@@ -41,6 +42,12 @@
         <option value="healthy">正常</option>
         <option value="warning">异常</option>
       </select>
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="impactFilter" @change="setImpactFilter(($event.target as HTMLSelectElement).value)">
+        <option value="all">全部影响</option>
+        <option value="positive">偏利好</option>
+        <option value="negative">偏利空</option>
+        <option value="neutral">中性</option>
+      </select>
       <label class="flex items-center gap-2.5 font-semibold">
         <input :checked="recentOnly24h" type="checkbox" @change="setRecentOnly24h(($event.target as HTMLInputElement).checked)" />
         仅最近24小时更新
@@ -50,6 +57,7 @@
         <option value="priority">优先级</option>
         <option value="latestEvent">最近事件</option>
         <option value="latestRun">最近运行</option>
+        <option value="latestBookmarked">最近收藏</option>
         <option value="name">名称</option>
       </select>
       <button v-if="query" class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" @click="clearQuery">清空搜索</button>
@@ -66,6 +74,7 @@ defineProps<{
   typeFilter: string;
   eventQueueFilter: string;
   healthFilter: string;
+  impactFilter: string;
   recentOnly24h: boolean;
   sortBy: string;
   applyThemePreset: (presetId: string) => void;
@@ -74,6 +83,7 @@ defineProps<{
   setTypeFilter: (value: string) => void;
   setEventQueueFilter: (value: string) => void;
   setHealthFilter: (value: string) => void;
+  setImpactFilter: (value: string) => void;
   setRecentOnly24h: (value: boolean) => void;
   setSortBy: (value: string) => void;
   clearQuery: () => void;

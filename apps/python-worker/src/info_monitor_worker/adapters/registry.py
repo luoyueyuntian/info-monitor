@@ -1,6 +1,7 @@
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.demo_price_feed import DemoPriceFeedAdapter
 from info_monitor_worker.adapters.eastmoney_stock_kline import EastmoneyStockKlineAdapter
+from info_monitor_worker.adapters.generic_content_update_list import GenericContentUpdateListAdapter
 from info_monitor_worker.adapters.pbc_news_list import PbcNewsListAdapter
 from info_monitor_worker.adapters.pbc_open_market_announcements import (
     PbcOpenMarketAnnouncementsAdapter,
@@ -10,6 +11,7 @@ from info_monitor_worker.adapters.stats_data_release_list import StatsDataReleas
 ADAPTERS: dict[str, BaseAdapter] = {
     "demo_price_feed": DemoPriceFeedAdapter(),
     "eastmoney_stock_kline": EastmoneyStockKlineAdapter(),
+    "generic_content_update_list": GenericContentUpdateListAdapter(),
     "pbc_news_list": PbcNewsListAdapter(),
     "pbc_open_market_announcements": PbcOpenMarketAnnouncementsAdapter(),
     "stats_data_release_list": StatsDataReleaseListAdapter(),

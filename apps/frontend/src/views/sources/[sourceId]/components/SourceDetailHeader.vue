@@ -5,7 +5,7 @@
         <span aria-hidden="true">‹</span>
       </button>
       <nav class="breadcrumb" aria-label="面包屑">
-        <RouterLink to="/sources/status">来源状态</RouterLink>
+        <RouterLink :to="{ path: '/sources/status', query: { themeId } }">来源状态</RouterLink>
         <span class="breadcrumb-divider">/</span>
         <span>{{ sourceName }}</span>
       </nav>
@@ -23,6 +23,7 @@ import { sourceTypeLabel } from "../../../../lib/presentation";
 
 defineProps<{
   sourceName: string;
+  themeId: string;
   themeName: string;
   sourceType?: string;
   isPaused?: boolean;

@@ -16,6 +16,7 @@ describe("event-workbench-query", () => {
         themeFilter: "theme_1",
         statusFilter: "open",
         typeFilter: "financial_event",
+        impactFilter: "negative",
         readFilter: "unread",
         bookmarkFilter: "bookmarked",
         sortBy: "statusChanged",
@@ -27,6 +28,7 @@ describe("event-workbench-query", () => {
       themeId: "theme_1",
       status: "open",
       type: "financial_event",
+      impact: "negative",
       read: "unread",
       bookmark: "bookmarked",
       sort: "statusChanged",
@@ -43,6 +45,7 @@ describe("event-workbench-query", () => {
           themeId: "theme_2",
           status: "tracking",
           type: "price",
+          impact: "positive",
           read: "read",
           bookmark: "bookmarked",
           sort: "statusChanged",
@@ -57,11 +60,35 @@ describe("event-workbench-query", () => {
       themeFilter: "theme_2",
       statusFilter: "tracking",
       typeFilter: "price",
+      impactFilter: "positive",
       readFilter: "read",
       bookmarkFilter: "bookmarked",
       sortBy: "statusChanged",
       recentOnly24h: true,
       sinceFilter: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("keeps valid multi-theme context from the route", () => {
+    expect(
+      readEventWorkbenchRouteFilters(
+        {
+          themeId: "theme_1,theme_2",
+        },
+        themeOptions,
+        () => true,
+      ),
+    ).toEqual({
+      query: "",
+      themeFilter: "theme_1,theme_2",
+      statusFilter: "all",
+      typeFilter: "all",
+      impactFilter: "all",
+      readFilter: "all",
+      bookmarkFilter: "all",
+      sortBy: "occurredAt",
+      recentOnly24h: false,
+      sinceFilter: "",
     });
   });
 
@@ -74,6 +101,7 @@ describe("event-workbench-query", () => {
           theme: "all",
           status: "open",
           type: "all",
+          impact: "negative",
           sort: "statusChanged",
           recent: true,
         },
@@ -86,6 +114,7 @@ describe("event-workbench-query", () => {
         themeFilter: "all",
         statusFilter: "open",
         typeFilter: "all",
+        impactFilter: "negative",
         readFilter: "all",
         bookmarkFilter: "all",
         sortBy: "statusChanged",

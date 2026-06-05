@@ -2,7 +2,7 @@ import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
 
-export const inboxSectionIds = ["price-signals", "official-releases", "financial-events"] as const;
+export const inboxSectionIds = ["price-signals", "content-updates", "official-releases", "financial-events"] as const;
 
 export type InboxSectionId = (typeof inboxSectionIds)[number];
 
@@ -15,6 +15,7 @@ type EventListItem = {
   status?: string | null;
   isRead?: boolean;
   isBookmarked?: boolean;
+  bookmarkedAt?: string | null;
   latestStatusChangedAt?: string | null;
   eventType?: string | null;
   occurredAt: string;
@@ -58,6 +59,18 @@ async function getLatestStatusChangedAtMap(eventIds: string[]) {
   return map;
 }
 
+function toIsoTimestamp(value: unknown) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return String(value);
+}
+
 function buildEventExplanation(input: {
   infoType?: string | null;
   signal?: string | null;
@@ -94,6 +107,21 @@ function buildEventExplanation(input: {
     };
   }
 
+  if (input.infoType === "content_update") {
+    return {
+      headline: "这是一个需要快速判断影响范围的内容更新",
+      impact: "它说明监控对象刚刚发生了新的功能、版本或页面内容变化，重点是先判断这次变化会影响哪些主题和后续动作。",
+      whyItMatters: [
+        "内容更新通常是产品能力、运营动作或竞品节奏变化的直接信号。",
+        "如果相似更新连续出现，往往说明当前路线图或市场动作正在被持续强化。",
+      ],
+      actions: [
+        "优先查看更新类型、原文链接和摘要，确认这次具体改了什么。",
+        "再结合历史更新和你的关注主题，判断是否需要跟进分析、记录竞品动作或转成新的任务。",
+      ],
+    };
+  }
+
   return {
     headline: "这是一个值得继续跟踪的官方发布信号",
     impact: "它说明官方渠道有了新的发布，可能改变你对主题的后续判断，但通常需要先读正文确认含义。",
@@ -118,6 +146,10 @@ export function filterEventsByInboxSection<T extends { infoType?: string | null;
 ) {
   if (sectionId === "price-signals") {
     return events.filter((event) => event.infoType === "price");
+  }
+
+  if (sectionId === "content-updates") {
+    return events.filter((event) => event.infoType === "content_update");
   }
 
   if (sectionId === "official-releases") {
@@ -157,6 +189,7 @@ export async function listDashboardEvents(): Promise<EventListItem[]> {
       "e.status as status",
       "e.is_read as isRead",
       "e.is_bookmarked as isBookmarked",
+      "e.bookmarked_at as bookmarkedAt",
       "e.event_type as eventType",
       "e.occurred_at as occurredAt",
       "e.summary as summary",
@@ -169,6 +202,7 @@ export async function listDashboardEvents(): Promise<EventListItem[]> {
 
   const baseEvents: EventListItem[] = rows.map((row) => ({
     ...row,
+    bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
     occurredAt: row.occurredAt.toISOString?.() ?? row.occurredAt,
   }));
   const changedAtMap = await getLatestStatusChangedAtMap(baseEvents.map((item) => item.id));
@@ -186,8 +220,8 @@ export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> 
       .filter((event) => event.isBookmarked)
       .map(toEventListItem)
       .sort((left, right) => {
-        const leftChanged = new Date(left.latestStatusChangedAt ?? left.occurredAt).getTime();
-        const rightChanged = new Date(right.latestStatusChangedAt ?? right.occurredAt).getTime();
+        const leftChanged = new Date(left.bookmarkedAt ?? left.latestStatusChangedAt ?? left.occurredAt).getTime();
+        const rightChanged = new Date(right.bookmarkedAt ?? right.latestStatusChangedAt ?? right.occurredAt).getTime();
         return rightChanged - leftChanged;
       })
       .slice(0, limit);
@@ -212,6 +246,7 @@ export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> 
       "e.status as status",
       "e.is_read as isRead",
       "e.is_bookmarked as isBookmarked",
+      "e.bookmarked_at as bookmarkedAt",
       "e.event_type as eventType",
       "e.occurred_at as occurredAt",
       "e.summary as summary",
@@ -225,6 +260,7 @@ export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> 
 
   const baseEvents: EventListItem[] = rows.map((row) => ({
     ...row,
+    bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
     occurredAt: row.occurredAt.toISOString?.() ?? row.occurredAt,
   }));
   const changedAtMap = await getLatestStatusChangedAtMap(baseEvents.map((item) => item.id));
@@ -234,8 +270,8 @@ export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> 
       latestStatusChangedAt: changedAtMap.get(event.id) ?? null,
     }))
     .sort((left, right) => {
-      const leftTime = new Date(left.latestStatusChangedAt ?? left.occurredAt).getTime();
-      const rightTime = new Date(right.latestStatusChangedAt ?? right.occurredAt).getTime();
+      const leftTime = new Date(left.bookmarkedAt ?? left.latestStatusChangedAt ?? left.occurredAt).getTime();
+      const rightTime = new Date(right.bookmarkedAt ?? right.latestStatusChangedAt ?? right.occurredAt).getTime();
       return rightTime - leftTime;
     });
 }
@@ -250,6 +286,7 @@ export async function countInboxSectionEvents() {
     }).length;
 
   const priceEvents = filterEventsByInboxSection(events, "price-signals");
+  const contentUpdateEvents = filterEventsByInboxSection(events, "content-updates");
   const officialEvents = filterEventsByInboxSection(events, "official-releases");
   const financialEvents = filterEventsByInboxSection(events, "financial-events");
 
@@ -257,6 +294,10 @@ export async function countInboxSectionEvents() {
     "price-signals": {
       total: priceEvents.length,
       recent: countRecent(priceEvents),
+    },
+    "content-updates": {
+      total: contentUpdateEvents.length,
+      recent: countRecent(contentUpdateEvents),
     },
     "official-releases": {
       total: officialEvents.length,
@@ -298,6 +339,7 @@ export async function listInboxSectionEvents(sectionId?: string): Promise<EventL
       "e.status as status",
       "e.is_read as isRead",
       "e.is_bookmarked as isBookmarked",
+      "e.bookmarked_at as bookmarkedAt",
       "e.event_type as eventType",
       "e.occurred_at as occurredAt",
       "e.summary as summary",
@@ -309,6 +351,7 @@ export async function listInboxSectionEvents(sectionId?: string): Promise<EventL
 
   const events: EventListItem[] = rows.map((row) => ({
     ...row,
+    bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
     occurredAt: row.occurredAt.toISOString?.() ?? row.occurredAt,
   }));
   const filtered = sectionId ? filterEventsByInboxSection(events, sectionId) : events;
@@ -358,6 +401,7 @@ export async function getEventDetail(eventId: string) {
       "e.status as status",
       "e.is_read as isRead",
       "e.is_bookmarked as isBookmarked",
+      "e.bookmarked_at as bookmarkedAt",
       "e.event_type as eventType",
       "e.occurred_at as occurredAt",
       "e.summary as summary",
@@ -388,6 +432,7 @@ export async function getEventDetail(eventId: string) {
 
   return {
     ...row,
+    bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
     occurredAt: row.occurredAt.toISOString?.() ?? row.occurredAt,
     explanation: buildEventExplanation({
       infoType: row.infoType,
@@ -440,6 +485,7 @@ export async function updateEventState(
 
     if (typeof input.isBookmarked === "boolean") {
       event.isBookmarked = input.isBookmarked;
+      event.bookmarkedAt = input.isBookmarked ? new Date().toISOString() : null;
     }
 
     return {
@@ -447,12 +493,13 @@ export async function updateEventState(
       status: event.status ?? "open",
       isRead: event.isRead ?? false,
       isBookmarked: event.isBookmarked ?? false,
+      bookmarkedAt: event.bookmarkedAt ?? null,
     };
   }
 
   const existing = await db
     .selectFrom("events")
-    .select(["id", "status", "is_read as isRead", "is_bookmarked as isBookmarked"])
+    .select(["id", "status", "is_read as isRead", "is_bookmarked as isBookmarked", "bookmarked_at as bookmarkedAt"])
     .where("id", "=", eventId)
     .executeTakeFirst();
 
@@ -472,6 +519,7 @@ export async function updateEventState(
 
   if (typeof input.isBookmarked === "boolean") {
     updatePatch.is_bookmarked = input.isBookmarked;
+    updatePatch.bookmarked_at = input.isBookmarked ? new Date().toISOString() : null;
   }
 
   if (!Object.keys(updatePatch).length) {
@@ -480,6 +528,7 @@ export async function updateEventState(
       status: existing.status,
       isRead: existing.isRead,
       isBookmarked: existing.isBookmarked,
+      bookmarkedAt: toIsoTimestamp(existing.bookmarkedAt),
     };
   }
 
@@ -507,6 +556,12 @@ export async function updateEventState(
     status: typeof input.status === "string" ? input.status : existing.status,
     isRead: typeof input.isRead === "boolean" ? input.isRead : existing.isRead,
     isBookmarked: typeof input.isBookmarked === "boolean" ? input.isBookmarked : existing.isBookmarked,
+    bookmarkedAt:
+      typeof input.isBookmarked === "boolean"
+        ? input.isBookmarked
+          ? new Date().toISOString()
+          : null
+        : toIsoTimestamp(existing.bookmarkedAt),
   };
 }
 

@@ -1,3 +1,4 @@
+from info_monitor_worker.normalizers.content_update import ContentUpdateNormalizer
 from info_monitor_worker.normalizers.base import BaseNormalizer
 from info_monitor_worker.normalizers.financial_event import FinancialEventNormalizer
 from info_monitor_worker.normalizers.news_announcement import NewsAnnouncementNormalizer
@@ -5,6 +6,7 @@ from info_monitor_worker.normalizers.price import PriceNormalizer
 
 NORMALIZERS: dict[str, BaseNormalizer] = {
     "price": PriceNormalizer(),
+    "content_update": ContentUpdateNormalizer(),
     "news_announcement": NewsAnnouncementNormalizer(),
     "financial_event": FinancialEventNormalizer(),
 }

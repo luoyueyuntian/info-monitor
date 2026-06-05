@@ -51,6 +51,44 @@
     </RouterLink>
     <RouterLink
       class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
+      :to="{ path: '/events', query: { read: 'unread', sort: 'occurredAt' } }"
+    >
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">未读事件</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.unreadEvents }}</span>
+      <button
+        v-if="summaryDeltaTarget('unreadEvents')"
+        type="button"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
+        @click.stop.prevent="openSummaryDelta('unreadEvents')"
+      >
+        {{ summaryDeltaLabel("unreadEvents") }}
+      </button>
+      <span v-else-if="summaryDeltaLabel('unreadEvents')" class="text-[0.82rem] font-semibold text-slate-500">
+        {{ summaryDeltaLabel("unreadEvents") }}
+      </span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">快速巡检还没读过的新线索</span>
+    </RouterLink>
+    <RouterLink
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
+      :to="{ path: '/events', query: { bookmark: 'bookmarked', sort: 'statusChanged' } }"
+    >
+      <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">收藏事件</span>
+      <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ summary.bookmarkedEvents }}</span>
+      <button
+        v-if="summaryDeltaTarget('bookmarkedEvents')"
+        type="button"
+        class="cursor-pointer border-none bg-transparent p-0 text-left text-[0.82rem] font-semibold text-slate-500"
+        @click.stop.prevent="openSummaryDelta('bookmarkedEvents')"
+      >
+        {{ summaryDeltaLabel("bookmarkedEvents") }}
+      </button>
+      <span v-else-if="summaryDeltaLabel('bookmarkedEvents')" class="text-[0.82rem] font-semibold text-slate-500">
+        {{ summaryDeltaLabel("bookmarkedEvents") }}
+      </span>
+      <span class="text-[0.88rem] leading-[1.45] text-slate-500">沉淀值得长期回看的重点事件</span>
+    </RouterLink>
+    <RouterLink
+      class="grid gap-1.5 rounded-2xl border border-slate-400/15 bg-white/75 p-4 transition-colors hover:bg-white"
       :to="{ path: '/events', query: { recent: '24h', sort: 'occurredAt' } }"
     >
       <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">最近24小时事件</span>

@@ -40,10 +40,13 @@
       <ThemeDetailAnalysisCard
         :analysis="detail.analysis"
         :analysis-tone-label="analysisToneLabel"
+        :review-actions="analysisReviewActions"
       />
     </div>
 
     <ThemeDetailEventQueueCard
+      :theme-id="detail.theme.id"
+      :theme-type="detail.theme.type"
       :events="detail.events"
       :saving-event-id="savingEventId"
       :pending-event-status="pendingEventStatus"
@@ -109,6 +112,7 @@
 
       <div :ref="setSectionRef('sources')">
         <ThemeDetailSourcesCard
+          :theme-id="detail.theme.id"
           :sources="detail.sources"
           :on-toggle-source-paused="handleToggleSourcePaused"
           :on-delete-source="handleDeleteSource"
@@ -155,6 +159,7 @@ import ThemeDetailStatsGrid from "./ThemeDetailStatsGrid.vue";
 import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
+import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
 import {
   createSource,
   deleteSource,
@@ -286,6 +291,15 @@ function recordDetails(record: ThemeRecord) {
       { label: "发布方", value: formatMaybeLabel(record.content.publisher) },
       { label: "类别", value: formatMaybeLabel(record.content.category) },
       { label: "说明", value: formatMaybeLabel(record.content.description) },
+    ];
+  }
+
+  if (record.infoType === "content_update") {
+    return [
+      { label: "对象", value: formatMaybeLabel(record.content.object_name) },
+      { label: "更新类型", value: formatMaybeLabel(record.content.update_type) },
+      { label: "链接", value: formatMaybeLabel(record.content.url) },
+      { label: "摘要", value: formatMaybeLabel(record.content.summary) },
     ];
   }
 
@@ -459,6 +473,14 @@ const breakdownBarItems = computed(() => {
     ...item,
     width: (item.count / maxCount) * 100,
   }));
+});
+
+const analysisReviewActions = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+
+  return buildThemeDetailAnalysisActions(detail.value);
 });
 
 function analysisToneLabel(tone: string) {

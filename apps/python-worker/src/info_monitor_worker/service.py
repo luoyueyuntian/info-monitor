@@ -207,6 +207,8 @@ class WorkerService:
 
                     if theme.info_type == "price":
                         change_summary = "Stored a new normalized price snapshot."
+                    elif theme.info_type == "content_update":
+                        change_summary = "Stored a new normalized content update record."
                     elif theme.info_type == "news_announcement":
                         change_summary = "Stored a new normalized official announcement record."
                     elif theme.info_type == "financial_event":
@@ -216,6 +218,8 @@ class WorkerService:
                         change_type = "record_updated"
                         if theme.info_type == "price":
                             change_summary = "Updated an existing normalized price snapshot."
+                        elif theme.info_type == "content_update":
+                            change_summary = "Updated an existing normalized content update record."
                         elif theme.info_type == "news_announcement":
                             change_summary = "Updated an existing normalized official announcement record."
                         elif theme.info_type == "financial_event":
@@ -294,6 +298,22 @@ class WorkerService:
                                 normalized_record=normalized_record,
                                 event_key=event_key,
                                 signal="new_announcement",
+                            )
+                    elif theme.info_type == "content_update":
+                        if self._should_check_latest_only(normalized_record, latest_occurred_at):
+                            event_key = (
+                                f"{theme.theme_id}:{source.source_id}:content_update:"
+                                f"{record_identity}:{normalized_record.occurred_at}"
+                            )
+                            self._emit_new_release_event(
+                                connection,
+                                run_id=run_id,
+                                theme=theme,
+                                source=source,
+                                change_id=change_id,
+                                normalized_record=normalized_record,
+                                event_key=event_key,
+                                signal="content_update",
                             )
                     elif theme.info_type == "financial_event":
                         if self._should_check_latest_only(normalized_record, latest_occurred_at):

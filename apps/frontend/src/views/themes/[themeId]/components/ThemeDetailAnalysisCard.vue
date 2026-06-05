@@ -35,6 +35,20 @@
       </div>
     </div>
 
+    <div v-if="reviewActions.length" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
+      <strong>复盘入口</strong>
+      <div class="mt-2.5 grid gap-2">
+        <RouterLink
+          v-for="action in reviewActions"
+          :key="action.label"
+          class="rounded-xl border border-slate-400/15 bg-white/70 px-3 py-2.5 font-semibold leading-6 text-slate-700 transition-colors hover:bg-white/90"
+          :to="action.to"
+        >
+          {{ action.label }}
+        </RouterLink>
+      </div>
+    </div>
+
     <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
       <strong>近期变化</strong>
       <div class="text-[#6f665a]">{{ analysis.recentChange.headline }}</div>
@@ -69,10 +83,12 @@
 
 <script setup lang="ts">
 import type { ThemeAnalysis } from "../../../../lib/api";
+import type { RouteLocationRaw } from "vue-router";
 import { pillToneClass } from "../../../../lib/presentation";
 
 defineProps<{
   analysis: ThemeAnalysis;
   analysisToneLabel: (tone: string) => string;
+  reviewActions: Array<{ label: string; to: RouteLocationRaw }>;
 }>();
 </script>
