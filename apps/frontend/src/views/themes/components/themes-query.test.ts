@@ -12,6 +12,7 @@ describe("themes-query", () => {
       buildThemeManagedQuery({
         query: "pbc",
         typeFilter: "news_announcement",
+        statusFilter: "archived",
         eventQueueFilter: "open",
         healthFilter: "warning",
         impactFilter: "negative",
@@ -21,6 +22,7 @@ describe("themes-query", () => {
     ).toEqual({
       q: "pbc",
       type: "news_announcement",
+      status: "archived",
       queue: "open",
       health: "warning",
       impact: "negative",
@@ -34,6 +36,7 @@ describe("themes-query", () => {
       readThemeRouteFilters({
         q: "macro",
         type: "financial_event",
+        status: "paused",
         queue: "bookmarked",
         health: "warning",
         impact: "positive",
@@ -43,6 +46,7 @@ describe("themes-query", () => {
     ).toEqual({
       query: "macro",
       typeFilter: "financial_event",
+      statusFilter: "paused",
       eventQueueFilter: "bookmarked",
       healthFilter: "warning",
       impactFilter: "positive",
@@ -54,6 +58,7 @@ describe("themes-query", () => {
       readThemeRouteFilters({
         q: ["ignored"],
         type: "invalid",
+        status: "invalid",
         queue: "invalid",
         health: "invalid",
         impact: "invalid",
@@ -62,6 +67,7 @@ describe("themes-query", () => {
     ).toEqual({
       query: "",
       typeFilter: "all",
+      statusFilter: "all",
       eventQueueFilter: "all",
       healthFilter: "all",
       impactFilter: "all",
@@ -77,6 +83,7 @@ describe("themes-query", () => {
         filters: {
           query: "",
           type: "all",
+          status: "all",
           queue: "open",
           health: "all",
           impact: "negative",
@@ -90,6 +97,7 @@ describe("themes-query", () => {
       matchesThemePresetFilters("open-events", presets, {
         query: "",
         typeFilter: "all",
+        statusFilter: "all",
         eventQueueFilter: "open",
         healthFilter: "all",
         impactFilter: "negative",
@@ -102,6 +110,7 @@ describe("themes-query", () => {
       matchesThemePresetFilters("open-events", presets, {
         query: "custom",
         typeFilter: "all",
+        statusFilter: "all",
         eventQueueFilter: "open",
         healthFilter: "all",
         impactFilter: "negative",

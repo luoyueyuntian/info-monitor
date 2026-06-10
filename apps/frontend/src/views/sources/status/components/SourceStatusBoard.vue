@@ -54,29 +54,49 @@
             />
             选中当前筛选来源
           </label>
-          <span class="text-[0.88rem] text-[#766f63]">已选 {{ selectedSourceIds.length }} 个来源</span>
+          <span class="text-[0.88rem] text-[#766f63]">
+            {{ selectedSourceIds.length > 0 ? `已选 ${selectedSourceIds.length} 个来源` : `未单独选中时，默认使用当前筛选的 ${filteredSources.length} 个来源` }}
+          </span>
         </div>
         <div class="flex flex-wrap gap-3">
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!selectedSourceIds.length || bulkUpdating"
+            :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkTriggerSources"
           >
-            {{ bulkUpdating && pendingBulkAction === 'trigger' ? "正在入队..." : "批量入队运行" }}
+            {{
+              bulkUpdating && pendingBulkAction === 'trigger'
+                ? "正在入队..."
+                : selectedSourceIds.length > 0
+                  ? "批量入队运行"
+                  : "入队当前筛选来源"
+            }}
           </button>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!selectedSourceIds.length || bulkUpdating"
+            :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkToggleSourcesPaused(true)"
           >
-            {{ bulkUpdating && pendingBulkAction === 'pause' ? "正在更新..." : "批量暂停来源" }}
+            {{
+              bulkUpdating && pendingBulkAction === 'pause'
+                ? "正在更新..."
+                : selectedSourceIds.length > 0
+                  ? "批量暂停来源"
+                  : "暂停当前筛选来源"
+            }}
           </button>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!selectedSourceIds.length || bulkUpdating"
+            :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkToggleSourcesPaused(false)"
           >
-            {{ bulkUpdating && pendingBulkAction === 'resume' ? "正在更新..." : "批量恢复来源" }}
+            {{
+              bulkUpdating && pendingBulkAction === 'resume'
+                ? "正在更新..."
+                : selectedSourceIds.length > 0
+                  ? "批量恢复来源"
+                  : "恢复当前筛选来源"
+            }}
           </button>
         </div>
       </div>
@@ -434,16 +454,29 @@ const sourceWorkspaceActions = computed(() => {
   const actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }> = [];
   const impact = impactFilter.value === "all" ? undefined : impactFilter.value;
   const themeId = themeFilter.value === "all" ? undefined : themeFilter.value;
-  const themeDetailPath = themeId ? `/themes/${themeId}` : undefined;
+  const themeIds = themeId
+    ? themeId
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  const singleThemeId = themeIds.length === 1 ? themeIds[0] : undefined;
+  const themeDetailPath = singleThemeId ? `/themes/${singleThemeId}` : undefined;
 
   actions.push({
     label:
-      themeId
+      singleThemeId
         ? impactFilter.value === "negative"
           ? "查看该主题分析"
           : impactFilter.value === "positive"
             ? "查看该主题时间线"
             : "查看该主题"
+        : themeIds.length > 1
+          ? impactFilter.value === "negative"
+            ? "查看这组主题"
+            : impactFilter.value === "positive"
+              ? "查看这组主题"
+              : "查看当前主题集合"
         : impactFilter.value === "negative"
           ? "查看关联偏利空主题"
           : impactFilter.value === "positive"
@@ -452,7 +485,7 @@ const sourceWorkspaceActions = computed(() => {
     to: {
       path: themeDetailPath ?? "/themes",
       query: {
-        section: themeId ? (impactFilter.value === "negative" ? "analysis" : "timeline") : undefined,
+        section: singleThemeId ? (impactFilter.value === "negative" ? "analysis" : "timeline") : undefined,
         impact,
         sort: "attention",
       },
@@ -508,6 +541,11 @@ const allVisibleSelected = computed(() => {
   }
 
   return filteredSources.value.every((source) => selectedSourceIds.value.includes(source.id));
+});
+const effectiveBulkSourceIds = computed(() => {
+  return selectedSourceIds.value.length
+    ? selectedSourceIds.value
+    : filteredSources.value.map((source) => source.id);
 });
 
 function toggleSourceSelection(sourceId: string) {
@@ -667,7 +705,7 @@ async function handleTrigger(sourceId: string) {
 }
 
 async function handleBulkTriggerSources() {
-  if (!selectedSourceIds.value.length) {
+  if (!effectiveBulkSourceIds.value.length) {
     return;
   }
 
@@ -675,7 +713,7 @@ async function handleBulkTriggerSources() {
   pendingBulkAction.value = "trigger";
 
   try {
-    const ids = [...selectedSourceIds.value];
+    const ids = [...effectiveBulkSourceIds.value];
     await Promise.all(ids.map((sourceId) => triggerSourceRun(sourceId)));
     await loadSources();
     selectedSourceIds.value = [];
@@ -687,7 +725,7 @@ async function handleBulkTriggerSources() {
 }
 
 async function handleBulkToggleSourcesPaused(isPaused: boolean) {
-  if (!selectedSourceIds.value.length) {
+  if (!effectiveBulkSourceIds.value.length) {
     return;
   }
 
@@ -695,7 +733,7 @@ async function handleBulkToggleSourcesPaused(isPaused: boolean) {
   pendingBulkAction.value = isPaused ? "pause" : "resume";
 
   try {
-    const ids = [...selectedSourceIds.value];
+    const ids = [...effectiveBulkSourceIds.value];
     await Promise.all(ids.map((sourceId) => updateSourcePaused(sourceId, isPaused)));
     await loadSources();
     selectedSourceIds.value = [];

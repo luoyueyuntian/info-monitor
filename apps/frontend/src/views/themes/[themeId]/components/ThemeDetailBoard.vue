@@ -33,7 +33,8 @@
     <ThemeDetailNoticeCard
       v-if="operationMessage"
       title="操作结果"
-      :body="operationMessage"
+      :body="operationMessage.message"
+      :actions="operationMessage.actions"
     />
 
     <div :ref="setSectionRef('analysis')">
@@ -107,7 +108,7 @@
 
     <div class="grid two">
       <div :ref="setSectionRef('events')">
-        <ThemeDetailRecentEventsCard :events="detail.events" />
+        <ThemeDetailRecentEventsCard :theme-id="detail.theme.id" :events="detail.events" />
       </div>
 
       <div :ref="setSectionRef('sources')">
@@ -196,7 +197,10 @@ const deletingTheme = ref(false);
 const showAddSourceForm = ref(false);
 const addingSource = ref(false);
 const sourceFormStatus = ref("");
-const operationMessage = ref("");
+const operationMessage = ref<{
+  message: string;
+  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
+} | null>(null);
 const themeFormStatus = ref("");
 const shortDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
@@ -495,6 +499,13 @@ function analysisToneLabel(tone: string) {
   return "中性观察";
 }
 
+function setOperationMessage(
+  message: string,
+  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }> = [],
+) {
+  operationMessage.value = { message, actions };
+}
+
 const statusBanner = computed(() => {
   if (!detail.value) {
     return null;
@@ -557,7 +568,7 @@ async function handleSaveTheme(input: {
 
   savingTheme.value = true;
   themeFormStatus.value = "";
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   try {
     await updateTheme({
@@ -568,7 +579,10 @@ async function handleSaveTheme(input: {
     });
     await loadThemeDetail();
     showEditThemeForm.value = false;
-    operationMessage.value = "主题已更新。";
+    setOperationMessage("主题已更新。", [
+      { label: "查看主题分析", to: { path: `/themes/${detail.value.theme.id}`, query: { section: "analysis" } } },
+      { label: "查看主题来源", to: { path: `/themes/${detail.value.theme.id}`, query: { section: "sources" } } },
+    ]);
   } catch (error) {
     themeFormStatus.value = error instanceof Error ? error.message : "更新主题失败。";
   } finally {
@@ -583,7 +597,7 @@ async function handleToggleThemeArchived() {
 
   const nextStatus = detail.value.theme.status === "archived" ? "active" : "archived";
   savingThemeArchive.value = true;
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   try {
     await updateTheme({
@@ -591,7 +605,12 @@ async function handleToggleThemeArchived() {
       status: nextStatus,
     });
     await loadThemeDetail();
-    operationMessage.value = nextStatus === "archived" ? "主题已归档。" : "主题已恢复为 active。";
+    setOperationMessage(
+      nextStatus === "archived" ? "主题已归档。" : "主题已恢复为 active。",
+      [
+        { label: nextStatus === "archived" ? "查看归档主题" : "查看主题详情", to: nextStatus === "archived" ? { path: "/themes", query: { status: "archived", sort: "latestEvent" } } : { path: `/themes/${detail.value.theme.id}`, query: { section: "analysis" } } },
+      ],
+    );
   } finally {
     savingThemeArchive.value = false;
   }
@@ -621,12 +640,15 @@ async function handleDeleteTheme() {
 async function handleUpdateThemeEventStatus(eventId: string, status: string) {
   savingEventId.value = eventId;
   pendingEventStatus.value = status;
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   try {
     await updateEventStatus(eventId, status);
     await loadThemeDetail();
-    operationMessage.value = `事件已标记为${eventStatusLabel(status)}。`;
+    setOperationMessage(`事件已标记为${eventStatusLabel(status)}。`, [
+      { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
+      { label: "查看事件工作台", to: { path: "/events", query: { themeId: String(route.params.themeId), status, sort: status === "open" ? "statusChanged" : "occurredAt" } } },
+    ]);
   } finally {
     savingEventId.value = null;
     pendingEventStatus.value = "";
@@ -643,19 +665,30 @@ async function handleUpdateThemeEventMeta(
 ) {
   savingEventId.value = eventId;
   pendingEventStatus.value = pendingKey;
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   try {
     await updateEvent(eventId, input);
     await loadThemeDetail();
-    operationMessage.value =
+    setOperationMessage(
       typeof input.isBookmarked === "boolean"
         ? input.isBookmarked
           ? "事件已加入收藏。"
           : "事件已取消收藏。"
         : input.isRead
           ? "事件已标记为已读。"
-          : "事件已标记为未读。";
+          : "事件已标记为未读。",
+      [
+        { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
+        {
+          label: typeof input.isBookmarked === "boolean" && input.isBookmarked ? "查看观察清单" : "查看事件工作台",
+          to:
+            typeof input.isBookmarked === "boolean" && input.isBookmarked
+              ? { path: "/watchlist" }
+              : { path: "/events", query: { themeId: String(route.params.themeId), sort: "occurredAt" } },
+        },
+      ],
+    );
   } finally {
     savingEventId.value = null;
     pendingEventStatus.value = "";
@@ -663,11 +696,14 @@ async function handleUpdateThemeEventMeta(
 }
 
 async function handleToggleSourcePaused(sourceId: string, isPaused: boolean) {
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   await updateSourcePaused(sourceId, isPaused);
   await loadThemeDetail();
-  operationMessage.value = isPaused ? "来源已暂停。" : "来源已恢复。";
+  setOperationMessage(isPaused ? "来源已暂停。" : "来源已恢复。", [
+    { label: "查看本主题来源状态", to: { path: "/sources/status", query: { themeId: String(route.params.themeId), focus: isPaused ? "all" : undefined } } },
+    { label: "查看主题来源区", to: { path: `/themes/${route.params.themeId}`, query: { section: "sources" } } },
+  ]);
 }
 
 async function handleDeleteSource(sourceId: string) {
@@ -677,11 +713,14 @@ async function handleDeleteSource(sourceId: string) {
     return;
   }
 
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   await deleteSource(sourceId);
   await loadThemeDetail();
-  operationMessage.value = "来源已删除。";
+  setOperationMessage("来源已删除。", [
+    { label: "查看本主题来源状态", to: { path: "/sources/status", query: { themeId: String(route.params.themeId) } } },
+    { label: "查看主题来源区", to: { path: `/themes/${route.params.themeId}`, query: { section: "sources" } } },
+  ]);
 }
 
 async function handleSaveSource(
@@ -693,7 +732,7 @@ async function handleSaveSource(
     configJson: string;
   },
 ) {
-  operationMessage.value = "";
+  operationMessage.value = null;
 
   await updateSource({
     sourceId,
@@ -703,7 +742,10 @@ async function handleSaveSource(
     config: parseSourceConfig(input.configJson),
   });
   await loadThemeDetail();
-  operationMessage.value = "来源已更新。";
+  setOperationMessage("来源已更新。", [
+    { label: "查看来源详情", to: { path: `/sources/${sourceId}` } },
+    { label: "查看本主题来源状态", to: { path: "/sources/status", query: { themeId: String(route.params.themeId) } } },
+  ]);
 }
 
 async function handleAddSource(input: {
@@ -717,7 +759,7 @@ async function handleAddSource(input: {
     return;
   }
 
-  operationMessage.value = "";
+  operationMessage.value = null;
   sourceFormStatus.value = "";
   addingSource.value = true;
 
@@ -735,7 +777,10 @@ async function handleAddSource(input: {
     }
 
     await loadThemeDetail();
-    operationMessage.value = input.runImmediately ? "来源已保存，并已入队运行。" : "来源已保存。";
+    setOperationMessage(input.runImmediately ? "来源已保存，并已入队运行。" : "来源已保存。", [
+      { label: "查看本主题来源状态", to: { path: "/sources/status", query: { themeId: String(route.params.themeId), recent: input.runImmediately ? "24h" : undefined } } },
+      { label: "查看主题来源区", to: { path: `/themes/${route.params.themeId}`, query: { section: "sources" } } },
+    ]);
     showAddSourceForm.value = false;
   } catch (error) {
     sourceFormStatus.value = error instanceof Error ? error.message : "保存来源失败。";

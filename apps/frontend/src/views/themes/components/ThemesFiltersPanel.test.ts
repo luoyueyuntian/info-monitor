@@ -11,6 +11,7 @@ describe("ThemesFiltersPanel", () => {
     const resetFilters = vi.fn();
     const setQuery = vi.fn();
     const setTypeFilter = vi.fn();
+    const setStatusFilter = vi.fn();
     const setEventQueueFilter = vi.fn();
     const setHealthFilter = vi.fn();
     const setImpactFilter = vi.fn();
@@ -25,6 +26,7 @@ describe("ThemesFiltersPanel", () => {
         filterSummary: "全部主题",
         query: "pbc",
         typeFilter: "all",
+        statusFilter: "all",
         eventQueueFilter: "all",
         healthFilter: "all",
         impactFilter: "all",
@@ -34,6 +36,7 @@ describe("ThemesFiltersPanel", () => {
         resetFilters,
         setQuery,
         setTypeFilter,
+        setStatusFilter,
         setEventQueueFilter,
         setHealthFilter,
         setImpactFilter,
@@ -46,11 +49,12 @@ describe("ThemesFiltersPanel", () => {
     await wrapper.find("button.quick-preset-button").trigger("click");
     await wrapper.find("input").setValue("macro");
     await wrapper.findAll("select")[0].setValue("price");
-    await wrapper.findAll("select")[1].setValue("open");
-    await wrapper.findAll("select")[2].setValue("warning");
-    await wrapper.findAll("select")[3].setValue("negative");
+    await wrapper.findAll("select")[1].setValue("archived");
+    await wrapper.findAll("select")[2].setValue("open");
+    await wrapper.findAll("select")[3].setValue("warning");
+    await wrapper.findAll("select")[4].setValue("negative");
     await wrapper.find("input[type='checkbox']").setValue(true);
-    await wrapper.findAll("select")[4].setValue("latestEvent");
+    await wrapper.findAll("select")[5].setValue("latestEvent");
     const buttons = wrapper.findAll("button");
     await buttons.find((item) => item.text() === "重置筛选")!.trigger("click");
     await buttons.find((item) => item.text() === "清空搜索")!.trigger("click");
@@ -58,6 +62,7 @@ describe("ThemesFiltersPanel", () => {
     expect(applyThemePreset).toHaveBeenCalledWith("open-events");
     expect(setQuery).toHaveBeenCalledWith("macro");
     expect(setTypeFilter).toHaveBeenCalledWith("price");
+    expect(setStatusFilter).toHaveBeenCalledWith("archived");
     expect(setEventQueueFilter).toHaveBeenCalledWith("open");
     expect(setHealthFilter).toHaveBeenCalledWith("warning");
     expect(setImpactFilter).toHaveBeenCalledWith("negative");

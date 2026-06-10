@@ -55,20 +55,26 @@
     </div>
 
     <div v-if="section.events.length" class="flex flex-col gap-3">
-      <RouterLink
+      <article
         v-for="event in section.visibleEvents"
         :key="event.id"
         class="overflow-hidden rounded-2xl border border-slate-400/15 bg-slate-50/90 p-0"
-        :to="`/events/${event.id}`"
       >
         <div class="border-b border-slate-400/15 px-3 py-2.5" :class="eventHeaderToneClass(event)">
           <span :class="pillToneClass(event.signal, 'text')">{{ eventSignalLabel(event.signal) }}</span>
+          <span :class="pillToneClass(eventImpactTone(event), 'text')">{{ impactToneLabel(eventImpactTone(event)) }}</span>
           <span :class="pillToneClass(event.status, 'text')">{{ eventStatusLabel(event.status) }}</span>
           <span :class="pillToneClass(event.isRead ? 'active' : 'pending', 'text')">{{ eventReadLabel(event.isRead) }}</span>
           <span :class="pillToneClass(event.isBookmarked ? '30d_low' : 'neutral', 'text')">{{ eventBookmarkLabel(event.isBookmarked) }}</span>
         </div>
         <div class="grid gap-2 bg-slate-50/90 px-4 py-3.5">
-          <strong>{{ event.title }}</strong>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+            :to="`/events/${event.id}`"
+          >
+            {{ event.title }}
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
           <div class="text-[0.88rem] text-[#766f63]">{{ event.themeName }} · {{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
           <div class="text-[#6f665a]">{{ event.summary }}</div>
           <div class="mt-2.5 grid gap-1.5" v-if="eventDetails(event).length">
@@ -79,8 +85,28 @@
               </div>
             </template>
           </div>
+          <div class="mt-2 flex flex-wrap gap-3">
+            <RouterLink
+              class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+              :to="{ path: `/themes/${event.themeId}`, query: { section: eventImpactTone(event) === 'negative' ? 'analysis' : event.infoType === 'price' ? 'trend' : 'timeline' } }"
+            >
+              {{ eventImpactTone(event) === "negative" ? "查看主题分析" : event.infoType === "price" ? "查看主题趋势" : "查看主题时间线" }}
+            </RouterLink>
+            <RouterLink
+              class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+              :to="{ path: '/sources/status', query: { themeId: event.themeId } }"
+            >
+              查看来源状态
+            </RouterLink>
+            <RouterLink
+              class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+              :to="{ path: '/events', query: { themeId: event.themeId, impact: eventImpactTone(event) !== 'neutral' ? eventImpactTone(event) : undefined, sort: 'occurredAt' } }"
+            >
+              查看同主题事件
+            </RouterLink>
+          </div>
         </div>
-      </RouterLink>
+      </article>
     </div>
     <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       这一分区当前没有新的事件。
@@ -92,7 +118,7 @@
 import type { RouteLocationRaw } from "vue-router";
 
 import type { EventSummary } from "../../../lib/api";
-import { eventImpactTone } from "../../../lib/impact";
+import { eventImpactTone, impactToneLabel } from "../../../lib/impact";
 import {
   eventBookmarkLabel,
   eventReadLabel,

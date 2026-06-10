@@ -6,6 +6,7 @@
       :filter-summary="themeFilterSummary"
       :query="query"
       :type-filter="typeFilter"
+      :status-filter="statusFilter"
       :event-queue-filter="eventQueueFilter"
       :health-filter="healthFilter"
       :impact-filter="impactFilter"
@@ -15,6 +16,7 @@
       :reset-filters="resetFilters"
       :set-query="setQuery"
       :set-type-filter="setTypeFilter"
+      :set-status-filter="setStatusFilter"
       :set-event-queue-filter="setEventQueueFilter"
       :set-health-filter="setHealthFilter"
       :set-impact-filter="setImpactFilter"
@@ -49,17 +51,29 @@
         <div class="flex flex-wrap gap-3">
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!selectedThemeIds.length || bulkUpdating"
+            :disabled="!effectiveBulkThemeIds.length || bulkUpdating"
             @click="handleBulkUpdateThemes('archived')"
           >
-            {{ bulkUpdating && pendingBulkAction === 'archived' ? "正在更新..." : "批量归档主题" }}
+            {{
+              bulkUpdating && pendingBulkAction === 'archived'
+                ? "正在更新..."
+                : selectedThemeIds.length > 0
+                  ? "批量归档主题"
+                  : "归档当前筛选主题"
+            }}
           </button>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="!selectedThemeIds.length || bulkUpdating"
+            :disabled="!effectiveBulkThemeIds.length || bulkUpdating"
             @click="handleBulkUpdateThemes('active')"
           >
-            {{ bulkUpdating && pendingBulkAction === 'active' ? "正在更新..." : "批量恢复主题" }}
+            {{
+              bulkUpdating && pendingBulkAction === 'active'
+                ? "正在更新..."
+                : selectedThemeIds.length > 0
+                  ? "批量恢复主题"
+                  : "恢复当前筛选主题"
+            }}
           </button>
           <RouterLink
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
@@ -143,6 +157,7 @@ import { themeTypeLabel } from "../../../lib/presentation";
 const themes = ref<ThemeSummary[]>([]);
 const query = ref("");
 const typeFilter = ref("all");
+const statusFilter = ref("all");
 const eventQueueFilter = ref("all");
 const healthFilter = ref("all");
 const impactFilter = ref("all");
@@ -162,52 +177,57 @@ const themePresets = [
   {
     id: "all",
     label: "全部主题",
-    filters: { query: "", type: "all", queue: "all", health: "all", sort: "priority", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "all", health: "all", sort: "priority", recent: false },
   },
   {
     id: "price-24h",
     label: "24h 价格",
-    filters: { query: "", type: "price", queue: "all", health: "all", sort: "latestEvent", recent: true },
+    filters: { query: "", type: "price", status: "all", queue: "all", health: "all", sort: "latestEvent", recent: true },
   },
   {
     id: "positive",
     label: "偏利好主题",
-    filters: { query: "", type: "all", queue: "all", health: "all", impact: "positive", sort: "attention", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "all", health: "all", impact: "positive", sort: "attention", recent: false },
   },
   {
     id: "negative",
     label: "偏利空主题",
-    filters: { query: "", type: "all", queue: "all", health: "all", impact: "negative", sort: "attention", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "all", health: "all", impact: "negative", sort: "attention", recent: false },
   },
   {
     id: "open-events",
     label: "待处理主题",
-    filters: { query: "", type: "all", queue: "open", health: "all", sort: "attention", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "open", health: "all", sort: "attention", recent: false },
   },
   {
     id: "unread-events",
     label: "未读主题",
-    filters: { query: "", type: "all", queue: "unread", health: "all", sort: "attention", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "unread", health: "all", sort: "attention", recent: false },
   },
       {
         id: "bookmarked-events",
         label: "收藏主题",
-        filters: { query: "", type: "all", queue: "bookmarked", health: "all", sort: "latestBookmarked", recent: false },
+        filters: { query: "", type: "all", status: "all", queue: "bookmarked", health: "all", sort: "latestBookmarked", recent: false },
       },
   {
     id: "warning",
     label: "异常主题",
-    filters: { query: "", type: "all", queue: "all", health: "warning", sort: "priority", recent: false },
+    filters: { query: "", type: "all", status: "all", queue: "all", health: "warning", sort: "priority", recent: false },
+  },
+  {
+    id: "archived",
+    label: "归档主题",
+    filters: { query: "", type: "all", status: "archived", queue: "all", health: "all", sort: "latestEvent", recent: false },
   },
   {
     id: "announcement-24h",
     label: "24h 官方发布",
-    filters: { query: "", type: "news_announcement", queue: "all", health: "all", sort: "latestEvent", recent: true },
+    filters: { query: "", type: "news_announcement", status: "all", queue: "all", health: "all", sort: "latestEvent", recent: true },
   },
   {
     id: "financial-24h",
     label: "24h 金融事件",
-    filters: { query: "", type: "financial_event", queue: "all", health: "all", sort: "latestEvent", recent: true },
+    filters: { query: "", type: "financial_event", status: "all", queue: "all", health: "all", sort: "latestEvent", recent: true },
   },
 ] as const;
 
@@ -217,6 +237,10 @@ function setQuery(value: string) {
 
 function setTypeFilter(value: string) {
   typeFilter.value = value;
+}
+
+function setStatusFilter(value: string) {
+  statusFilter.value = value;
 }
 
 function setEventQueueFilter(value: string) {
@@ -266,6 +290,7 @@ function applyQueryFilters() {
   const nextFilters = readThemeRouteFilters(route.query);
   query.value = nextFilters.query;
   typeFilter.value = nextFilters.typeFilter;
+  statusFilter.value = nextFilters.statusFilter;
   eventQueueFilter.value = nextFilters.eventQueueFilter;
   healthFilter.value = nextFilters.healthFilter;
   impactFilter.value = nextFilters.impactFilter;
@@ -276,6 +301,7 @@ function applyQueryFilters() {
 function resetFilters() {
   query.value = "";
   typeFilter.value = "all";
+  statusFilter.value = "all";
   eventQueueFilter.value = "all";
   healthFilter.value = "all";
   impactFilter.value = "all";
@@ -294,6 +320,7 @@ function applyThemePreset(presetId: string) {
 
   query.value = preset.filters.query;
   typeFilter.value = preset.filters.type;
+  statusFilter.value = "status" in preset.filters ? preset.filters.status : "all";
   eventQueueFilter.value = preset.filters.queue;
   healthFilter.value = preset.filters.health;
   impactFilter.value = "impact" in preset.filters ? preset.filters.impact : "all";
@@ -317,6 +344,7 @@ const activeThemePresetId = computed(() => {
 const activeFilters = computed<ThemesBoardFilters>(() => ({
   query: query.value,
   typeFilter: typeFilter.value,
+  statusFilter: statusFilter.value,
   eventQueueFilter: eventQueueFilter.value,
   healthFilter: healthFilter.value,
   impactFilter: impactFilter.value,
@@ -344,6 +372,11 @@ const selectedThemeContext = computed(() => {
     : filteredThemes.value.map((theme) => theme.id);
 
   return ids.length ? ids.join(",") : null;
+});
+const effectiveBulkThemeIds = computed(() => {
+  return selectedThemeIds.value.length
+    ? selectedThemeIds.value
+    : filteredThemes.value.map((theme) => theme.id);
 });
 
 const bookmarkedThemesForReview = computed(() =>
@@ -405,15 +438,15 @@ function toggleSelectAllVisible(checked: boolean) {
   selectedThemeIds.value = selectedThemeIds.value.filter((id) => !visibleIds.includes(id));
 }
 
-function buildBulkThemeOperationNotice(status: "active" | "archived", count: number) {
+function buildBulkThemeOperationNotice(status: "active" | "archived", count: number, ids: string[]) {
   const impact = impactFilter.value === "all" ? undefined : impactFilter.value;
-  const themeId = selectedThemeContext.value ?? undefined;
+  const themeId = ids.length ? ids.join(",") : undefined;
 
   if (status === "archived") {
     return {
       message: `已将 ${count} 个主题批量归档。`,
       actions: [
-        { label: "查看当前主题视图", to: { path: "/themes", query: buildThemeManagedQuery(activeFilters.value) } },
+        { label: "查看归档主题", to: { path: "/themes", query: { ...buildThemeManagedQuery(activeFilters.value), status: "archived" } } },
         { label: "查看相关来源状态", to: { path: "/sources/status", query: { themeId, impact, recent: recentOnly24h.value ? "24h" : undefined } } },
         { label: "查看相关事件", to: { path: "/events", query: { themeId, impact, sort: "occurredAt" } } },
       ],
@@ -431,7 +464,7 @@ function buildBulkThemeOperationNotice(status: "active" | "archived", count: num
 }
 
 async function handleBulkUpdateThemes(status: "active" | "archived") {
-  if (!selectedThemeIds.value.length) {
+  if (!effectiveBulkThemeIds.value.length) {
     return;
   }
 
@@ -440,13 +473,13 @@ async function handleBulkUpdateThemes(status: "active" | "archived") {
   operationNotice.value = null;
 
   try {
-    const ids = [...selectedThemeIds.value];
+    const ids = [...effectiveBulkThemeIds.value];
     await Promise.all(ids.map((themeId) => updateTheme({ themeId, status })));
     themes.value = themes.value.map((theme) =>
       ids.includes(theme.id) ? { ...theme, status } : theme,
     );
     selectedThemeIds.value = [];
-    operationNotice.value = buildBulkThemeOperationNotice(status, ids.length);
+    operationNotice.value = buildBulkThemeOperationNotice(status, ids.length, ids);
   } finally {
     bulkUpdating.value = false;
     pendingBulkAction.value = "";
@@ -465,7 +498,7 @@ watch(
   },
 );
 
-watch([query, typeFilter, eventQueueFilter, healthFilter, impactFilter, sortBy, recentOnly24h], () => {
+watch([query, typeFilter, statusFilter, eventQueueFilter, healthFilter, impactFilter, sortBy, recentOnly24h], () => {
   if (selectedThemePresetId.value && !matchesPresetFilters(selectedThemePresetId.value)) {
     selectedThemePresetId.value = "";
   }

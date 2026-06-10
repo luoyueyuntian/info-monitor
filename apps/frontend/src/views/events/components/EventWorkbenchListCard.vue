@@ -42,6 +42,18 @@
         </div>
         <div class="text-[#6f665a]">{{ event.summary }}</div>
         <div class="mt-3 flex flex-wrap gap-3">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: `/themes/${event.themeId}`, query: { section: eventImpactTone(event) === 'negative' ? 'analysis' : event.infoType === 'price' ? 'trend' : 'timeline' } }"
+          >
+            {{ eventImpactTone(event) === "negative" ? "查看主题分析" : event.infoType === "price" ? "查看主题趋势" : "查看主题时间线" }}
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: '/sources/status', query: { themeId: event.themeId } }"
+          >
+            查看来源状态
+          </RouterLink>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="savingEventId === event.id && pendingStatus === 'open'"

@@ -35,6 +35,18 @@
           >
             在来源状态页查看
           </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: '/events', query: { themeId, sort: 'occurredAt' } }"
+          >
+            查看相关事件
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: `/themes/${themeId}`, query: { section: source.status === 'warning' ? 'analysis' : 'timeline' } }"
+          >
+            {{ source.status === "warning" ? "查看主题分析" : "查看主题时间线" }}
+          </RouterLink>
           <button
             class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
             type="button"

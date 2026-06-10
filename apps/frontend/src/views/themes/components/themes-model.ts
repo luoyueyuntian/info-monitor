@@ -12,6 +12,7 @@ import { toTimestamp } from "../../../lib/time";
 export type ThemesBoardFilters = {
   query: string;
   typeFilter: string;
+  statusFilter: string;
   eventQueueFilter: string;
   healthFilter: string;
   impactFilter: string;
@@ -47,6 +48,7 @@ export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters
         theme.name.toLowerCase().includes(filters.query.toLowerCase()) ||
         theme.type.toLowerCase().includes(filters.query.toLowerCase());
       const matchesType = filters.typeFilter === "all" || theme.type === filters.typeFilter;
+      const matchesStatus = filters.statusFilter === "all" || theme.status === filters.statusFilter;
       const matchesQueue =
         filters.eventQueueFilter === "all" ||
         (filters.eventQueueFilter === "open" && (theme.openEventCount ?? 0) > 0) ||
@@ -64,7 +66,7 @@ export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters
       const matchesImpact = filters.impactFilter === "all" || themeImpactTone(theme) === filters.impactFilter;
       const matchesRecent = !filters.recentOnly24h || hasRecentThemeActivity(theme);
 
-      return matchesQuery && matchesType && matchesQueue && matchesHealth && matchesImpact && matchesRecent;
+      return matchesQuery && matchesType && matchesStatus && matchesQueue && matchesHealth && matchesImpact && matchesRecent;
     })
     .sort((left, right) => {
       if (filters.sortBy === "latestEvent") {
@@ -98,6 +100,9 @@ export function buildThemeFilterSummary(
   const parts = [
     filters.query ? `搜索“${filters.query}”` : "",
     filters.typeFilter !== "all" ? `类型 ${themeTypeLabel(filters.typeFilter)}` : "",
+    filters.statusFilter === "active" ? "状态 活跃" : "",
+    filters.statusFilter === "paused" ? "状态 暂停" : "",
+    filters.statusFilter === "archived" ? "状态 归档" : "",
     filters.eventQueueFilter === "open" ? "有待处理事件" : "",
     filters.eventQueueFilter === "tracking" ? "有关注中事件" : "",
     filters.eventQueueFilter === "ignored" ? "仅已忽略事件" : "",

@@ -5,9 +5,34 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 PREPARE_ONLY=0
-if [[ "${1:-}" == "--prepare-only" ]]; then
-  PREPARE_ONLY=1
-fi
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/preview.sh [--prepare-only] [--help]
+
+Options:
+  --prepare-only   Prepare the preview environment without starting services.
+  --help           Show this help message and exit.
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --prepare-only)
+      PREPARE_ONLY=1
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf '[preview] Unknown option: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 API_PID=""
 FRONTEND_PID=""
@@ -65,8 +90,16 @@ ensure_python_app() {
   if [[ ! -f "$stamp_file" || "$pyproject_file" -nt "$stamp_file" ]]; then
     log "Installing Python dependencies for $app_name"
     env PIP_CACHE_DIR="$ROOT_DIR/.pip-cache" "$venv_dir/bin/pip" install "$app_dir"
+    cleanup_python_generated_artifacts "$app_dir"
     touch "$stamp_file"
   fi
+}
+
+cleanup_python_generated_artifacts() {
+  local app_dir="$1"
+
+  rm -rf "$app_dir/build"
+  find "$app_dir/src" -maxdepth 1 -type d -name '*.egg-info' -prune -exec rm -rf {} +
 }
 
 wait_for_postgres() {

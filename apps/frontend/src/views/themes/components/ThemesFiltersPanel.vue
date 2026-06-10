@@ -29,6 +29,12 @@
         <option value="news_announcement">公告</option>
         <option value="financial_event">金融事件</option>
       </select>
+      <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="statusFilter" @change="setStatusFilter(($event.target as HTMLSelectElement).value)">
+        <option value="all">全部主题状态</option>
+        <option value="active">活跃</option>
+        <option value="paused">暂停</option>
+        <option value="archived">归档</option>
+      </select>
       <select class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5" :value="eventQueueFilter" @change="setEventQueueFilter(($event.target as HTMLSelectElement).value)">
         <option value="all">全部处理状态</option>
         <option value="open">有待处理事件</option>
@@ -72,6 +78,7 @@ defineProps<{
   filterSummary: string;
   query: string;
   typeFilter: string;
+  statusFilter: string;
   eventQueueFilter: string;
   healthFilter: string;
   impactFilter: string;
@@ -81,6 +88,7 @@ defineProps<{
   resetFilters: () => void;
   setQuery: (value: string) => void;
   setTypeFilter: (value: string) => void;
+  setStatusFilter: (value: string) => void;
   setEventQueueFilter: (value: string) => void;
   setHealthFilter: (value: string) => void;
   setImpactFilter: (value: string) => void;

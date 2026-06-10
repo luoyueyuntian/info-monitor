@@ -62,6 +62,13 @@
               查看时间线
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
+            <RouterLink
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
+            >
+              查看来源状态
+              <span aria-hidden="true" class="text-base leading-none">›</span>
+            </RouterLink>
           </div>
         </article>
       </div>
@@ -115,6 +122,13 @@
               :to="{ path: `/themes/${theme.id}`, query: { section: 'timeline' } }"
             >
               查看时间线
+              <span aria-hidden="true" class="text-base leading-none">›</span>
+            </RouterLink>
+            <RouterLink
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
+            >
+              查看来源状态
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
           </div>

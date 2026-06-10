@@ -25,13 +25,18 @@
     </div>
     <div class="mb-3 text-[0.88rem] text-[#766f63]">{{ summary }}</div>
     <div v-if="sortedSources.length" class="flex flex-col gap-3">
-      <RouterLink
+      <article
         v-for="source in sortedSources"
         :key="source.id"
         class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
-        :to="`/sources/${source.id}`"
       >
-        <strong>{{ source.name }}</strong>
+        <RouterLink
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          :to="`/sources/${source.id}`"
+        >
+          {{ source.name }}
+          <span aria-hidden="true" class="text-base leading-none">›</span>
+        </RouterLink>
         <div class="text-[0.88rem] text-[#766f63]">
           {{ source.themeName }} · {{ sourceStatusLabel(source.status) }} · {{ sourceTypeLabel(source.sourceType) }}
         </div>
@@ -75,7 +80,7 @@
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
         </div>
-      </RouterLink>
+      </article>
     </div>
     <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前视角下没有匹配的来源。

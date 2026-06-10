@@ -33,6 +33,20 @@
             查看主题
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            :to="{ path: '/sources/status', query: { themeId: item.themeId, focus: item.openCount > 0 ? 'warning' : undefined } }"
+          >
+            查看来源状态
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            :to="{ path: '/watchlist', query: { type: undefined, completion: item.bookmarkedCount > 0 ? 'all' : undefined } }"
+          >
+            查看长期观察
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
         </div>
       </article>
     </div>

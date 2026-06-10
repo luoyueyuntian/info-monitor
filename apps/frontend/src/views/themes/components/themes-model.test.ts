@@ -37,6 +37,7 @@ describe("themes-model", () => {
     const result = filterThemes(themes, {
       query: "",
       typeFilter: "all",
+      statusFilter: "all",
       eventQueueFilter: "open",
       healthFilter: "all",
       impactFilter: "all",
@@ -53,6 +54,7 @@ describe("themes-model", () => {
         {
           query: "pbc",
           typeFilter: "financial_event",
+          statusFilter: "archived",
           eventQueueFilter: "bookmarked",
           healthFilter: "warning",
           impactFilter: "negative",
@@ -73,6 +75,7 @@ describe("themes-model", () => {
     const result = filterThemes(themes, {
       query: "",
       typeFilter: "all",
+      statusFilter: "all",
       eventQueueFilter: "bookmarked",
       healthFilter: "all",
       impactFilter: "all",
@@ -116,6 +119,7 @@ describe("themes-model", () => {
       {
         query: "",
         typeFilter: "all",
+        statusFilter: "all",
         eventQueueFilter: "all",
         healthFilter: "all",
         impactFilter: "all",

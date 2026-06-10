@@ -7,6 +7,8 @@ export const themeManagedQueryKeys = [
   "query",
   "type",
   "typeFilter",
+  "status",
+  "themeStatus",
   "queue",
   "eventQueue",
   "health",
@@ -27,6 +29,10 @@ export function buildThemeManagedQuery(filters: ThemesBoardFilters) {
 
   if (filters.typeFilter !== "all") {
     nextQuery.type = filters.typeFilter;
+  }
+
+  if (filters.statusFilter !== "all") {
+    nextQuery.status = filters.statusFilter;
   }
 
   if (filters.eventQueueFilter !== "all") {
@@ -55,6 +61,7 @@ export function buildThemeManagedQuery(filters: ThemesBoardFilters) {
 export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
   const queryText = query.q ?? query.query;
   const queryType = query.type ?? query.typeFilter;
+  const queryStatus = query.status ?? query.themeStatus;
   const queryQueue = query.queue ?? query.eventQueue;
   const queryHealth = query.health ?? query.healthFilter;
   const queryImpact = query.impact ?? query.impactFilter;
@@ -62,6 +69,7 @@ export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
   const queryRecent = query.recent;
 
   const allowedTypes = ["price", "content_update", "news_announcement", "financial_event", "all"];
+  const allowedStatus = ["active", "paused", "archived", "all"];
   const allowedQueues = ["open", "tracking", "ignored", "unread", "bookmarked", "all"];
   const allowedHealth = ["healthy", "warning", "all"];
   const allowedImpact = ["positive", "negative", "neutral", "all"];
@@ -70,6 +78,7 @@ export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
   return {
     query: typeof queryText === "string" ? queryText : "",
     typeFilter: typeof queryType === "string" && allowedTypes.includes(queryType) ? queryType : "all",
+    statusFilter: typeof queryStatus === "string" && allowedStatus.includes(queryStatus) ? queryStatus : "all",
     eventQueueFilter:
       typeof queryQueue === "string" && allowedQueues.includes(queryQueue) ? queryQueue : "all",
     healthFilter:
@@ -88,6 +97,7 @@ export function matchesThemePresetFilters(
     filters: {
       query: string;
       type: string;
+      status?: string;
       queue: string;
       health: string;
       impact?: string;
@@ -106,6 +116,7 @@ export function matchesThemePresetFilters(
   return (
     filters.query === preset.filters.query &&
     filters.typeFilter === preset.filters.type &&
+    filters.statusFilter === (preset.filters.status ?? "all") &&
     filters.eventQueueFilter === preset.filters.queue &&
     filters.healthFilter === preset.filters.health &&
     filters.impactFilter === (preset.filters.impact ?? "all") &&

@@ -31,13 +31,18 @@
     </div>
     <div class="mb-3 text-[0.88rem] text-[#766f63]">{{ summary }}</div>
     <div v-if="sortedThemes.length" class="flex flex-col gap-3">
-      <RouterLink
+      <article
         v-for="theme in sortedThemes"
         :key="theme.id"
         class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
-        :to="themeDetailTarget(theme)"
       >
-        <strong>{{ theme.name }}</strong>
+        <RouterLink
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          :to="themeDetailTarget(theme)"
+        >
+          {{ theme.name }}
+          <span aria-hidden="true" class="text-base leading-none">›</span>
+        </RouterLink>
         <div class="text-[0.88rem] text-[#766f63]">
           {{ themeTypeLabel(theme.type) }} · 状态: {{ themeStatusLabel(theme.status) }} · 来源数: {{ theme.sourceCount }}
         </div>
@@ -80,7 +85,7 @@
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
         </div>
-      </RouterLink>
+      </article>
     </div>
     <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
       当前视角下没有匹配的主题。
