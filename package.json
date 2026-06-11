@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/frontend",
-    "apps/api"
+    "apps/api",
+    "packages/shared-contracts"
   ],
   "scripts": {
     "dev:frontend": "npm run dev --workspace @info-monitor/frontend",
@@ -32,6 +33,8 @@
     "lint:python-worker": "apps/python-worker/.venv/bin/python -m ruff check apps/python-worker/src",
     "lint:python-scheduler": "apps/python-scheduler/.venv/bin/python -m ruff check apps/python-scheduler/src",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test:frontend": "npm run test --workspace @info-monitor/frontend"
+    "test:frontend": "npm run test --workspace @info-monitor/frontend",
+    "test:api": "npm run test --workspace @info-monitor/api",
+    "test:python-worker": "apps/python-worker/.venv/bin/python -m pytest apps/python-worker/tests -v"
   }
 }

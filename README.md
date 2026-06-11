@@ -9,7 +9,7 @@ change detection, and high-signal alerts.
 - `apps/api`: Node.js business API
 - `apps/python-worker`: Python crawler and processing worker
 - `apps/python-scheduler`: Python scheduler
-- `packages/shared-contracts`: shared API contract notes
+- `packages/shared-contracts`: shared API contract types
 - `db/migrations`: shared SQL migrations
 - `docs`: product and architecture documents
 
@@ -154,6 +154,7 @@ npm run db:enqueue:pbc-open-market-demo
 
 - Vue 3 frontend skeleton with inbox, themes, theme detail, event detail, source status, and theme creation views
 - Node.js API skeleton with real route structure and a database-backed service layer that falls back to mock data when `DATABASE_URL` is not configured
+- Notification flow now spans worker -> API -> frontend, including a notification center and read-state updates
 - Shared PostgreSQL migration for core entities such as themes, sources, runs, raw snapshots, normalized records, changes, and events
 - Python worker skeleton with a first demo price-feed adapter, price normalizer, and 30-day low event rule
 - Python scheduler skeleton that can enqueue pending source runs for active sources
