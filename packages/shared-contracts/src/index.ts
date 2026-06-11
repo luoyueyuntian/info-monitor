@@ -449,3 +449,28 @@ export {
 } from "./validation.js";
 
 export type { ValidationResult } from "./validation.js";
+
+// Re-export notification theme utilities
+export {
+  SIGNAL_COLORS,
+  SIGNAL_PRIORITIES,
+  SIGNAL_LABELS,
+  NOTIFICATION_TEMPLATES,
+  NOTIFICATION_STATUS_COLORS,
+  EVENT_STATUS_COLORS,
+  getSignalColors,
+  getSignalPriority,
+  getSignalLabel,
+  shouldNotify,
+  renderNotification,
+  getNotificationStatusColors,
+  getEventStatusColors,
+} from "./notification-theme.js";
+
+export type {
+  SignalColorScheme,
+  SignalPriority,
+  NotificationTemplate,
+  TemplateVariables,
+  StatusColorScheme,
+} from "./notification-theme.js";
