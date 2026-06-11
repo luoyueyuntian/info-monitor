@@ -1,0 +1,303 @@
+import type {
+  RuleConfiguration,
+  RuleConfigurationInput,
+} from "@info-monitor/shared-contracts";
+
+import { getDatabase } from "../db/client.js";
+import { createId } from "../lib/ids.js";
+
+// Mock rule configurations for demo mode
+const mockRuleConfigs: RuleConfiguration[] = [
+  {
+    id: "rule-price-30d-low-theme-surface-pro-8",
+    ruleKey: "price_30d_low",
+    themeId: "theme-surface-pro-8",
+    config: {
+      thresholdPercent: 0,
+      dedupWindowDays: 30,
+      onlyLatest: true,
+      notificationLevel: "high",
+      minPriceChange: 0,
+    },
+    isEnabled: true,
+    priority: 10,
+    createdAt: "2026-06-01T00:00:00Z",
+    updatedAt: "2026-06-01T00:00:00Z",
+  },
+  {
+    id: "rule-financial-direction-theme-pbc-open-market",
+    ruleKey: "financial_direction",
+    themeId: "theme-pbc-open-market",
+    config: {
+      classifyNeutral: false,
+      notificationLevel: "medium",
+      bullishSignals: ["liquidity_injection"],
+      bearishSignals: ["liquidity_withdrawal"],
+    },
+    isEnabled: true,
+    priority: 10,
+    createdAt: "2026-06-01T00:00:00Z",
+    updatedAt: "2026-06-01T00:00:00Z",
+  },
+  {
+    id: "rule-content-update-theme-figma-updates",
+    ruleKey: "content_update",
+    themeId: "theme-figma-updates",
+    config: {
+      notificationLevel: "low",
+      ignoreTypes: [],
+      requireKeyword: null,
+    },
+    isEnabled: true,
+    priority: 5,
+    createdAt: "2026-06-01T00:00:00Z",
+    updatedAt: "2026-06-01T00:00:00Z",
+  },
+];
+
+export async function listRuleConfigurations(
+  themeId?: string,
+  ruleKey?: string,
+): Promise<RuleConfiguration[]> {
+  const db = getDatabase();
+
+  if (!db) {
+    let filtered = [...mockRuleConfigs];
+    if (themeId) {
+      filtered = filtered.filter((c) => c.themeId === themeId);
+    }
+    if (ruleKey) {
+      filtered = filtered.filter((c) => c.ruleKey === ruleKey);
+    }
+    return filtered;
+  }
+
+  let query = db
+    .selectFrom("rule_configurations")
+    .select([
+      "id",
+      "rule_key as ruleKey",
+      "theme_id as themeId",
+      "config",
+      "is_enabled as isEnabled",
+      "priority",
+      "created_at as createdAt",
+      "updated_at as updatedAt",
+    ]);
+
+  if (themeId) {
+    query = query.where("theme_id", "=", themeId);
+  }
+
+  if (ruleKey) {
+    query = query.where("rule_key", "=", ruleKey);
+  }
+
+  const rows = await query.orderBy("priority", "desc").execute();
+
+  return rows.map((row) => ({
+    ...row,
+    config: (typeof row.config === "string" ? JSON.parse(row.config) : row.config) as Record<string, unknown>,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+  }));
+}
+
+export async function getRuleConfiguration(
+  configId: string,
+): Promise<RuleConfiguration | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    return mockRuleConfigs.find((c) => c.id === configId) ?? null;
+  }
+
+  const row = await db
+    .selectFrom("rule_configurations")
+    .select([
+      "id",
+      "rule_key as ruleKey",
+      "theme_id as themeId",
+      "config",
+      "is_enabled as isEnabled",
+      "priority",
+      "created_at as createdAt",
+      "updated_at as updatedAt",
+    ])
+    .where("id", "=", configId)
+    .executeTakeFirst();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    config: (typeof row.config === "string" ? JSON.parse(row.config) : row.config) as Record<string, unknown>,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+  };
+}
+
+export async function createRuleConfiguration(
+  input: RuleConfigurationInput,
+): Promise<RuleConfiguration> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = createId("rule_configurations");
+
+  const config: RuleConfiguration = {
+    id,
+    ruleKey: input.ruleKey,
+    themeId: input.themeId ?? null,
+    config: input.config ?? {},
+    isEnabled: input.isEnabled ?? true,
+    priority: input.priority ?? 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!db) {
+    mockRuleConfigs.push(config);
+    return config;
+  }
+
+  await db
+    .insertInto("rule_configurations")
+    .values({
+      id,
+      rule_key: input.ruleKey,
+      theme_id: input.themeId ?? null,
+      config: JSON.stringify(input.config ?? {}),
+      is_enabled: input.isEnabled ?? true,
+      priority: input.priority ?? 0,
+    })
+    .execute();
+
+  return config;
+}
+
+export async function updateRuleConfiguration(
+  configId: string,
+  input: Partial<RuleConfigurationInput>,
+): Promise<RuleConfiguration | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    const index = mockRuleConfigs.findIndex((c) => c.id === configId);
+    if (index === -1) return null;
+
+    const existing = mockRuleConfigs[index];
+    const updated: RuleConfiguration = {
+      ...existing,
+      ruleKey: input.ruleKey ?? existing.ruleKey,
+      themeId: input.themeId !== undefined ? input.themeId : existing.themeId,
+      config: input.config ?? existing.config,
+      isEnabled: input.isEnabled ?? existing.isEnabled,
+      priority: input.priority ?? existing.priority,
+      updatedAt: new Date().toISOString(),
+    };
+
+    mockRuleConfigs[index] = updated;
+    return updated;
+  }
+
+  const updatePatch: Record<string, unknown> = {};
+
+  if (input.ruleKey) updatePatch.rule_key = input.ruleKey;
+  if (input.themeId !== undefined) updatePatch.theme_id = input.themeId;
+  if (input.config) updatePatch.config = JSON.stringify(input.config);
+  if (input.isEnabled !== undefined) updatePatch.is_enabled = input.isEnabled;
+  if (input.priority !== undefined) updatePatch.priority = input.priority;
+  updatePatch.updated_at = new Date();
+
+  if (Object.keys(updatePatch).length === 0) {
+    return getRuleConfiguration(configId);
+  }
+
+  await db
+    .updateTable("rule_configurations")
+    .set(updatePatch)
+    .where("id", "=", configId)
+    .execute();
+
+  return getRuleConfiguration(configId);
+}
+
+export async function deleteRuleConfiguration(
+  configId: string,
+): Promise<boolean> {
+  const db = getDatabase();
+
+  if (!db) {
+    const index = mockRuleConfigs.findIndex((c) => c.id === configId);
+    if (index === -1) return false;
+
+    mockRuleConfigs.splice(index, 1);
+    return true;
+  }
+
+  const result = await db
+    .deleteFrom("rule_configurations")
+    .where("id", "=", configId)
+    .executeTakeFirst();
+
+  return Number(result?.numDeletedRows ?? 0) > 0;
+}
+
+export async function getEffectiveRuleConfig(
+  ruleKey: string,
+  themeId?: string,
+): Promise<Record<string, unknown> | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    const matched = mockRuleConfigs
+      .filter((c) => c.ruleKey === ruleKey && c.isEnabled)
+      .filter((c) => !themeId || !c.themeId || c.themeId === themeId)
+      .sort((a, b) => {
+        // More specific configs first (theme-specific before global)
+        const aSpecific = a.themeId ? 1 : 0;
+        const bSpecific = b.themeId ? 1 : 0;
+        return bSpecific - aSpecific || b.priority - a.priority;
+      })[0];
+
+    return matched?.config ?? null;
+  }
+
+  let query = db
+    .selectFrom("rule_configurations")
+    .select([
+      "theme_id as themeId",
+      "config",
+      "priority",
+    ])
+    .where("rule_key", "=", ruleKey)
+    .where("is_enabled", "=", true);
+
+  if (themeId) {
+    query = query.where((eb) =>
+      eb.or([
+        eb("theme_id", "=", themeId),
+        eb("theme_id", "is", null),
+      ]),
+    );
+  } else {
+    query = query.where("theme_id", "is", null);
+  }
+
+  const rows = await query.execute();
+
+  // Sort by specificity and priority
+  const sorted = rows
+    .map((row) => ({
+      ...row,
+      specificity: row.themeId ? 1 : 0,
+    }))
+    .sort((a, b) => b.specificity - a.specificity || b.priority - a.priority);
+
+  const matched = sorted[0];
+  if (!matched) return null;
+
+  return (typeof matched.config === "string" ? JSON.parse(matched.config) : matched.config) as Record<string, unknown>;
+}

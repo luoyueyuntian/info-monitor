@@ -11,6 +11,14 @@ export type { InboxSectionId };
 
 type EventListItem = EventSummary;
 
+export type TriggerReason = {
+  ruleKey: string;
+  ruleName: string;
+  evidence: string[];
+  changeDetails?: Record<string, unknown>;
+  originalRecord?: Record<string, unknown>;
+};
+
 async function getLatestStatusChangedAtMap(eventIds: string[]) {
   const db = getDatabase();
 
@@ -56,6 +64,41 @@ function toIsoTimestamp(value: unknown) {
   }
 
   return String(value);
+}
+
+function getRuleName(eventType?: string | null): string {
+  const ruleNames: Record<string, string> = {
+    price_low: "价格新低规则",
+    price_high: "价格新高规则",
+    price_breakout: "价格突破规则",
+    consecutive_movement: "连续异动规则",
+    financial_direction: "金融方向规则",
+    content_update: "内容更新规则",
+    news_announcement: "公告关键词规则",
+    macro_deviation: "宏观偏差规则",
+  };
+
+  return ruleNames[eventType || ""] || "未知规则";
+}
+
+function buildTriggerReason(event: {
+  eventType?: string;
+  signal?: string;
+  evidence?: string[] | string;
+  context?: Record<string, unknown> | null;
+}): TriggerReason {
+  const evidence = Array.isArray(event.evidence)
+    ? event.evidence
+    : typeof event.evidence === "string"
+      ? JSON.parse(event.evidence)
+      : [];
+
+  return {
+    ruleKey: event.eventType || "unknown",
+    ruleName: getRuleName(event.eventType),
+    evidence,
+    originalRecord: event.context ?? undefined,
+  };
 }
 
 function buildEventExplanation(input: {
@@ -367,6 +410,7 @@ export async function getEventDetail(eventId: string) {
         title: event.title,
         summary: event.summary,
       }),
+      triggerReason: buildTriggerReason(event),
       statusHistory: mockEventStatusHistory
         .filter((item) => item.eventId === eventId)
         .sort((left, right) => (left.changedAt < right.changedAt ? 1 : -1)),
@@ -393,6 +437,7 @@ export async function getEventDetail(eventId: string) {
       "e.occurred_at as occurredAt",
       "e.summary as summary",
       "e.evidence as evidence",
+      "e.change_id as changeId",
       "nr.info_type as infoType",
       "nr.content as context",
       "s.name as sourceName",
@@ -417,6 +462,22 @@ export async function getEventDetail(eventId: string) {
     .orderBy("changed_at desc")
     .execute();
 
+  // Get change details if available
+  let changeDetails: Record<string, unknown> | undefined;
+  if (row.changeId) {
+    const change = await db
+      .selectFrom("changes")
+      .select(["details"])
+      .where("id", "=", row.changeId)
+      .executeTakeFirst();
+
+    if (change?.details) {
+      changeDetails = typeof change.details === "string"
+        ? JSON.parse(change.details)
+        : change.details as Record<string, unknown>;
+    }
+  }
+
   return {
     ...row,
     bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
@@ -427,6 +488,17 @@ export async function getEventDetail(eventId: string) {
       title: row.title,
       summary: row.summary,
     }),
+    triggerReason: {
+      ruleKey: row.eventType || "unknown",
+      ruleName: getRuleName(row.eventType),
+      evidence: Array.isArray(row.evidence)
+        ? row.evidence
+        : typeof row.evidence === "string"
+          ? JSON.parse(row.evidence)
+          : [],
+      changeDetails,
+      originalRecord: row.context ?? undefined,
+    },
     statusHistory: statusHistoryRows.map((item) => ({
       ...item,
       changedAt: item.changedAt.toISOString?.() ?? item.changedAt,

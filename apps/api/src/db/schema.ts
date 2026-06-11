@@ -128,6 +128,17 @@ export interface NotificationPreferencesTable {
   updated_at: TimestampColumn;
 }
 
+export interface RuleConfigurationsTable {
+  id: string;
+  rule_key: string;
+  theme_id: string | null;
+  config: JsonColumn<Record<string, unknown>>;
+  is_enabled: boolean;
+  priority: number;
+  created_at: TimestampColumn;
+  updated_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -139,4 +150,5 @@ export interface Database {
   notifications: NotificationsTable;
   event_status_history: EventStatusHistoryTable;
   notification_preferences: NotificationPreferencesTable;
+  rule_configurations: RuleConfigurationsTable;
 }

@@ -7,6 +7,7 @@ import { registerEventRoutes } from "./routes/events.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerNotificationPreferenceRoutes } from "./routes/notification-preferences.js";
 import { registerNotificationRoutes } from "./routes/notifications.js";
+import { registerRuleConfigurationRoutes } from "./routes/rule-configurations.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerThemeRoutes } from "./routes/themes.js";
 
@@ -24,6 +25,7 @@ export async function buildApp() {
   await registerEventRoutes(app);
   await registerNotificationRoutes(app);
   await registerNotificationPreferenceRoutes(app);
+  await registerRuleConfigurationRoutes(app);
   await registerSourceRoutes(app);
 
   return app;
