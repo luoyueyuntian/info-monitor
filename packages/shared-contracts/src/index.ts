@@ -94,11 +94,20 @@ export type EventSummary = {
   context?: Record<string, unknown> | null;
 };
 
+export type TriggerReason = {
+  ruleKey: string;
+  ruleName: string;
+  evidence: string[];
+  changeDetails?: Record<string, unknown>;
+  originalRecord?: Record<string, unknown>;
+};
+
 export type EventDetail = EventSummary & {
   sourceName?: string | null;
   evidence: string[];
   explanation: EventExplanation;
   statusHistory?: EventStatusHistoryEntry[];
+  triggerReason?: TriggerReason;
 };
 
 export type EventExplanation = {
@@ -365,4 +374,56 @@ export type NotificationPreferenceInput = {
   isEnabled?: boolean;
   isMuted?: boolean;
   priorityOnly?: boolean;
+};
+
+// ─── Rule Configuration ───────────────────────────────────────────────────────
+
+export type NotificationLevel = "high" | "medium" | "low";
+
+export type PriceRuleConfig = {
+  thresholdPercent?: number;
+  dedupWindowDays?: number;
+  onlyLatest?: boolean;
+  notificationLevel?: NotificationLevel;
+  minPriceChange?: number;
+};
+
+export type FinancialDirectionRuleConfig = {
+  classifyNeutral?: boolean;
+  notificationLevel?: NotificationLevel;
+  bullishSignals?: string[];
+  bearishSignals?: string[];
+};
+
+export type ContentUpdateRuleConfig = {
+  notificationLevel?: NotificationLevel;
+  ignoreTypes?: string[];
+  requireKeyword?: string | null;
+};
+
+export type NewsAnnouncementRuleConfig = {
+  notificationLevel?: NotificationLevel;
+  keywords?: string[];
+  ignorePublishers?: string[];
+};
+
+export type RuleConfig = PriceRuleConfig | FinancialDirectionRuleConfig | ContentUpdateRuleConfig | NewsAnnouncementRuleConfig;
+
+export type RuleConfiguration = {
+  id: string;
+  ruleKey: string;
+  themeId?: string | null;
+  config: RuleConfig;
+  isEnabled: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RuleConfigurationInput = {
+  ruleKey: string;
+  themeId?: string | null;
+  config?: RuleConfig;
+  isEnabled?: boolean;
+  priority?: number;
 };
