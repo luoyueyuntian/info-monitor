@@ -6,6 +6,8 @@ import type {
   NotificationItem,
   NotificationPreference,
   NotificationPreferenceInput,
+  RuleConfiguration,
+  RuleConfigurationInput,
   SourceDetail,
   SourceStatus,
   ThemeAnalysis,
@@ -24,6 +26,8 @@ export type {
   NotificationItem,
   NotificationPreference,
   NotificationPreferenceInput,
+  RuleConfiguration,
+  RuleConfigurationInput,
   SourceDetail,
   SourceStatus,
   ThemeAnalysis,
@@ -700,6 +704,16 @@ async function requestJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
+async function requestJsonStrict<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+
+  if (!response.ok) {
+    throw new Error(`请求失败 (${response.status})`);
+  }
+
+  return (await response.json()) as T;
+}
+
 export async function fetchDashboard() {
   return requestJson("/dashboard", {
     summary: {
@@ -1127,11 +1141,7 @@ export async function fetchNotifications(options?: {
   const query = params.toString();
   const path = query ? `/notifications?${query}` : "/notifications";
 
-  return requestJson<PaginatedNotifications>(path, {
-    items: fallbackNotifications,
-    total: fallbackNotifications.length,
-    hasMore: false,
-  });
+  return requestJsonStrict<PaginatedNotifications>(path);
 }
 
 export async function markNotificationRead(notificationId: string) {
@@ -1247,6 +1257,74 @@ export async function deleteNotificationPreference(preferenceId: string) {
 
   if (!response.ok) {
     throw new Error(`Failed to delete preference: ${response.status}`);
+  }
+
+  return (await response.json()) as { success: boolean };
+}
+
+// Rule Configuration API
+export async function fetchRuleConfigurations(options?: {
+  themeId?: string;
+  ruleKey?: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (options?.themeId) {
+    params.set("themeId", options.themeId);
+  }
+
+  if (options?.ruleKey) {
+    params.set("ruleKey", options.ruleKey);
+  }
+
+  const query = params.toString();
+  const path = query ? `/rule-configurations?${query}` : "/rule-configurations";
+
+  return requestJson<RuleConfiguration[]>(path, []);
+}
+
+export async function createRuleConfiguration(input: RuleConfigurationInput) {
+  const response = await fetch(`${API_BASE_URL}/rule-configurations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create rule configuration: ${response.status}`);
+  }
+
+  return (await response.json()) as RuleConfiguration;
+}
+
+export async function updateRuleConfiguration(
+  configId: string,
+  input: Partial<RuleConfigurationInput>,
+) {
+  const response = await fetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update rule configuration: ${response.status}`);
+  }
+
+  return (await response.json()) as RuleConfiguration;
+}
+
+export async function deleteRuleConfiguration(configId: string) {
+  const response = await fetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete rule configuration: ${response.status}`);
   }
 
   return (await response.json()) as { success: boolean };

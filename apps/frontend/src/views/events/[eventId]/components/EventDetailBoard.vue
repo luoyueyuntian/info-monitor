@@ -35,6 +35,11 @@
       :status-history="detail.statusHistory"
     />
 
+    <EventDetailTriggerReasonCard
+      v-if="detail.triggerReason"
+      :trigger-reason="detail.triggerReason"
+    />
+
     <EventDetailExplanationCard :explanation="detail.explanation" :review-actions="reviewActions" />
 
     <EventDetailThemeCard
@@ -67,6 +72,7 @@ import EventDetailStatusHistoryCard from "./EventDetailStatusHistoryCard.vue";
 import EventDetailStatusCard from "./EventDetailStatusCard.vue";
 import EventDetailSummaryCard from "./EventDetailSummaryCard.vue";
 import EventDetailThemeCard from "./EventDetailThemeCard.vue";
+import EventDetailTriggerReasonCard from "./EventDetailTriggerReasonCard.vue";
 import { buildSingleEventOperationNotice } from "../../components/event-operation-feedback";
 import { fetchEventDetail, type EventDetail, updateEvent, updateEventStatus } from "../../../../lib/api";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
