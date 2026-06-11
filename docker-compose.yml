@@ -17,5 +17,19 @@ services:
       retries: 10
       start_period: 5s
 
+  app:
+    build: .
+    container_name: info-monitor-app
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
+      API_PORT: 3001
+      CORS_ORIGIN: "*"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
