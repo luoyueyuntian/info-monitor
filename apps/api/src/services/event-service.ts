@@ -1,28 +1,15 @@
+import type { EventSummary, InboxSectionId } from "@info-monitor/shared-contracts";
+import { INBOX_SECTION_IDS } from "@info-monitor/shared-contracts";
+
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
 
-export const inboxSectionIds = ["price-signals", "content-updates", "official-releases", "financial-events"] as const;
+export const inboxSectionIds = INBOX_SECTION_IDS;
 
-export type InboxSectionId = (typeof inboxSectionIds)[number];
+export type { InboxSectionId };
 
-type EventListItem = {
-  id: string;
-  themeId: string;
-  themeName: string;
-  title: string;
-  signal: string;
-  status?: string | null;
-  isRead?: boolean;
-  isBookmarked?: boolean;
-  bookmarkedAt?: string | null;
-  latestStatusChangedAt?: string | null;
-  eventType?: string | null;
-  occurredAt: string;
-  summary: string;
-  infoType?: string | null;
-  context?: Record<string, unknown> | null;
-};
+type EventListItem = EventSummary;
 
 async function getLatestStatusChangedAtMap(eventIds: string[]) {
   const db = getDatabase();

@@ -114,6 +114,20 @@ export interface EventStatusHistoryTable {
   changed_at: TimestampColumn;
 }
 
+export interface NotificationPreferencesTable {
+  id: string;
+  user_id: string;
+  theme_id: string | null;
+  source_id: string | null;
+  signal: string | null;
+  channel: string;
+  is_enabled: boolean;
+  is_muted: boolean;
+  priority_only: boolean;
+  created_at: TimestampColumn;
+  updated_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -124,4 +138,5 @@ export interface Database {
   events: EventsTable;
   notifications: NotificationsTable;
   event_status_history: EventStatusHistoryTable;
+  notification_preferences: NotificationPreferencesTable;
 }

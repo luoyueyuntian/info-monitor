@@ -12,6 +12,20 @@ export type NotificationStatus = SharedNotificationStatus;
 
 type NotificationListItem = SharedNotificationItem;
 
+export type PaginatedNotifications = {
+  items: NotificationListItem[];
+  total: number;
+  hasMore: boolean;
+  nextCursor?: string;
+};
+
+export type NotificationFilter = {
+  status?: NotificationStatus;
+  channel?: string;
+  signal?: string;
+  themeId?: string;
+};
+
 export function isNotificationStatus(value: string): value is NotificationStatus {
   return notificationStatuses.includes(value as NotificationStatus);
 }
@@ -45,10 +59,15 @@ function toNotificationListItem(row: Record<string, unknown>): NotificationListI
 }
 
 export async function listNotifications(
-  options: { limit?: number; status?: NotificationStatus } = {},
-): Promise<NotificationListItem[]> {
+  options: {
+    limit?: number;
+    status?: NotificationStatus;
+    cursor?: string;
+    offset?: number;
+  } = {},
+): Promise<PaginatedNotifications> {
   const db = getDatabase();
-  const limit = options.limit ?? 50;
+  const limit = options.limit ?? 20;
 
   if (!db) {
     let items = [...mockNotifications];
@@ -57,13 +76,27 @@ export async function listNotifications(
       items = items.filter((item) => item.status === options.status);
     }
 
-    return items
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, limit)
-      .map(toNotificationListItem);
+    items = items
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+    const offset = options.offset ?? 0;
+    const paginatedItems = items.slice(offset, offset + limit);
+
+    return {
+      items: paginatedItems.map(toNotificationListItem),
+      total: items.length,
+      hasMore: offset + limit < items.length,
+    };
   }
 
-  let query = db
+  // Build base query for counting
+  let countQuery = db
+    .selectFrom("notifications as n")
+    .leftJoin("events as e", "e.id", "n.event_id")
+    .select(({ fn }) => [fn.count("n.id").as("total")]);
+
+  // Build data query
+  let dataQuery = db
     .selectFrom("notifications as n")
     .leftJoin("events as e", "e.id", "n.event_id")
     .select([
@@ -77,17 +110,38 @@ export async function listNotifications(
       "e.signal as signal",
       "n.sent_at as sentAt",
       "n.created_at as createdAt",
-    ])
+    ]);
+
+  // Apply filters
+  if (options.status) {
+    countQuery = countQuery.where("n.status", "=", options.status);
+    dataQuery = dataQuery.where("n.status", "=", options.status);
+  }
+
+  // Apply cursor-based pagination
+  if (options.cursor) {
+    const cursorDate = new Date(options.cursor);
+    countQuery = countQuery.where("n.created_at", "<", cursorDate as any);
+    dataQuery = dataQuery.where("n.created_at", "<", cursorDate as any);
+  }
+
+  // Get total count
+  const countResult = await countQuery.executeTakeFirst();
+  const total = Number(countResult?.total ?? 0);
+
+  // Apply ordering and limit
+  dataQuery = dataQuery
     .orderBy("n.created_at desc")
     .limit(limit);
 
-  if (options.status) {
-    query = query.where("n.status", "=", options.status);
+  // Apply offset if provided (for offset-based pagination)
+  if (options.offset !== undefined && !options.cursor) {
+    dataQuery = dataQuery.offset(options.offset);
   }
 
-  const rows = await query.execute();
+  const rows = await dataQuery.execute();
 
-  return rows.map((row) =>
+  const items = rows.map((row) =>
     toNotificationListItem({
       ...row,
       payload: row.payload || {},
@@ -95,6 +149,16 @@ export async function listNotifications(
       createdAt: row.createdAt,
     }),
   );
+
+  const lastItem = items[items.length - 1];
+  const hasMore = items.length === limit;
+
+  return {
+    items,
+    total,
+    hasMore,
+    nextCursor: hasMore ? lastItem?.createdAt : undefined,
+  };
 }
 
 export async function getNotificationDetail(notificationId: string) {
@@ -190,4 +254,115 @@ export async function markNotificationStatus(
     id: notificationId,
     status,
   };
+}
+
+export async function batchMarkNotificationsRead(
+  notificationIds: string[],
+): Promise<{ updated: number }> {
+  const db = getDatabase();
+
+  if (!db) {
+    let updated = 0;
+    for (const id of notificationIds) {
+      const notification = mockNotifications.find((item) => item.id === id);
+      if (notification && notification.status !== "sent") {
+        notification.status = "sent";
+        notification.sentAt = new Date().toISOString();
+        updated++;
+      }
+    }
+    return { updated };
+  }
+
+  if (notificationIds.length === 0) {
+    return { updated: 0 };
+  }
+
+  const result = await db
+    .updateTable("notifications")
+    .set({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    })
+    .where("id", "in", notificationIds)
+    .where("status", "!=", "sent")
+    .executeTakeFirst();
+
+  return { updated: Number(result?.numUpdatedRows ?? 0) };
+}
+
+export async function batchDeleteNotifications(
+  filter: NotificationFilter,
+): Promise<{ deleted: number }> {
+  const db = getDatabase();
+
+  if (!db) {
+    const initialLength = mockNotifications.length;
+    const filtered = mockNotifications.filter((item) => {
+      if (filter.status && item.status !== filter.status) return false;
+      if (filter.channel && item.channel !== filter.channel) return false;
+      return true;
+    });
+
+    // Remove filtered items
+    for (const item of filtered) {
+      const index = mockNotifications.indexOf(item);
+      if (index > -1) {
+        mockNotifications.splice(index, 1);
+      }
+    }
+
+    return { deleted: initialLength - mockNotifications.length };
+  }
+
+  let query = db.deleteFrom("notifications");
+
+  if (filter.status) {
+    query = query.where("status", "=", filter.status);
+  }
+
+  if (filter.channel) {
+    query = query.where("channel", "=", filter.channel);
+  }
+
+  const result = await query.executeTakeFirst();
+
+  return { deleted: Number(result?.numDeletedRows ?? 0) };
+}
+
+export async function clearUnreadByTheme(
+  themeId: string,
+): Promise<{ updated: number }> {
+  const db = getDatabase();
+
+  if (!db) {
+    let updated = 0;
+    for (const notification of mockNotifications) {
+      if (notification.status === "pending") {
+        notification.status = "sent";
+        notification.sentAt = new Date().toISOString();
+        updated++;
+      }
+    }
+    return { updated };
+  }
+
+  const result = await db
+    .updateTable("notifications")
+    .set({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    })
+    .where("status", "=", "pending")
+    .where(
+      "event_id",
+      "in",
+      db
+        .selectFrom("events")
+        .select("id")
+        .where("theme_id", "=", themeId),
+    )
+    .executeTakeFirst();
+
+  return { updated: Number(result?.numUpdatedRows ?? 0) };
 }

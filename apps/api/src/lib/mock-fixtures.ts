@@ -1,55 +1,23 @@
-type ThemeSummary = {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  latestRunAt: string;
-  latestEventAt: string | null;
-  sourceCount: number;
+import type {
+  EventStatusHistoryEntry,
+  EventSummary as SharedEventSummary,
+  SourceStatus as SharedSourceStatus,
+  ThemeSummary as SharedThemeSummary,
+} from "@info-monitor/shared-contracts";
+
+// Extend shared types with fixture-specific fields
+type ThemeSummary = SharedThemeSummary & {
+  latestRunAt: string; // Override to be required in fixtures
 };
 
-type EventSummary = {
-  id: string;
-  themeId: string;
-  themeName: string;
-  title: string;
-  signal: string;
-  status?: string;
-  isRead?: boolean;
-  isBookmarked?: boolean;
-  bookmarkedAt?: string | null;
-  eventType?: string;
-  occurredAt: string;
-  summary: string;
-  infoType?: string;
-  context?: Record<string, unknown>;
-  evidence: string[];
+type EventSummary = SharedEventSummary & {
+  evidence: string[]; // Add evidence field for fixtures
 };
 
-type SourceStatus = {
-  id: string;
-  themeId: string;
-  themeName: string;
-  themeType?: string;
-  latestEventSignal?: string | null;
-  name: string;
-  status: string;
-  sourceType?: string;
-  adapterKey?: string;
-  isPaused?: boolean;
-  latestRunStatus?: string | null;
-  latestRunAt?: string | null;
-  latestSuccessAt: string | null;
-  latestFailureAt: string | null;
-  lastErrorMessage?: string | null;
-};
+type SourceStatus = SharedSourceStatus;
 
-type EventStatusHistory = {
-  id: string;
-  eventId: string;
-  fromStatus: string | null;
-  toStatus: string;
-  changedAt: string;
+type EventStatusHistory = EventStatusHistoryEntry & {
+  fromStatus: string | null; // Override to allow null
 };
 
 type DemoThemeFixture = {
