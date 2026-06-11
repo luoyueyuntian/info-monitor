@@ -1,4 +1,8 @@
-import { fallbackEvents, fallbackSources, fallbackThemes } from "./demo-fixtures";
+import type { NotificationItem } from "@info-monitor/shared-contracts";
+
+import { fallbackEvents, fallbackNotifications, fallbackSources, fallbackThemes } from "./demo-fixtures";
+
+export type { NotificationItem };
 
 export type ThemeSummary = {
   id: string;
@@ -1305,5 +1309,41 @@ export async function deleteTheme(themeId: string) {
 
   return (await response.json()) as {
     id: string;
+  };
+}
+
+export async function fetchNotifications(options?: { status?: string; limit?: number }) {
+  const params = new URLSearchParams();
+
+  if (options?.status) {
+    params.set("status", options.status);
+  }
+
+  if (options?.limit) {
+    params.set("limit", String(options.limit));
+  }
+
+  const query = params.toString();
+  const path = query ? `/notifications?${query}` : "/notifications";
+
+  return requestJson<NotificationItem[]>(path, fallbackNotifications);
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status: "sent" }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update notification: ${response.status}`);
+  }
+
+  return (await response.json()) as {
+    id: string;
+    status: string;
   };
 }

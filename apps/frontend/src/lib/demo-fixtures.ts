@@ -1,4 +1,4 @@
-import type { EventSummary, SourceStatus, ThemeSummary } from "./api";
+import type { EventSummary, NotificationItem, SourceStatus, ThemeSummary } from "./api";
 
 type DemoThemeFixture = {
   theme: ThemeSummary;
@@ -284,3 +284,39 @@ export const demoFixtures: DemoThemeFixture[] = [surfaceTheme, pbcTheme, cpiThem
 export const fallbackThemes = demoFixtures.map((fixture) => fixture.theme);
 export const fallbackEvents = demoFixtures.flatMap((fixture) => fixture.events);
 export const fallbackSources = demoFixtures.flatMap((fixture) => fixture.sources);
+
+export const fallbackNotifications: NotificationItem[] = [
+  {
+    id: "notification-surface-low",
+    eventId: "event-surface-low",
+    channel: "in_app",
+    status: "pending",
+    title: "30-day low detected across marketplaces",
+    summary: "Detected a new 30-day low price for Surface Pro 8 16G + 512G.",
+    signal: "30d_low",
+    sentAt: null,
+    createdAt: "2026-06-01T09:31:00Z",
+  },
+  {
+    id: "notification-pbc-injection",
+    eventId: "event-pbc-injection",
+    channel: "in_app",
+    status: "sent",
+    title: "Bullish signal: reverse repo liquidity injection detected",
+    summary: "A liquidity injection operation was detected for PBOC 7-day reverse repo. This typically indicates looser short-term monetary conditions.",
+    signal: "bullish",
+    sentAt: "2026-06-01T06:05:00Z",
+    createdAt: "2026-06-01T06:05:00Z",
+  },
+  {
+    id: "notification-pbc-withdrawal",
+    eventId: "event-pbc-withdrawal",
+    channel: "in_app",
+    status: "pending",
+    title: "Bearish signal: outright repo liquidity withdrawal detected",
+    summary: "A liquidity withdrawal operation was detected for PBOC 14-day outright repo. This typically indicates tighter short-term monetary conditions.",
+    signal: "bearish",
+    sentAt: null,
+    createdAt: "2026-06-01T06:10:00Z",
+  },
+];
