@@ -58,6 +58,9 @@
         <div class="text-[#6f665a]">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
+        <div class="text-[0.88rem] text-[#766f63]">
+          {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
+        </div>
         <div class="mt-2 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -103,6 +106,7 @@ import {
   themeStatusLabel,
   themeTypeLabel,
 } from "../../../lib/presentation";
+import { buildThemeSummaryInsight } from "../../../lib/theme-summary-insight";
 
 defineProps<{
   themes: ThemeSummary[];

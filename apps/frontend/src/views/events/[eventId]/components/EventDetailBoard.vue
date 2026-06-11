@@ -23,6 +23,13 @@
       :handle-update-meta="handleUpdateMeta"
     />
 
+    <EventDetailNoticeCard
+      v-if="operationNotice"
+      title="操作结果"
+      :body="operationNotice.message"
+      :actions="operationNotice.actions"
+    />
+
     <EventDetailStatusHistoryCard
       v-if="detail.statusHistory?.length"
       :status-history="detail.statusHistory"
@@ -47,18 +54,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import type { RouteLocationRaw } from "vue-router";
 
 import EventDetailContextCard from "./EventDetailContextCard.vue";
 import EventDetailEvidenceCard from "./EventDetailEvidenceCard.vue";
 import EventDetailExplanationCard from "./EventDetailExplanationCard.vue";
 import EventDetailHeader from "./EventDetailHeader.vue";
 import EventDetailMetaActionsCard from "./EventDetailMetaActionsCard.vue";
+import EventDetailNoticeCard from "./EventDetailNoticeCard.vue";
 import { buildEventDetailReviewActions } from "./event-detail-review-actions";
 import EventDetailStatusHistoryCard from "./EventDetailStatusHistoryCard.vue";
 import EventDetailStatusCard from "./EventDetailStatusCard.vue";
 import EventDetailSummaryCard from "./EventDetailSummaryCard.vue";
 import EventDetailThemeCard from "./EventDetailThemeCard.vue";
+import { buildSingleEventOperationNotice } from "../../components/event-operation-feedback";
 import { fetchEventDetail, type EventDetail, updateEvent, updateEventStatus } from "../../../../lib/api";
+import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
 import {
   eventSignalLabel,
   formatMaybeLabel,
@@ -71,6 +82,10 @@ const savingStatus = ref(false);
 const pendingStatus = ref("");
 const savingMeta = ref(false);
 const pendingMetaAction = ref("");
+const operationNotice = ref<{
+  message: string;
+  actions: Array<{ label: string; to: RouteLocationRaw }>;
+} | null>(null);
 
 function handleBack() {
   if (window.history.length > 1) {
@@ -221,6 +236,7 @@ async function handleUpdateStatus(status: string) {
 
   savingStatus.value = true;
   pendingStatus.value = status;
+  operationNotice.value = null;
 
   try {
     await updateEventStatus(detail.value.id, status);
@@ -228,6 +244,15 @@ async function handleUpdateStatus(status: string) {
       ...detail.value,
       status,
     };
+    recordRecentEventOperation({
+      action: status as "open" | "tracking" | "ignored",
+      count: 1,
+      eventTitle: detail.value.title,
+      infoType: detail.value.infoType,
+      themeId: detail.value.themeId,
+      themeName: detail.value.themeName,
+    });
+    operationNotice.value = buildSingleEventOperationNotice(detail.value, status as "open" | "tracking" | "ignored");
   } finally {
     savingStatus.value = false;
     pendingStatus.value = "";
@@ -247,6 +272,7 @@ async function handleUpdateMeta(
 
   savingMeta.value = true;
   pendingMetaAction.value = action;
+  operationNotice.value = null;
 
   try {
     const updated = await updateEvent(detail.value.id, input);
@@ -256,6 +282,31 @@ async function handleUpdateMeta(
       isBookmarked: updated.isBookmarked,
       bookmarkedAt: updated.bookmarkedAt,
     };
+    recordRecentEventOperation({
+      action:
+        typeof input.isBookmarked === "boolean"
+          ? input.isBookmarked
+            ? "bookmark"
+            : "unbookmark"
+          : input.isRead
+            ? "read"
+            : "unread",
+      count: 1,
+      eventTitle: detail.value.title,
+      infoType: detail.value.infoType,
+      themeId: detail.value.themeId,
+      themeName: detail.value.themeName,
+    });
+    operationNotice.value = buildSingleEventOperationNotice(
+      detail.value,
+      typeof input.isBookmarked === "boolean"
+        ? input.isBookmarked
+          ? "bookmark"
+          : "unbookmark"
+        : input.isRead
+          ? "read"
+          : "unread",
+    );
   } finally {
     savingMeta.value = false;
     pendingMetaAction.value = "";

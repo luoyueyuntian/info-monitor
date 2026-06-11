@@ -8,4 +8,21 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return undefined;
+          }
+
+          if (id.includes("vue") || id.includes("vue-router") || id.includes("pinia")) {
+            return "vue-vendor";
+          }
+
+          return "vendor";
+        },
+      },
+    },
+  },
 });

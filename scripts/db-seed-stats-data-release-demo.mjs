@@ -1,6 +1,15 @@
 import dotenv from "dotenv";
 import pg from "pg";
 
+import {
+  upsertEvent,
+  upsertNormalizedRecord,
+  upsertRawSnapshot,
+  upsertSource,
+  upsertSourceRun,
+  upsertTheme,
+} from "./lib/db-seed-helpers.mjs";
+
 dotenv.config();
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -19,81 +28,97 @@ try {
   await client.connect();
   await client.query("begin");
 
-  await client.query(
-    `
-      insert into themes (
-        id,
-        name,
-        theme_type,
-        info_type,
-        description,
-        status,
-        metadata
-      ) values (
-        $1,
-        'NBS Data Releases',
-        'news_announcement',
-        'news_announcement',
-        'Official data release list from the National Bureau of Statistics',
-        'active',
-        '{}'::jsonb
-      )
-      on conflict (id) do update
-      set
-        name = excluded.name,
-        description = excluded.description,
-        status = 'active',
-        updated_at = now()
-    `,
-    [themeId],
-  );
+  await upsertTheme(client, {
+    id: themeId,
+    name: "NBS CPI Releases",
+    themeType: "news_announcement",
+    infoType: "news_announcement",
+    description: "Official CPI release list from the National Bureau of Statistics",
+  });
 
-  await client.query(
-    `
-      insert into sources (
-        id,
-        theme_id,
-        name,
-        source_type,
-        adapter_key,
-        status,
-        is_paused,
-        config
-      ) values (
-        $1,
-        $2,
-        'NBS Data Release List',
-        'page_list',
-        'stats_data_release_list',
-        'active',
-        false,
-        cast($3 as jsonb)
-      )
-      on conflict (id) do update
-      set
-        theme_id = excluded.theme_id,
-        name = excluded.name,
-        source_type = excluded.source_type,
-        adapter_key = excluded.adapter_key,
-        status = 'active',
-        is_paused = false,
-        config = excluded.config,
-        updated_at = now()
-    `,
-    [
-      sourceId,
-      themeId,
-      JSON.stringify({
-        path: "/sj/zxfb/",
-        max_items: 6,
-        schedule_interval_seconds: 21600,
-        emit_events_on_latest_only: true,
-      }),
+  await upsertSource(client, {
+    id: sourceId,
+    themeId,
+    name: "NBS CPI Release List",
+    sourceType: "page_list",
+    adapterKey: "stats_data_release_list",
+    status: "active",
+    config: {
+      path: "/sj/zxfb/",
+      max_items: 6,
+      schedule_interval_seconds: 21600,
+      emit_events_on_latest_only: true,
+    },
+    latestSuccessAt: "2026-06-01T08:05:00Z",
+    latestFailureAt: null,
+  });
+
+  await upsertSourceRun(client, {
+    id: "run_stats_data_release_demo_latest",
+    themeId,
+    sourceId,
+    triggerType: "seed",
+    status: "completed",
+    startedAt: "2026-06-01T08:02:00Z",
+    finishedAt: "2026-06-01T08:05:00Z",
+  });
+
+  await upsertRawSnapshot(client, {
+    id: "snapshot_stats_data_release_demo_latest",
+    sourceRunId: "run_stats_data_release_demo_latest",
+    themeId,
+    sourceId,
+    fetchedAt: "2026-06-01T08:02:00Z",
+    payloadJson: {
+      release_topic_label: "CPI",
+      publisher: "国家统计局",
+      category: "macro_release",
+      description: "Latest CPI bulletin and attached statistical interpretation.",
+    },
+  });
+
+  await upsertNormalizedRecord(client, {
+    id: "record_stats_data_release_demo_latest",
+    sourceRunId: "run_stats_data_release_demo_latest",
+    themeId,
+    sourceId,
+    infoType: "news_announcement",
+    occurredAt: "2026-06-01T08:02:00Z",
+    title: "国家统计局 CPI 发布",
+    fingerprint: "stats_data_release_demo_cpi_latest",
+    logicalKey: "stats-cpi-release-20260601",
+    content: {
+      release_topic_label: "CPI",
+      publisher: "国家统计局",
+      category: "macro_release",
+      description: "Latest CPI bulletin and attached statistical interpretation.",
+    },
+  });
+
+  await upsertEvent(client, {
+    id: "event_stats_data_release_demo_latest",
+    sourceRunId: "run_stats_data_release_demo_latest",
+    themeId,
+    sourceId,
+    changeId: null,
+    eventType: "new_release",
+    signal: "new_announcement",
+    title: "NBS published latest CPI release",
+    summary: "A new CPI release was published on the National Bureau of Statistics site.",
+    evidence: [
+      "NBS release list fetched successfully.",
+      "Latest CPI bulletin normalized into a release record.",
+      "Announcement event emitted from the newest release item.",
     ],
-  );
+    status: "open",
+    isRead: false,
+    isBookmarked: false,
+    bookmarkedAt: null,
+    occurredAt: "2026-06-01T08:02:00Z",
+  });
 
   await client.query("commit");
-  console.log("NBS data release demo theme and source seeded.");
+  console.log("NBS CPI release demo theme, source, record, and event seeded.");
 } catch (error) {
   await client.query("rollback").catch(() => undefined);
   console.error("Failed to seed NBS data release demo.");

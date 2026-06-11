@@ -51,13 +51,32 @@ const makeDetail = (overrides: Partial<ThemeDetail> = {}): ThemeDetail => ({
 
 describe("theme-detail-analysis-actions", () => {
   it("builds action shortcuts from current theme state", () => {
-    const actions = buildThemeDetailAnalysisActions(makeDetail());
+    const actions = buildThemeDetailAnalysisActions(
+      makeDetail({
+        sources: [
+          {
+            id: "source_1",
+            name: "Source One",
+            status: "healthy",
+            latestSuccessAt: "2026-01-02T00:00:00.000Z",
+            latestFailureAt: null,
+          },
+          {
+            id: "source_2",
+            name: "Source Two",
+            status: "healthy",
+            latestSuccessAt: "2026-01-02T00:10:00.000Z",
+            latestFailureAt: null,
+          },
+        ],
+      }),
+    );
 
     expect(actions).toEqual([
       { label: "先处理待处理事件", to: { path: "/themes/theme_1", query: { section: "events" } } },
       { label: "优先回看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline" } } },
       { label: "查看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline" } } },
-      { label: "查看价格趋势", to: { path: "/themes/theme_1", query: { section: "trend" } } },
+      { label: "查看跨来源快照", to: { path: "/themes/theme_1", query: { section: "compare" } } },
     ]);
   });
 

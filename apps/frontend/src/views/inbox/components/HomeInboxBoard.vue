@@ -20,6 +20,14 @@
       :diagnostic="longTermWatch"
     />
 
+    <HomeInboxDiagnosisCard
+      v-if="recentOperationDiagnostic"
+      title="最近操作回响"
+      priority-label="变化含义"
+      :on-dismiss="dismissRecentOperation"
+      :diagnostic="recentOperationDiagnostic"
+    />
+
     <HomeInboxWorkspaceActionsCard :workspace="inboxWorkspaceActions" />
 
     <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.95fr)]">
@@ -66,6 +74,9 @@ import {
   buildDiagnosisTrendSummary,
   buildInboxDiagnosis,
   buildInboxSectionDigest,
+  buildRecentOperationDiagnostic,
+  buildSummaryDeltaTarget,
+  buildSummaryDeltaMeaning,
   buildInboxWorkspaceActions,
   buildLongTermWatch,
 } from "./home-inbox-model";
@@ -77,6 +88,7 @@ import {
   type SourceStatus,
   type ThemeSummary,
 } from "../../../lib/api";
+import { clearRecentEventOperation, loadRecentEventOperation } from "../../../lib/recent-event-operation";
 import { toTimestamp } from "../../../lib/time";
 import {
   eventSignalLabel,
@@ -117,6 +129,7 @@ const dashboard = reactive<{
 });
 const sectionRefs = ref<Record<string, HTMLElement | null>>({});
 const previousSnapshot = ref<{ capturedAt: string; summary: DashboardSummary } | null>(null);
+const recentEventOperation = ref(loadRecentEventOperation());
 const dashboardSummaryStorageKey = "info-monitor:dashboard-snapshot";
 
 function setSectionRef(sectionId: string) {
@@ -260,45 +273,21 @@ function summaryDeltaLabel(key: keyof DashboardSummary) {
     return "";
   }
 
-  return delta > 0 ? `较上次 +${delta}` : `较上次 ${delta}`;
+  const meaning = buildSummaryDeltaMeaning(
+    dashboard.summary,
+    previousSnapshot.value?.summary ?? null,
+    key,
+  );
+
+  return `${delta > 0 ? `较上次 +${delta}` : `较上次 ${delta}`}${meaning ? ` · ${meaning}` : ""}`;
 }
 
 function summaryDeltaTarget(key: keyof DashboardSummary) {
-  if (!previousSnapshot.value || (summaryDelta(key) ?? 0) <= 0) {
-    return null;
-  }
-
-  const since = previousSnapshot.value.capturedAt;
-
-  if (key === "openEvents") {
-    return { path: "/events", query: { status: "open", sort: "statusChanged", since } };
-  }
-
-  if (key === "trackingEvents") {
-    return { path: "/events", query: { status: "tracking", sort: "statusChanged", since } };
-  }
-
-  if (key === "unreadEvents") {
-    return { path: "/events", query: { read: "unread", sort: "occurredAt", since } };
-  }
-
-  if (key === "bookmarkedEvents") {
-    return { path: "/events", query: { bookmark: "bookmarked", sort: "statusChanged", since } };
-  }
-
-  if (key === "recentEvents") {
-    return { path: "/events", query: { recent: "24h", sort: "occurredAt", since } };
-  }
-
-  if (key === "warningSources") {
-    return { path: "/sources/status", query: { focus: "warning", since } };
-  }
-
-  if (key === "pendingSources") {
-    return { path: "/sources/status", query: { focus: "pending", since } };
-  }
-
-  return null;
+  return buildSummaryDeltaTarget(
+    dashboard.summary,
+    previousSnapshot.value,
+    key,
+  );
 }
 
 function openSummaryDelta(key: keyof DashboardSummary) {
@@ -309,6 +298,11 @@ function openSummaryDelta(key: keyof DashboardSummary) {
   }
 
   void router.push(target);
+}
+
+function dismissRecentOperation() {
+  clearRecentEventOperation();
+  recentEventOperation.value = null;
 }
 
 function scrollToSection(sectionId: string) {
@@ -470,6 +464,9 @@ const inboxDiagnosis = computed(() =>
 const longTermWatch = computed(() =>
   buildLongTermWatch(dashboard.themes, dashboard.bookmarkedEvents, themeDetailTarget),
 );
+const recentOperationDiagnostic = computed(() =>
+  buildRecentOperationDiagnostic(recentEventOperation.value),
+);
 
 const inboxWorkspaceActions = computed(() =>
   buildInboxWorkspaceActions(dashboard.summary, dashboard.themes, dashboard.sources, dashboard.events),
@@ -477,6 +474,7 @@ const inboxWorkspaceActions = computed(() =>
 
 onMounted(async () => {
   previousSnapshot.value = loadPreviousDashboardSummary();
+  recentEventOperation.value = loadRecentEventOperation();
   const data = await fetchDashboard();
 
   dashboard.summary = data.summary;

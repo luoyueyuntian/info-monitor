@@ -37,7 +37,14 @@
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
             :to="comparisonTarget(item)"
           >
-            查看主题
+            {{ comparisonActionLabel(item) }}
+          </RouterLink>
+          <RouterLink
+            v-if="item.theme.type === 'price' && item.theme.sourceCount > 1"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
+            :to="{ path: `/themes/${item.theme.id}`, query: { section: 'compare' } }"
+          >
+            查看价格快照
           </RouterLink>
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -72,5 +79,6 @@ defineProps<{
     summary: string;
   }>;
   comparisonTarget: (item: { theme: ThemeSummary | null }) => RouteLocationRaw;
+  comparisonActionLabel: (item: { theme: ThemeSummary | null }) => string;
 }>();
 </script>

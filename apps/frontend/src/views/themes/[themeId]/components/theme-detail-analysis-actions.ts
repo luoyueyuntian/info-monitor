@@ -27,10 +27,17 @@ export function buildThemeDetailAnalysisActions(detail: ThemeDetail) {
     });
   } else if (detail.analysis.tone === "positive") {
     actions.push({
-      label: detail.theme.type === "price" ? "确认价格趋势是否成立" : "回看近期变化与趋势",
+      label:
+        detail.theme.type === "price"
+          ? detail.sources.length > 1
+            ? "先确认跨来源价差"
+            : "确认价格趋势是否成立"
+          : "回看近期变化与趋势",
       to: {
         path: `/themes/${detail.theme.id}`,
-        query: { section: detail.theme.type === "price" ? "trend" : "timeline" },
+        query: {
+          section: detail.theme.type === "price" ? (detail.sources.length > 1 ? "compare" : "trend") : "timeline",
+        },
       },
     });
   }
@@ -49,8 +56,8 @@ export function buildThemeDetailAnalysisActions(detail: ThemeDetail) {
 
   if (detail.theme.type === "price") {
     actions.push({
-      label: "查看价格趋势",
-      to: { path: `/themes/${detail.theme.id}`, query: { section: "trend" } },
+      label: detail.sources.length > 1 ? "查看跨来源快照" : "查看价格趋势",
+      to: { path: `/themes/${detail.theme.id}`, query: { section: detail.sources.length > 1 ? "compare" : "trend" } },
     });
   }
 

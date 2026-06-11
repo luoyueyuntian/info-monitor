@@ -753,16 +753,19 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
     .execute();
 
   const records = await db
-    .selectFrom("normalized_records")
+    .selectFrom("normalized_records as nr")
+    .innerJoin("sources as s", "s.id", "nr.source_id")
     .select([
-      "id",
-      "title",
-      "occurred_at as occurredAt",
-      "info_type as infoType",
-      "content",
+      "nr.id as id",
+      "nr.source_id as sourceId",
+      "s.name as sourceName",
+      "nr.title as title",
+      "nr.occurred_at as occurredAt",
+      "nr.info_type as infoType",
+      "nr.content as content",
     ])
-    .where("theme_id", "=", themeId)
-    .orderBy("occurred_at desc")
+    .where("nr.theme_id", "=", themeId)
+    .orderBy("nr.occurred_at desc")
     .limit(20)
     .execute();
 

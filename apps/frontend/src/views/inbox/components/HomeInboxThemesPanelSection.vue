@@ -59,6 +59,9 @@
         <div class="text-[#6f665a]">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
+        <div class="text-[0.88rem] text-[#766f63]">
+          {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
+        </div>
         <div class="text-[0.88rem] text-[#766f63]" v-if="theme.latestBookmarkedAt">
           最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}
         </div>
@@ -100,6 +103,7 @@ import type { RouteLocationRaw } from "vue-router";
 import type { ThemeSummary } from "../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import { themeLatestBookmarkedScore, themePriorityScore } from "../../../lib/theme-ranking";
+import { buildThemeSummaryInsight } from "../../../lib/theme-summary-insight";
 import { toTimestamp } from "../../../lib/time";
 import { eventSignalLabel, formatSmartDateTimeLabel, pillToneClass, themeStatusLabel, themeTypeLabel } from "../../../lib/presentation";
 

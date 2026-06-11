@@ -6,6 +6,13 @@
         <span :class="pillToneClass()">{{ themeTypeLabel(record.infoType) }}</span>
         <strong>{{ record.title }}</strong>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
+          <RouterLink
+            v-if="record.sourceId && record.sourceName"
+            class="text-[0.88rem] font-semibold text-[#6b4f1f] transition-colors hover:text-[#53380b]"
+            :to="`/sources/${record.sourceId}`"
+          >
+            {{ record.sourceName }}
+          </RouterLink>
           <span class="text-[0.88rem] text-[#766f63]">{{ formatDateTimeLabel(record.occurredAt) }}</span>
         </div>
         <dl class="mt-2.5 grid gap-1.5">

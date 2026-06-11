@@ -2,7 +2,17 @@
   <article class="mt-4 rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2.5">
       <h3 class="m-0 text-base font-semibold">{{ title }}</h3>
-      <span :class="pillToneClass(diagnostic.tone)">{{ diagnostic.toneLabel }}</span>
+      <div class="flex items-center gap-2.5">
+        <span :class="pillToneClass(diagnostic.tone)">{{ diagnostic.toneLabel }}</span>
+        <button
+          v-if="onDismiss"
+          type="button"
+          class="inline-flex items-center justify-center rounded-full border border-slate-400/15 bg-white/70 px-2.5 py-1 text-[0.82rem] font-semibold text-slate-600 transition-colors hover:bg-white"
+          @click="onDismiss"
+        >
+          关闭
+        </button>
+      </div>
     </div>
     <p class="mb-3.5 text-[#6e665a]">{{ diagnostic.headline }}</p>
     <div class="text-[#6f665a]">{{ diagnostic.summary }}</div>
@@ -47,6 +57,7 @@ defineProps<{
   title: string;
   priorityLabel: string;
   trendSummary?: string;
+  onDismiss?: () => void;
   diagnostic: {
     tone: string;
     toneLabel: string;

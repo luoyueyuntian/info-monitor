@@ -32,6 +32,9 @@
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
           <div class="text-[0.88rem] text-[#766f63]">
+            {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
+          </div>
+          <div class="text-[0.88rem] text-[#766f63]">
             {{
               theme.latestBookmarkedAt
                 ? `最近收藏于 ${formatSmartDateTimeLabel(theme.latestBookmarkedAt)}。`
@@ -94,6 +97,9 @@
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
           <div class="text-[0.88rem] text-[#766f63]">
+            {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
+          </div>
+          <div class="text-[0.88rem] text-[#766f63]">
             {{
               theme.latestBookmarkedAt
                 ? `最近收藏于 ${formatSmartDateTimeLabel(theme.latestBookmarkedAt)}。`
@@ -144,6 +150,7 @@ import { computed } from "vue";
 import type { ThemeSummary } from "../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import { formatSmartDateTimeLabel, pillToneClass, sourceHealthLabel } from "../../../lib/presentation";
+import { buildThemeSummaryInsight } from "../../../lib/theme-summary-insight";
 import { toTimestamp } from "../../../lib/time";
 
 const props = defineProps<{

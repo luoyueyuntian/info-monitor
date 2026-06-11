@@ -163,16 +163,10 @@ prepare_preview_data() {
   run_migrations_with_retry
 
   log "Seeding demo themes and sources"
-  npm run db:seed:demo
-  npm run db:seed:eastmoney-demo
-  npm run db:seed:pbc-news-demo
-  npm run db:seed:pbc-open-market-demo
+  npm run db:seed:workbench-demo
 
   log "Queueing demo source runs"
-  npm run db:enqueue:demo
-  npm run db:enqueue:eastmoney-demo
-  npm run db:enqueue:pbc-news-demo
-  npm run db:enqueue:pbc-open-market-demo
+  npm run db:enqueue:workbench-demo
 
   log "Running worker once to populate initial records"
   if env DATABASE_URL="${DATABASE_URL}" PYTHONPATH="$ROOT_DIR/apps/python-worker/src" \

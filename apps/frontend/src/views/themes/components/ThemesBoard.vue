@@ -26,8 +26,19 @@
     />
 
     <ThemesDiagnosticsCard :diagnostic="themeDiagnostics" />
+    <HomeInboxDiagnosisCard
+      v-if="recentOperationDiagnostic"
+      title="最近操作回响"
+      priority-label="变化含义"
+      :on-dismiss="dismissRecentOperation"
+      :diagnostic="recentOperationDiagnostic"
+    />
     <ThemeWorkspaceActionsCard :workspace="themeWorkspaceActions" />
-    <ThemeComparisonsCard :items="themeComparisons" :comparison-target="comparisonTarget" />
+    <ThemeComparisonsCard
+      :items="themeComparisons"
+      :comparison-target="comparisonTarget"
+      :comparison-action-label="comparisonActionLabel"
+    />
     <ThemeReviewCard :themes="bookmarkedThemesForReview" />
 
     <article
@@ -133,6 +144,8 @@ import ThemesDiagnosticsCard from "./ThemesDiagnosticsCard.vue";
 import ThemeListCard from "./ThemeListCard.vue";
 import ThemeReviewCard from "./ThemeReviewCard.vue";
 import ThemeWorkspaceActionsCard from "./ThemeWorkspaceActionsCard.vue";
+import HomeInboxDiagnosisCard from "../../inbox/components/HomeInboxDiagnosisCard.vue";
+import { buildRecentOperationDiagnostic } from "../../inbox/components/home-inbox-model";
 import {
   buildThemeComparisons,
   buildThemeDiagnostics,
@@ -149,6 +162,7 @@ import {
 } from "./themes-query";
 import { fetchThemes, type ThemeSummary, updateTheme } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
+import { clearRecentEventOperation, loadRecentEventOperation } from "../../../lib/recent-event-operation";
 import {
   themeAttentionScore,
 } from "../../../lib/theme-ranking";
@@ -167,6 +181,7 @@ const selectedThemePresetId = ref("");
 const selectedThemeIds = ref<string[]>([]);
 const bulkUpdating = ref(false);
 const pendingBulkAction = ref("");
+const recentEventOperation = ref(loadRecentEventOperation());
 const operationNotice = ref<{
   message: string;
   actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
@@ -265,6 +280,11 @@ function setSortBy(value: string) {
 
 function clearQuery() {
   query.value = "";
+}
+
+function dismissRecentOperation() {
+  clearRecentEventOperation();
+  recentEventOperation.value = null;
 }
 
 function syncRouteQueryFromFilters() {
@@ -393,6 +413,7 @@ const bookmarkedThemesForReview = computed(() =>
 );
 
 const themeDiagnostics = computed(() => buildThemeDiagnostics(filteredThemes.value));
+const recentOperationDiagnostic = computed(() => buildRecentOperationDiagnostic(recentEventOperation.value));
 const themeWorkspaceActions = computed(() => buildThemeWorkspaceActions(filteredThemes.value, activeFilters.value));
 
 const themeComparisons = computed(() => buildThemeComparisons(filteredThemes.value));
@@ -408,6 +429,8 @@ function comparisonTarget(item: { theme: ThemeSummary | null }) {
     section = "events";
   } else if (item.theme.sourceHealth === "warning") {
     section = "sources";
+  } else if (item.theme.type === "price" && item.theme.sourceCount > 1) {
+    section = "compare";
   } else if (item.theme.type === "price") {
     section = "trend";
   }
@@ -416,6 +439,30 @@ function comparisonTarget(item: { theme: ThemeSummary | null }) {
     path: `/themes/${item.theme.id}`,
     query: { section },
   };
+}
+
+function comparisonActionLabel(item: { theme: ThemeSummary | null }) {
+  if (!item.theme) {
+    return "查看主题";
+  }
+
+  if ((item.theme.openEventCount ?? 0) > 0) {
+    return "查看待处理事件";
+  }
+
+  if (item.theme.sourceHealth === "warning") {
+    return "查看来源区";
+  }
+
+  if (item.theme.type === "price" && item.theme.sourceCount > 1) {
+    return "查看价格快照";
+  }
+
+  if (item.theme.type === "price") {
+    return "查看价格趋势";
+  }
+
+  return "查看主题";
 }
 
 function toggleThemeSelection(themeId: string) {
@@ -487,6 +534,7 @@ async function handleBulkUpdateThemes(status: "active" | "archived") {
 }
 
 onMounted(async () => {
+  recentEventOperation.value = loadRecentEventOperation();
   themes.value = await fetchThemes();
   applyQueryFilters();
 });

@@ -74,13 +74,14 @@ describe("event-workbench-model", () => {
 
   it("groups events into theme buckets", () => {
     const buckets = buildEventThemeBuckets([
-      makeEvent({ id: "e1", themeId: "t1", themeName: "T1", status: "open" }),
-      makeEvent({ id: "e2", themeId: "t1", themeName: "T1", status: "tracking", isRead: false }),
+      makeEvent({ id: "e1", themeId: "t1", themeName: "T1", status: "open", infoType: "price", signal: "30d_low" }),
+      makeEvent({ id: "e2", themeId: "t1", themeName: "T1", status: "tracking", isRead: false, infoType: "price", signal: "30d_low" }),
       makeEvent({ id: "e3", themeId: "t2", themeName: "T2", status: "ignored", isBookmarked: true }),
     ]);
 
     expect(buckets[0].themeId).toBe("t1");
     expect(buckets[0].openCount).toBe(1);
+    expect(buckets[0].summary).toContain("新低信号");
   });
 
   it("builds a readable event filter summary", () => {

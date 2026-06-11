@@ -76,12 +76,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import type { RouteLocationRaw } from "vue-router";
 
 import EventWorkbenchDiagnosticsCard from "./EventWorkbenchDiagnosticsCard.vue";
 import EventWorkbenchFiltersPanel from "./EventWorkbenchFiltersPanel.vue";
 import EventWorkbenchListCard from "./EventWorkbenchListCard.vue";
 import EventThemeBucketsCard from "./EventThemeBucketsCard.vue";
 import EventWorkspaceActionsCard from "./EventWorkspaceActionsCard.vue";
+import { buildSingleEventOperationNotice } from "./event-operation-feedback";
 import {
   buildEventDiagnostics,
   buildEventFilterSummary,
@@ -99,6 +101,7 @@ import {
 } from "./event-workbench-query";
 import { fetchEvents, type EventSummary, updateEvent, updateEventStatus } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
+import { recordRecentEventOperation } from "../../../lib/recent-event-operation";
 import { toTimestamp } from "../../../lib/time";
 import {
   eventStatusLabel,
@@ -127,7 +130,7 @@ const bulkUpdating = ref(false);
 const pendingBulkStatus = ref("");
 const operationNotice = ref<{
   message: string;
-  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
+  actions: Array<{ label: string; to: RouteLocationRaw }>;
 } | null>(null);
 const eventPresets = [
   { id: "all", label: "全部事件", filters: { query: "", theme: "all", status: "all", type: "all", sort: "occurredAt", recent: false } },
@@ -397,10 +400,26 @@ function buildOperationNotice(action: "open" | "tracking" | "ignored" | "read" |
 async function handleUpdateStatus(eventId: string, status: string) {
   savingEventId.value = eventId;
   pendingStatus.value = status;
+  operationNotice.value = null;
 
   try {
+    const currentEvent = events.value.find((event) => event.id === eventId);
     await updateEventStatus(eventId, status);
     events.value = events.value.map((event) => (event.id === eventId ? { ...event, status } : event));
+    if (currentEvent) {
+      recordRecentEventOperation({
+        action: status as "open" | "tracking" | "ignored",
+        count: 1,
+        eventTitle: currentEvent.title,
+        infoType: currentEvent.infoType,
+        themeId: currentEvent.themeId,
+        themeName: currentEvent.themeName,
+      });
+      operationNotice.value = buildSingleEventOperationNotice(
+        { ...currentEvent, status },
+        status as "open" | "tracking" | "ignored",
+      );
+    }
   } finally {
     savingEventId.value = "";
     pendingStatus.value = "";
@@ -417,14 +436,48 @@ async function handleUpdateMeta(
 ) {
   savingEventId.value = eventId;
   pendingStatus.value = pendingKey;
+  operationNotice.value = null;
 
   try {
+    const currentEvent = events.value.find((event) => event.id === eventId);
     const updated = await updateEvent(eventId, input);
     events.value = events.value.map((event) =>
       event.id === eventId
         ? { ...event, isRead: updated.isRead, isBookmarked: updated.isBookmarked, bookmarkedAt: updated.bookmarkedAt }
         : event,
     );
+    if (currentEvent) {
+      recordRecentEventOperation({
+        action:
+          typeof input.isBookmarked === "boolean"
+            ? input.isBookmarked
+              ? "bookmark"
+              : "unbookmark"
+            : input.isRead
+              ? "read"
+              : "unread",
+        count: 1,
+        eventTitle: currentEvent.title,
+        infoType: currentEvent.infoType,
+        themeId: currentEvent.themeId,
+        themeName: currentEvent.themeName,
+      });
+      operationNotice.value = buildSingleEventOperationNotice(
+        {
+          ...currentEvent,
+          isRead: updated.isRead,
+          isBookmarked: updated.isBookmarked,
+          bookmarkedAt: updated.bookmarkedAt,
+        },
+        typeof input.isBookmarked === "boolean"
+          ? input.isBookmarked
+            ? "bookmark"
+            : "unbookmark"
+          : input.isRead
+            ? "read"
+            : "unread",
+      );
+    }
   } finally {
     savingEventId.value = "";
     pendingStatus.value = "";

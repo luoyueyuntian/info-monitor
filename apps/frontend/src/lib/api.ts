@@ -1,3 +1,5 @@
+import { fallbackEvents, fallbackSources, fallbackThemes } from "./demo-fixtures";
+
 export type ThemeSummary = {
   id: string;
   name: string;
@@ -130,6 +132,8 @@ export type SourceDetail = {
 
 export type ThemeRecord = {
   id: string;
+  sourceId?: string | null;
+  sourceName?: string | null;
   title: string;
   occurredAt: string;
   infoType: string;
@@ -244,139 +248,6 @@ export type ThemeDetail = {
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
-
-const fallbackThemes: ThemeSummary[] = [
-  {
-    id: "theme-surface-pro-8",
-    name: "Surface Pro 8 16G + 512G Price",
-    type: "price",
-    status: "active",
-    latestRunAt: "2026-06-01T09:30:00Z",
-    latestEventAt: "2026-06-01T09:31:00Z",
-    sourceCount: 2,
-    sourceHealth: "healthy",
-    latestEventTitle: "30-day low detected across marketplaces",
-    latestEventSignal: "30d_low",
-    latestInsight: "3,999 · CNY · 16G+512G",
-  },
-  {
-    id: "theme-macro-gdp-cpi",
-    name: "Macro Releases: GDP / CPI",
-    type: "financial_event",
-    status: "active",
-    latestRunAt: "2026-06-01T08:00:00Z",
-    latestEventAt: null,
-    sourceCount: 3,
-    sourceHealth: "warning",
-    latestEventTitle: null,
-    latestEventSignal: null,
-    latestInsight: null,
-  },
-  {
-    id: "theme-figma-updates",
-    name: "Figma Product Updates",
-    type: "content_update",
-    status: "active",
-    latestRunAt: "2026-06-01T07:30:00Z",
-    latestEventAt: "2026-06-01T07:35:00Z",
-    sourceCount: 1,
-    sourceHealth: "healthy",
-    latestEventTitle: "Figma released a new dev mode update",
-    latestEventSignal: "content_update",
-    latestInsight: "feature_release · Figma",
-  },
-];
-
-const fallbackEvents: EventSummary[] = [
-  {
-    id: "event-surface-low",
-    themeId: "theme-surface-pro-8",
-    themeName: "Surface Pro 8 16G + 512G Price",
-    title: "30-day low detected across marketplaces",
-    signal: "30d_low",
-    status: "open",
-    isRead: false,
-    isBookmarked: true,
-    bookmarkedAt: "2026-06-01T10:00:00Z",
-    occurredAt: "2026-06-01T09:31:00Z",
-    summary: "A new cross-platform low price was detected for the same configuration.",
-  },
-  {
-    id: "event-rate-cut",
-    themeId: "theme-macro-gdp-cpi",
-    themeName: "Macro Releases: GDP / CPI",
-    title: "Potential bullish macro event recorded",
-    signal: "bullish",
-    status: "tracking",
-    isRead: true,
-    isBookmarked: false,
-    bookmarkedAt: null,
-    occurredAt: "2026-05-31T03:00:00Z",
-    summary: "A macro release was classified as a potentially bullish event.",
-  },
-  {
-    id: "event-figma-release",
-    themeId: "theme-figma-updates",
-    themeName: "Figma Product Updates",
-    title: "Figma released a new dev mode update",
-    signal: "content_update",
-    status: "open",
-    isRead: false,
-    isBookmarked: true,
-    bookmarkedAt: "2026-06-01T08:30:00Z",
-    occurredAt: "2026-06-01T07:35:00Z",
-    summary: "A new product update was detected on the Figma release notes page.",
-    infoType: "content_update",
-    context: {
-      object_name: "Figma",
-      update_type: "feature_release",
-      url: "https://www.figma.com/release-notes/",
-      summary: "New dev mode improvements announced in the latest release notes.",
-    },
-  },
-];
-
-const fallbackSources: SourceStatus[] = [
-  {
-    id: "source-xianyu-surface",
-    themeId: "theme-surface-pro-8",
-    themeName: "Surface Pro 8 16G + 512G Price",
-    themeType: "price",
-    latestEventSignal: "30d_low",
-    name: "Xianyu Search Results",
-    status: "healthy",
-    latestSuccessAt: "2026-06-01T09:30:00Z",
-    latestFailureAt: null,
-  },
-  {
-    id: "source-pbc-policy",
-    themeId: "theme-macro-gdp-cpi",
-    themeName: "Macro Releases: GDP / CPI",
-    themeType: "financial_event",
-    latestEventSignal: "bullish",
-    name: "PBOC Policy Page",
-    status: "warning",
-    latestSuccessAt: "2026-05-31T23:00:00Z",
-    latestFailureAt: "2026-06-01T06:00:00Z",
-  },
-  {
-    id: "source-figma-release-notes",
-    themeId: "theme-figma-updates",
-    themeName: "Figma Product Updates",
-    themeType: "content_update",
-    latestEventSignal: "content_update",
-    name: "Figma Release Notes",
-    status: "healthy",
-    sourceType: "page_list",
-    adapterKey: "generic_content_update_list",
-    isPaused: false,
-    latestRunStatus: "completed",
-    latestRunAt: "2026-06-01T07:30:00Z",
-    latestSuccessAt: "2026-06-01T07:30:00Z",
-    latestFailureAt: null,
-    lastErrorMessage: null,
-  },
-];
 
 function buildFallbackEventExplanation(event: EventSummary) {
   if (event.infoType === "price") {
@@ -668,12 +539,14 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
   if (theme.type === "price") {
     const records: ThemeRecord[] = [
       {
-        id: `${theme.id}-record-1`,
+        id: `${theme.id}-record-3`,
+        sourceId: "source-xianyu-surface",
+        sourceName: "Xianyu Search Results",
         title: "跨平台同配置价格快照",
-        occurredAt: "2026-05-28T09:30:00Z",
+        occurredAt: "2026-06-01T09:31:00Z",
         infoType: "price",
         content: {
-          price: 4288,
+          price: 3999,
           currency: "CNY",
           spec: "16G+512G",
           symbol: "surface-pro-8",
@@ -682,6 +555,8 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
       },
       {
         id: `${theme.id}-record-2`,
+        sourceId: "source-zhuanzhuan-surface",
+        sourceName: "Zhuanzhuan Search Results",
         title: "跨平台同配置价格快照",
         occurredAt: "2026-05-31T09:30:00Z",
         infoType: "price",
@@ -694,12 +569,14 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
         },
       },
       {
-        id: `${theme.id}-record-3`,
+        id: `${theme.id}-record-1`,
+        sourceId: "source-xianyu-surface",
+        sourceName: "Xianyu Search Results",
         title: "跨平台同配置价格快照",
-        occurredAt: "2026-06-01T09:31:00Z",
+        occurredAt: "2026-05-28T09:30:00Z",
         infoType: "price",
         content: {
-          price: 3999,
+          price: 4288,
           currency: "CNY",
           spec: "16G+512G",
           symbol: "surface-pro-8",
@@ -755,19 +632,23 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
   if (theme.type === "content_update") {
     const records: ThemeRecord[] = [
       {
-        id: `${theme.id}-record-1`,
+        id: `${theme.id}-record-3`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
         title: "Figma release notes item",
-        occurredAt: "2026-05-29T07:30:00Z",
+        occurredAt: "2026-06-01T07:35:00Z",
         infoType: "content_update",
         content: {
           object_name: "Figma",
-          update_type: "bug_fix",
+          update_type: "feature_release",
           url: "https://www.figma.com/release-notes/",
-          summary: "A batch of editor bug fixes and performance improvements was published.",
+          summary: "New dev mode improvements announced in the latest release notes.",
         },
       },
       {
         id: `${theme.id}-record-2`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
         title: "Figma release notes item",
         occurredAt: "2026-05-31T07:30:00Z",
         infoType: "content_update",
@@ -779,15 +660,17 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
         },
       },
       {
-        id: `${theme.id}-record-3`,
+        id: `${theme.id}-record-1`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
         title: "Figma release notes item",
-        occurredAt: "2026-06-01T07:35:00Z",
+        occurredAt: "2026-05-29T07:30:00Z",
         infoType: "content_update",
         content: {
           object_name: "Figma",
-          update_type: "feature_release",
+          update_type: "bug_fix",
           url: "https://www.figma.com/release-notes/",
-          summary: "New dev mode improvements announced in the latest release notes.",
+          summary: "A batch of editor bug fixes and performance improvements was published.",
         },
       },
     ];
@@ -847,23 +730,27 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
   if (theme.type === "financial_event") {
     const records: ThemeRecord[] = [
       {
-        id: `${theme.id}-record-1`,
+        id: `${theme.id}-record-3`,
+        sourceId: "source-pbc-open-market-history",
+        sourceName: "PBOC Open Market History",
         title: "公开市场操作结构化记录",
-        occurredAt: "2026-05-29T23:00:00Z",
+        occurredAt: "2026-06-01T06:10:00Z",
         infoType: "financial_event",
         content: {
-          direction_label: "neutral",
-          announcement_no: "[2026]第84号",
+          direction_label: "liquidity_withdrawal",
+          announcement_no: "[2026]第91号",
           operation_type: "逆回购",
-          amount_billion_cny: 320,
+          amount_billion_cny: 420,
           term_days: 7,
-          rate_percent: 1.5,
-          bidding_method: "固定数量、利率招标",
-          direction_reason: "当日投放和到期规模接近，整体偏中性。",
+          rate_percent: 1.4,
+          bidding_method: "固定利率、数量招标",
+          direction_reason: "净回笼规模大于投放，短期流动性信号偏收紧。",
         },
       },
       {
         id: `${theme.id}-record-2`,
+        sourceId: "source-pbc-policy",
+        sourceName: "PBOC Policy Page",
         title: "公开市场操作结构化记录",
         occurredAt: "2026-05-31T23:00:00Z",
         infoType: "financial_event",
@@ -878,18 +765,38 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           direction_reason: "净投放规模放大，短期流动性信号偏宽松。",
         },
       },
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-pbc-policy",
+        sourceName: "PBOC Policy Page",
+        title: "公开市场操作结构化记录",
+        occurredAt: "2026-05-29T23:00:00Z",
+        infoType: "financial_event",
+        content: {
+          direction_label: "neutral",
+          announcement_no: "[2026]第84号",
+          operation_type: "逆回购",
+          amount_billion_cny: 320,
+          term_days: 7,
+          rate_percent: 1.5,
+          bidding_method: "固定数量、利率招标",
+          direction_reason: "当日投放和到期规模接近，整体偏中性。",
+        },
+      },
     ];
 
     return {
       history: [
         { at: "2026-05-29T23:00:00Z", label: "公开市场操作记录已入库" },
         { at: "2026-05-31T23:00:00Z", label: "本轮操作方向转向偏宽松" },
+        { at: "2026-06-01T06:10:00Z", label: "本轮操作方向转向偏收紧" },
         { at: "2026-06-01T06:00:00Z", label: "最新来源抓取失败，等待复核" },
       ],
       breakdown: {
         title: "方向分布",
         description: "按结构化金融事件的方向标签聚合，帮助你快速判断近期流动性倾向。",
         items: [
+          { label: "流动性回笼", count: 1 },
           { label: "流动性投放", count: 1 },
           { label: "中性", count: 1 },
         ],
@@ -917,13 +824,68 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
         {
           id: `${theme.id}-timeline-event-1`,
           kind: "event",
-          at: "2026-05-31T23:02:00Z",
-          title: events[0]?.title ?? "Potential bullish macro event recorded",
+          at: "2026-06-01T06:10:00Z",
+          title: events[0]?.title ?? "Liquidity withdrawal signal recorded",
           summary: events[0]?.summary ?? "A new financial event was emitted.",
           meta: {
-            signal: events[0]?.signal ?? "liquidity_injection",
+            signal: events[0]?.signal ?? "liquidity_withdrawal",
             eventType: events[0]?.eventType ?? "new_release",
-            sourceName: "PBOC Policy Page",
+            sourceName: "PBOC Open Market History",
+          },
+        },
+      ],
+      records,
+    };
+  }
+
+  if (theme.type === "news_announcement") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-stats-cpi-release",
+        sourceName: "NBS CPI Release List",
+        title: "国家统计局 CPI 发布",
+        occurredAt: "2026-06-01T08:02:00Z",
+        infoType: "news_announcement",
+        content: {
+          release_topic_label: "CPI",
+          publisher: "国家统计局",
+          category: "macro_release",
+          description: "Latest CPI bulletin and attached statistical interpretation.",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-06-01T08:02:00Z", label: "最新 CPI 发布已入库" },
+      ],
+      breakdown: {
+        title: "发布主题分布",
+        description: "按最近抓到的官方发布主题聚合，帮助你快速判断当前宏观关注点。",
+        items: [
+          { label: "CPI", count: 1 },
+        ],
+      },
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-01T08:05:00Z",
+          title: "最新抓取完成",
+          summary: "已完成统计局发布列表抓取与结构化。",
+          meta: { status: "completed", triggerType: "schedule", sourceName: "NBS CPI Release List" },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: "2026-06-01T08:02:00Z",
+          title: events[0]?.title ?? "NBS published latest CPI release",
+          summary: events[0]?.summary ?? "A new announcement event was emitted.",
+          meta: {
+            signal: events[0]?.signal ?? "new_announcement",
+            eventType: events[0]?.eventType ?? "new_release",
+            sourceName: "NBS CPI Release List",
           },
         },
       ],

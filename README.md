@@ -48,6 +48,14 @@ This will:
 7. Queue initial runs and execute the worker once
 8. Start the Node API, Vue frontend, and a background scheduler/worker loop
 
+The preview flow now seeds the full workbench demo set by default, including:
+
+- price monitoring
+- Eastmoney stock price demo
+- PBOC news demo
+- PBOC open market operations demo
+- NBS data release demo
+
 If you only want to prepare the environment without starting the servers:
 
 ```bash
@@ -94,7 +102,7 @@ env DATABASE_URL=postgresql://postgres:postgres@localhost:5432/info_monitor \
 
 1. `npm run db:up`
 2. `npm run db:migrate`
-3. `npm run db:seed:demo`
+3. `npm run db:seed:workbench-demo`
 4. Run the Python scheduler once
 5. Run the Python worker once
 6. Open the frontend or query the API
@@ -102,10 +110,26 @@ env DATABASE_URL=postgresql://postgres:postgres@localhost:5432/info_monitor \
 To enqueue another demo run manually:
 
 ```bash
-npm run db:enqueue:demo
+npm run db:enqueue:workbench-demo
 ```
 
-To seed and test the first real price source adapter:
+If you want to seed or enqueue individual demo slices instead:
+
+```bash
+npm run db:seed:demo
+npm run db:seed:eastmoney-demo
+npm run db:seed:pbc-news-demo
+npm run db:seed:pbc-open-market-demo
+npm run db:seed:stats-data-release-demo
+
+npm run db:enqueue:demo
+npm run db:enqueue:eastmoney-demo
+npm run db:enqueue:pbc-news-demo
+npm run db:enqueue:pbc-open-market-demo
+npm run db:enqueue:stats-data-release-demo
+```
+
+To focus on the real-source price adapter only:
 
 ```bash
 npm run db:seed:eastmoney-demo
@@ -138,6 +162,8 @@ npm run db:enqueue:pbc-open-market-demo
 - Official source adapter verified: PBOC news list -> normalized news/announcement records
 - Structured financial-event adapter verified: PBOC open market announcements -> normalized financial_event records
 - Official-source event flow verified: `new_announcement` and `new_financial_event` can now reach the dashboard
+- Recent operation feedback now flows across event detail, event workbench, theme detail, inbox, and theme center
+- Local demo data now includes price, content update, open market operation, and official release scenarios in both fallback and seeded paths
 
 ## Current Status
 

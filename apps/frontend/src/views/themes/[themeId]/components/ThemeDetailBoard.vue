@@ -106,6 +106,10 @@
       />
     </div>
 
+    <div :ref="setSectionRef('compare')">
+      <ThemeDetailSourceCompareCard :compare="sourceCompareData" />
+    </div>
+
     <div class="grid two">
       <div :ref="setSectionRef('events')">
         <ThemeDetailRecentEventsCard :theme-id="detail.theme.id" :events="detail.events" />
@@ -144,6 +148,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, type ComponentPublicInstance, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import type { RouteLocationRaw } from "vue-router";
 
 import ThemeDetailAnalysisCard from "./ThemeDetailAnalysisCard.vue";
 import ThemeDetailAddSourceFormCard from "./ThemeDetailAddSourceFormCard.vue";
@@ -156,11 +161,15 @@ import ThemeDetailNoticeCard from "./ThemeDetailNoticeCard.vue";
 import ThemeDetailRecentEventsCard from "./ThemeDetailRecentEventsCard.vue";
 import ThemeDetailRecordsCard from "./ThemeDetailRecordsCard.vue";
 import ThemeDetailSectionNav from "./ThemeDetailSectionNav.vue";
+import ThemeDetailSourceCompareCard from "./ThemeDetailSourceCompareCard.vue";
 import ThemeDetailStatsGrid from "./ThemeDetailStatsGrid.vue";
 import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
+import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
+import { buildThemeSourceCompareData } from "./theme-detail-source-compare";
+import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
 import {
   createSource,
   deleteSource,
@@ -199,7 +208,7 @@ const addingSource = ref(false);
 const sourceFormStatus = ref("");
 const operationMessage = ref<{
   message: string;
-  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }>;
+  actions: Array<{ label: string; to: RouteLocationRaw }>;
 } | null>(null);
 const themeFormStatus = ref("");
 const shortDateFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -479,6 +488,19 @@ const breakdownBarItems = computed(() => {
   }));
 });
 
+const sourceCompareData = computed(() => {
+  if (!detail.value) {
+    return {
+      headline: "跨来源快照",
+      summary: "这个主题当前还没有可用于跨来源比较的记录。",
+      stats: ["已覆盖 0/0 个来源"],
+      items: [],
+    };
+  }
+
+  return buildThemeSourceCompareData(detail.value);
+});
+
 const analysisReviewActions = computed(() => {
   if (!detail.value) {
     return [];
@@ -501,7 +523,7 @@ function analysisToneLabel(tone: string) {
 
 function setOperationMessage(
   message: string,
-  actions: Array<{ label: string; to: { path: string; query?: Record<string, string | undefined> } }> = [],
+  actions: Array<{ label: string; to: RouteLocationRaw }> = [],
 ) {
   operationMessage.value = { message, actions };
 }
@@ -643,12 +665,40 @@ async function handleUpdateThemeEventStatus(eventId: string, status: string) {
   operationMessage.value = null;
 
   try {
+    const currentEvent = detail.value?.events.find((event) => event.id === eventId);
     await updateEventStatus(eventId, status);
     await loadThemeDetail();
-    setOperationMessage(`事件已标记为${eventStatusLabel(status)}。`, [
-      { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
-      { label: "查看事件工作台", to: { path: "/events", query: { themeId: String(route.params.themeId), status, sort: status === "open" ? "statusChanged" : "occurredAt" } } },
-    ]);
+    if (currentEvent) {
+      recordRecentEventOperation({
+        action: status as "open" | "tracking" | "ignored",
+        count: 1,
+        eventTitle: currentEvent.title,
+        infoType: detail.value?.theme.type === "price"
+          ? "price"
+          : detail.value?.theme.type === "financial_event"
+            ? "financial_event"
+            : detail.value?.theme.type === "content_update"
+              ? "content_update"
+              : "news_announcement",
+        themeId: String(route.params.themeId),
+        themeName: detail.value?.theme.name ?? "",
+      });
+      const notice = buildSingleEventOperationNotice(
+        {
+          ...currentEvent,
+          themeId: String(route.params.themeId),
+          themeName: detail.value?.theme.name ?? "",
+          status,
+        },
+        status as "open" | "tracking" | "ignored",
+      );
+      setOperationMessage(notice.message, notice.actions);
+    } else {
+      setOperationMessage(`事件已标记为${eventStatusLabel(status)}。`, [
+        { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
+        { label: "查看事件工作台", to: { path: "/events", query: { themeId: String(route.params.themeId), status, sort: status === "open" ? "statusChanged" : "occurredAt" } } },
+      ]);
+    }
   } finally {
     savingEventId.value = null;
     pendingEventStatus.value = "";
@@ -668,27 +718,69 @@ async function handleUpdateThemeEventMeta(
   operationMessage.value = null;
 
   try {
+    const currentEvent = detail.value?.events.find((event) => event.id === eventId);
     await updateEvent(eventId, input);
     await loadThemeDetail();
-    setOperationMessage(
-      typeof input.isBookmarked === "boolean"
-        ? input.isBookmarked
-          ? "事件已加入收藏。"
-          : "事件已取消收藏。"
-        : input.isRead
-          ? "事件已标记为已读。"
-          : "事件已标记为未读。",
-      [
-        { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
+    if (currentEvent) {
+      recordRecentEventOperation({
+        action:
+          typeof input.isBookmarked === "boolean"
+            ? input.isBookmarked
+              ? "bookmark"
+              : "unbookmark"
+            : input.isRead
+              ? "read"
+              : "unread",
+        count: 1,
+        eventTitle: currentEvent.title,
+        infoType: detail.value?.theme.type === "price"
+          ? "price"
+          : detail.value?.theme.type === "financial_event"
+            ? "financial_event"
+            : detail.value?.theme.type === "content_update"
+              ? "content_update"
+              : "news_announcement",
+        themeId: String(route.params.themeId),
+        themeName: detail.value?.theme.name ?? "",
+      });
+      const notice = buildSingleEventOperationNotice(
         {
-          label: typeof input.isBookmarked === "boolean" && input.isBookmarked ? "查看观察清单" : "查看事件工作台",
-          to:
-            typeof input.isBookmarked === "boolean" && input.isBookmarked
-              ? { path: "/watchlist" }
-              : { path: "/events", query: { themeId: String(route.params.themeId), sort: "occurredAt" } },
+          ...currentEvent,
+          themeId: String(route.params.themeId),
+          themeName: detail.value?.theme.name ?? "",
+          isRead: typeof input.isRead === "boolean" ? input.isRead : currentEvent.isRead,
+          isBookmarked: typeof input.isBookmarked === "boolean" ? input.isBookmarked : currentEvent.isBookmarked,
         },
-      ],
-    );
+        typeof input.isBookmarked === "boolean"
+          ? input.isBookmarked
+            ? "bookmark"
+            : "unbookmark"
+          : input.isRead
+            ? "read"
+            : "unread",
+      );
+      setOperationMessage(notice.message, notice.actions);
+    } else {
+      setOperationMessage(
+        typeof input.isBookmarked === "boolean"
+          ? input.isBookmarked
+            ? "事件已加入收藏。"
+            : "事件已取消收藏。"
+          : input.isRead
+            ? "事件已标记为已读。"
+            : "事件已标记为未读。",
+        [
+          { label: "查看主题事件队列", to: { path: `/themes/${route.params.themeId}`, query: { section: "events" } } },
+          {
+            label: typeof input.isBookmarked === "boolean" && input.isBookmarked ? "查看观察清单" : "查看事件工作台",
+            to:
+              typeof input.isBookmarked === "boolean" && input.isBookmarked
+                ? { path: "/watchlist" }
+                : { path: "/events", query: { themeId: String(route.params.themeId), sort: "occurredAt" } },
+          },
+        ],
+      );
+    }
   } finally {
     savingEventId.value = null;
     pendingEventStatus.value = "";

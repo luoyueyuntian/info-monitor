@@ -158,6 +158,10 @@ export function themeStatusLabel(status?: string | null) {
 
 export function sourceStatusLabel(status?: string | null) {
   switch (status) {
+    case "healthy":
+      return "正常";
+    case "warning":
+      return "异常";
     case "active":
       return "启用";
     case "paused":
