@@ -347,6 +347,13 @@ export async function batchDeleteNotifications(
   const db = getDatabase();
 
   if (!db) {
+    const { mockEvents } = await import("../lib/mock-store.js");
+
+    // Build set of event IDs for themeId filter if needed
+    const themeEventIds = filter.themeId
+      ? new Set(mockEvents.filter((e) => e.themeId === filter.themeId).map((e) => e.id))
+      : null;
+
     const initialLength = mockNotifications.length;
     const filtered = mockNotifications.filter((item) => {
       if (filter.status && item.status !== filter.status) return false;
@@ -355,7 +362,7 @@ export async function batchDeleteNotifications(
         const payload = item.payload as Record<string, unknown>;
         if (payload?.signal !== filter.signal) return false;
       }
-      // themeId filter requires joining with events, skip in mock mode
+      if (themeEventIds && !themeEventIds.has(item.eventId)) return false;
       return true;
     });
 
