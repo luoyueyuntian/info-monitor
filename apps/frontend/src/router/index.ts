@@ -6,6 +6,7 @@ export const router = createRouter({
     { path: "/", name: "home", component: () => import("../views/inbox/index.vue") },
     { path: "/events", name: "events", component: () => import("../views/events/index.vue") },
     { path: "/notifications", name: "notifications", component: () => import("../views/notifications/index.vue") },
+    { path: "/settings/notifications", name: "notification-preferences", component: () => import("../views/settings/notifications.vue") },
     { path: "/inbox/sections/:sectionId", name: "inbox-section", component: () => import("../views/inbox/sections/[sectionId]/index.vue") },
     { path: "/watchlist", name: "watchlist", component: () => import("../views/watchlist/index.vue") },
     { path: "/themes", name: "themes", component: () => import("../views/themes/index.vue") },

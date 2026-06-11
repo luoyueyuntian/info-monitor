@@ -1,254 +1,35 @@
-import type { NotificationItem } from "@info-monitor/shared-contracts";
+import type {
+  DashboardSummary,
+  EventDetail,
+  EventSummary,
+  InboxSectionCounts,
+  NotificationItem,
+  NotificationPreference,
+  NotificationPreferenceInput,
+  SourceDetail,
+  SourceStatus,
+  ThemeAnalysis,
+  ThemeDetail,
+  ThemeRecord,
+  ThemeSummary,
+} from "@info-monitor/shared-contracts";
 
 import { fallbackEvents, fallbackNotifications, fallbackSources, fallbackThemes } from "./demo-fixtures";
 
-export type { NotificationItem };
-
-export type ThemeSummary = {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  latestRunAt: string | null;
-  latestEventAt: string | null;
-  sourceCount: number;
-  latestSuccessAt?: string | null;
-  latestFailureAt?: string | null;
-  sourceHealth?: "healthy" | "warning" | string;
-  latestEventTitle?: string | null;
-  latestEventSignal?: string | null;
-  latestInsight?: string | null;
-  latestBookmarkedAt?: string | null;
-  openEventCount?: number;
-  trackingEventCount?: number;
-  ignoredEventCount?: number;
-  unreadEventCount?: number;
-  bookmarkedEventCount?: number;
-};
-
-export type EventSummary = {
-  id: string;
-  themeId: string;
-  themeName: string;
-  title: string;
-  signal: string;
-  status?: string | null;
-  isRead?: boolean;
-  isBookmarked?: boolean;
-  bookmarkedAt?: string | null;
-  latestStatusChangedAt?: string | null;
-  eventType?: string;
-  occurredAt: string;
-  summary: string;
-  infoType?: string | null;
-  context?: Record<string, unknown> | null;
-};
-
-export type EventDetail = EventSummary & {
-  sourceName?: string | null;
-  evidence: string[];
-  explanation: {
-    headline: string;
-    impact: string;
-    whyItMatters: string[];
-    actions: string[];
-  };
-  statusHistory?: Array<{
-    id: string;
-    eventId: string;
-    fromStatus?: string | null;
-    toStatus: string;
-    changedAt: string;
-  }>;
-};
-
-export type SourceStatus = {
-  id: string;
-  themeId: string;
-  themeName: string;
-  themeType?: string;
-  latestEventSignal?: string | null;
-  name: string;
-  status: string;
-  sourceType?: string;
-  adapterKey?: string;
-  isPaused?: boolean;
-  latestRunStatus?: string | null;
-  latestRunAt?: string | null;
-  latestSuccessAt: string | null;
-  latestFailureAt: string | null;
-  lastErrorMessage?: string | null;
-};
-
-export type SourceDetail = {
-  source: SourceStatus & {
-    config?: Record<string, unknown>;
-  };
-  runs: Array<{
-    id: string;
-    status: string;
-    triggerType: string;
-    startedAt?: string | null;
-    finishedAt?: string | null;
-    errorMessage?: string | null;
-  }>;
-  events: Array<{
-    id: string;
-    title: string;
-    signal: string;
-    status?: string | null;
-    isRead?: boolean;
-    isBookmarked?: boolean;
-    occurredAt: string;
-    summary: string;
-  }>;
-  records: Array<{
-    id: string;
-    title: string;
-    occurredAt: string;
-    infoType: string;
-    content: Record<string, unknown>;
-  }>;
-  changes: Array<{
-    id: string;
-    changeType: string;
-    summary: string;
-    detectedAt: string;
-    details?: Record<string, unknown>;
-  }>;
-  snapshots: Array<{
-    id: string;
-    sourceRunId: string;
-    fetchedAt: string | null;
-    storagePath?: string | null;
-    payloadPreview: string;
-  }>;
-  analysis: {
-    tone: "healthy" | "pending" | "warning";
-    toneLabel: string;
-    headline: string;
-    summary: string;
-    keyPoints: string[];
-    risks: string[];
-    actions: string[];
-  };
-};
-
-export type ThemeRecord = {
-  id: string;
-  sourceId?: string | null;
-  sourceName?: string | null;
-  title: string;
-  occurredAt: string;
-  infoType: string;
-  content: Record<string, unknown>;
-};
-
-export type ThemeAnalysis = {
-  tone: "positive" | "negative" | "neutral";
-  headline: string;
-  summary: string;
-  keyPoints: string[];
-  risks: string[];
-  actions: string[];
-  recentChange: {
-    headline: string;
-    summary: string;
-    highlights: string[];
-  };
-  trend: {
-    headline: string;
-    summary: string;
-    highlights: string[];
-  };
-};
-
-export type DashboardSummary = {
-  activeThemes: number;
-  openEvents: number;
-  trackingEvents: number;
-  unreadEvents: number;
-  bookmarkedEvents: number;
-  recentEvents: number;
-  warningSources: number;
-  pendingSources: number;
-};
-
-export type InboxSectionCounts = {
-  "price-signals": {
-    total: number;
-    recent: number;
-  };
-  "content-updates": {
-    total: number;
-    recent: number;
-  };
-  "official-releases": {
-    total: number;
-    recent: number;
-  };
-  "financial-events": {
-    total: number;
-    recent: number;
-  };
-};
-
-export type ThemeDetail = {
-  theme: {
-    id: string;
-    name: string;
-    type: string;
-    infoType?: string;
-    description?: string;
-    status: string;
-    createdAt?: string;
-    latestInsight?: string | null;
-  };
-  sources: Array<{
-    id: string;
-    name: string;
-    status: string;
-    sourceType?: string;
-    adapterKey?: string;
-    config?: Record<string, unknown>;
-    isPaused?: boolean;
-    latestSuccessAt: string | null;
-    latestFailureAt: string | null;
-    latestRunStatus?: string | null;
-    latestRunAt?: string | null;
-  }>;
-  events: Array<{
-    id: string;
-    title: string;
-    signal: string;
-    status?: string | null;
-    isRead?: boolean;
-    isBookmarked?: boolean;
-    occurredAt: string;
-    summary: string;
-  }>;
-  history: Array<{
-    at: string;
-    label: string;
-  }>;
-  breakdown: {
-    title: string;
-    description: string;
-    items: Array<{
-      label: string;
-      count: number;
-    }>;
-  } | null;
-  timeline: Array<{
-    id: string;
-    kind: "run" | "change" | "event" | string;
-    at: string;
-    title: string;
-    summary: string;
-    meta?: Record<string, unknown>;
-  }>;
-  records: ThemeRecord[];
-  analysis: ThemeAnalysis;
+export type {
+  DashboardSummary,
+  EventDetail,
+  EventSummary,
+  InboxSectionCounts,
+  NotificationItem,
+  NotificationPreference,
+  NotificationPreferenceInput,
+  SourceDetail,
+  SourceStatus,
+  ThemeAnalysis,
+  ThemeDetail,
+  ThemeRecord,
+  ThemeSummary,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -1312,7 +1093,19 @@ export async function deleteTheme(themeId: string) {
   };
 }
 
-export async function fetchNotifications(options?: { status?: string; limit?: number }) {
+export type PaginatedNotifications = {
+  items: NotificationItem[];
+  total: number;
+  hasMore: boolean;
+  nextCursor?: string;
+};
+
+export async function fetchNotifications(options?: {
+  status?: string;
+  limit?: number;
+  cursor?: string;
+  offset?: number;
+}): Promise<PaginatedNotifications> {
   const params = new URLSearchParams();
 
   if (options?.status) {
@@ -1323,10 +1116,22 @@ export async function fetchNotifications(options?: { status?: string; limit?: nu
     params.set("limit", String(options.limit));
   }
 
+  if (options?.cursor) {
+    params.set("cursor", options.cursor);
+  }
+
+  if (options?.offset !== undefined) {
+    params.set("offset", String(options.offset));
+  }
+
   const query = params.toString();
   const path = query ? `/notifications?${query}` : "/notifications";
 
-  return requestJson<NotificationItem[]>(path, fallbackNotifications);
+  return requestJson<PaginatedNotifications>(path, {
+    items: fallbackNotifications,
+    total: fallbackNotifications.length,
+    hasMore: false,
+  });
 }
 
 export async function markNotificationRead(notificationId: string) {
@@ -1346,4 +1151,103 @@ export async function markNotificationRead(notificationId: string) {
     id: string;
     status: string;
   };
+}
+
+export async function batchMarkNotificationsRead(notificationIds: string[]) {
+  const response = await fetch(`${API_BASE_URL}/notifications/batch/read`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ids: notificationIds }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to batch mark notifications: ${response.status}`);
+  }
+
+  return (await response.json()) as { updated: number };
+}
+
+export async function batchDeleteNotifications(filter: {
+  status?: string;
+  channel?: string;
+}) {
+  const response = await fetch(`${API_BASE_URL}/notifications/batch/delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(filter),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to batch delete notifications: ${response.status}`);
+  }
+
+  return (await response.json()) as { deleted: number };
+}
+
+export async function clearUnreadByTheme(themeId: string) {
+  const response = await fetch(`${API_BASE_URL}/notifications/batch/clear-unread/${themeId}`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to clear unread: ${response.status}`);
+  }
+
+  return (await response.json()) as { updated: number };
+}
+
+// Notification Preferences API
+export async function fetchNotificationPreferences() {
+  return requestJson<NotificationPreference[]>("/notification-preferences", []);
+}
+
+export async function createNotificationPreference(input: NotificationPreferenceInput) {
+  const response = await fetch(`${API_BASE_URL}/notification-preferences`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create preference: ${response.status}`);
+  }
+
+  return (await response.json()) as NotificationPreference;
+}
+
+export async function updateNotificationPreference(
+  preferenceId: string,
+  input: Partial<NotificationPreferenceInput>,
+) {
+  const response = await fetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update preference: ${response.status}`);
+  }
+
+  return (await response.json()) as NotificationPreference;
+}
+
+export async function deleteNotificationPreference(preferenceId: string) {
+  const response = await fetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete preference: ${response.status}`);
+  }
+
+  return (await response.json()) as { success: boolean };
 }

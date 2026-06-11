@@ -1,10 +1,8 @@
+import type { ThemeSummaryInsight } from "@info-monitor/shared-contracts";
 import type { ThemeSummary } from "./api";
 import { themeImpactTone } from "./impact";
 
-export type ThemeSummaryInsight = {
-  headline: string;
-  summary: string;
-};
+export type { ThemeSummaryInsight };
 
 export function buildThemeSummaryInsight(theme: ThemeSummary): ThemeSummaryInsight {
   if (theme.sourceHealth === "warning") {

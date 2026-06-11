@@ -75,8 +75,11 @@ import { computed, onMounted, ref } from "vue";
 import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../lib/api";
 
 const notifications = ref<NotificationItem[]>([]);
+const totalCount = ref(0);
+const hasMore = ref(false);
 const activeStatusFilter = ref<"all" | "pending" | "sent" | "failed">("all");
 const markingId = ref("");
+const loading = ref(false);
 
 const statusFilters = [
   { value: "all" as const, label: "全部" },
@@ -213,6 +216,14 @@ async function handleMarkRead(notificationId: string) {
 }
 
 onMounted(async () => {
-  notifications.value = await fetchNotifications();
+  loading.value = true;
+  try {
+    const result = await fetchNotifications();
+    notifications.value = result.items;
+    totalCount.value = result.total;
+    hasMore.value = result.hasMore;
+  } finally {
+    loading.value = false;
+  }
 });
 </script>

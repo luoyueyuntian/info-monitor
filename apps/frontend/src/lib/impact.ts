@@ -1,6 +1,7 @@
+import type { ImpactTone } from "@info-monitor/shared-contracts";
 import type { EventSummary, ThemeSummary } from "./api";
 
-export type ImpactTone = "positive" | "negative" | "neutral";
+export type { ImpactTone };
 
 type EventImpactInput = {
   infoType?: EventSummary["infoType"] | null;
@@ -39,7 +40,7 @@ export function eventImpactTone(event: EventImpactInput): ImpactTone {
 
 export function themeImpactTone(theme: ThemeImpactInput): ImpactTone {
   return eventImpactTone({
-    infoType: theme.type,
+    infoType: theme.type as string,
     signal: theme.latestEventSignal ?? null,
   });
 }
