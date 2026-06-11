@@ -53,7 +53,7 @@
     <!-- Logs List -->
     <div v-else class="flex flex-col gap-3">
       <article
-        v-for="log in logs"
+        v-for="log in filteredLogs"
         :key="log.id"
         class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
       >
@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import { fetchAuditLogs, type AuditLogEntry } from "../../lib/api";
 
@@ -125,6 +125,11 @@ const filteredLogs = computed(() => {
     return logs.value;
   }
   return logs.value.filter((log) => log.action === activeActionFilter.value);
+});
+
+// Reload logs when filter changes
+watch(activeActionFilter, () => {
+  void loadLogs();
 });
 
 function actionLabel(action: string): string {

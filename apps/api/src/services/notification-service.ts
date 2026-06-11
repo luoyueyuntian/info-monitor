@@ -351,6 +351,11 @@ export async function batchDeleteNotifications(
     const filtered = mockNotifications.filter((item) => {
       if (filter.status && item.status !== filter.status) return false;
       if (filter.channel && item.channel !== filter.channel) return false;
+      if (filter.signal) {
+        const payload = item.payload as Record<string, unknown>;
+        if (payload?.signal !== filter.signal) return false;
+      }
+      // themeId filter requires joining with events, skip in mock mode
       return true;
     });
 
@@ -365,15 +370,21 @@ export async function batchDeleteNotifications(
     return { deleted: initialLength - mockNotifications.length };
   }
 
-  let query = db.deleteFrom("notifications");
-
-  if (filter.status) {
-    query = query.where("status", "=", filter.status);
-  }
-
-  if (filter.channel) {
-    query = query.where("channel", "=", filter.channel);
-  }
+  // Use a subquery to filter by signal/themeId through events table
+  let query = db
+    .deleteFrom("notifications")
+    .where(
+      "id",
+      "in",
+      db
+        .selectFrom("notifications as n")
+        .leftJoin("events as e", "e.id", "n.event_id")
+        .select("n.id")
+        .$if(!!filter.status, (q) => q.where("n.status", "=", filter.status!))
+        .$if(!!filter.channel, (q) => q.where("n.channel", "=", filter.channel!))
+        .$if(!!filter.signal, (q) => q.where("e.signal", "=", filter.signal!))
+        .$if(!!filter.themeId, (q) => q.where("e.theme_id", "=", filter.themeId!)),
+    );
 
   const result = await query.executeTakeFirst();
 
@@ -386,9 +397,16 @@ export async function clearUnreadByTheme(
   const db = getDatabase();
 
   if (!db) {
+    // In mock mode, we need to filter by themeId through events
+    // Since mockNotifications don't have themeId directly, we need to check mockEvents
+    const { mockEvents } = await import("../lib/mock-store.js");
+    const themeEventIds = new Set(
+      mockEvents.filter((e) => e.themeId === themeId).map((e) => e.id),
+    );
+
     let updated = 0;
     for (const notification of mockNotifications) {
-      if (notification.status === "pending") {
+      if (notification.status === "pending" && themeEventIds.has(notification.eventId)) {
         notification.status = "sent";
         notification.sentAt = new Date().toISOString();
         updated++;

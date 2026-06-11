@@ -116,7 +116,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
 
   const themeMap = new Map(themes.map((t) => [t.id, t.name]));
 
-  // Get recent runs (last 24 hours)
+  // Get recent runs (last 24 hours), sorted by creation time descending
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const recentRuns = await db
     .selectFrom("source_runs")
@@ -128,9 +128,10 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       "error_message as errorMessage",
     ])
     .where("created_at", ">=", twentyFourHoursAgo as any)
+    .orderBy("created_at", "desc")
     .execute();
 
-  // Calculate stats per source
+  // Calculate stats per source (runs are already sorted newest first)
   const sourceRunMap = new Map<string, typeof recentRuns>();
   for (const run of recentRuns) {
     const runs = sourceRunMap.get(run.sourceId) || [];
@@ -158,7 +159,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
     ? totalDuration / runsWithDuration.length
     : null;
 
-  // Get recent errors
+  // Get recent errors (already sorted by created_at desc from recentRuns)
   const recentErrors = recentRuns
     .filter((r) => r.status === "failed" && r.errorMessage)
     .slice(0, 10)

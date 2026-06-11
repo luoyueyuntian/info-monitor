@@ -157,6 +157,14 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       filter.channel = body.channel;
     }
 
+    if (body.signal) {
+      filter.signal = body.signal;
+    }
+
+    if (body.themeId) {
+      filter.themeId = body.themeId;
+    }
+
     return batchDeleteNotifications(filter);
   });
 
