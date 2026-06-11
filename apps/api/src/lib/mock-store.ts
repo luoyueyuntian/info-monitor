@@ -1,1 +1,1 @@
-export { mockEventStatusHistory, mockEvents, mockSources, mockThemes } from "./mock-fixtures.js";
+export { mockEventStatusHistory, mockEvents, mockNotifications, mockSources, mockThemes } from "./mock-fixtures.js";
