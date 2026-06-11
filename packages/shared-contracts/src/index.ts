@@ -427,3 +427,25 @@ export type RuleConfigurationInput = {
   isEnabled?: boolean;
   priority?: number;
 };
+
+// Re-export validation utilities
+export {
+  isThemeSummary,
+  isEventSummary,
+  isEventDetail,
+  isSourceStatus,
+  isNotificationItem,
+  isEventSignal,
+  isEventStatus,
+  isSourceHealth,
+  isRunStatus,
+  isNotificationChannel,
+  isNotificationStatus,
+  isNotificationLevel,
+  isInboxSectionId,
+  validate,
+  validateOrThrow,
+  ValidationError,
+} from "./validation.js";
+
+export type { ValidationResult } from "./validation.js";
