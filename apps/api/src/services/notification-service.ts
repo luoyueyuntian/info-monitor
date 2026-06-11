@@ -64,10 +64,17 @@ export async function listNotifications(
     status?: NotificationStatus;
     cursor?: string;
     offset?: number;
+    signal?: string;
+    themeId?: string;
+    onlyUnreadEvents?: boolean;
+    sortBy?: "createdAt" | "sentAt";
+    sortOrder?: "asc" | "desc";
   } = {},
 ): Promise<PaginatedNotifications> {
   const db = getDatabase();
   const limit = options.limit ?? 20;
+  const sortBy = options.sortBy ?? "createdAt";
+  const sortOrder = options.sortOrder ?? "desc";
 
   if (!db) {
     let items = [...mockNotifications];
@@ -76,8 +83,21 @@ export async function listNotifications(
       items = items.filter((item) => item.status === options.status);
     }
 
+    if (options.signal) {
+      items = items.filter((item) => {
+        const payload = item.payload as Record<string, unknown>;
+        return payload?.signal === options.signal;
+      });
+    }
+
     items = items
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      .sort((left, right) => {
+        const leftVal = sortBy === "sentAt" ? left.sentAt || left.createdAt : left.createdAt;
+        const rightVal = sortBy === "sentAt" ? right.sentAt || right.createdAt : right.createdAt;
+        return sortOrder === "desc"
+          ? rightVal.localeCompare(leftVal)
+          : leftVal.localeCompare(rightVal);
+      });
 
     const offset = options.offset ?? 0;
     const paginatedItems = items.slice(offset, offset + limit);
@@ -99,6 +119,7 @@ export async function listNotifications(
   let dataQuery = db
     .selectFrom("notifications as n")
     .leftJoin("events as e", "e.id", "n.event_id")
+    .leftJoin("themes as t", "t.id", "e.theme_id")
     .select([
       "n.id as id",
       "n.event_id as eventId",
@@ -108,6 +129,8 @@ export async function listNotifications(
       "e.title as title",
       "e.summary as summary",
       "e.signal as signal",
+      "e.theme_id as themeId",
+      "e.status as eventStatus",
       "n.sent_at as sentAt",
       "n.created_at as createdAt",
     ]);
@@ -118,11 +141,27 @@ export async function listNotifications(
     dataQuery = dataQuery.where("n.status", "=", options.status);
   }
 
+  if (options.signal) {
+    countQuery = countQuery.where("e.signal", "=", options.signal);
+    dataQuery = dataQuery.where("e.signal", "=", options.signal);
+  }
+
+  if (options.themeId) {
+    countQuery = countQuery.where("e.theme_id", "=", options.themeId);
+    dataQuery = dataQuery.where("e.theme_id", "=", options.themeId);
+  }
+
+  if (options.onlyUnreadEvents) {
+    countQuery = countQuery.where("e.is_read", "=", false);
+    dataQuery = dataQuery.where("e.is_read", "=", false);
+  }
+
   // Apply cursor-based pagination
   if (options.cursor) {
     const cursorDate = new Date(options.cursor);
-    countQuery = countQuery.where("n.created_at", "<", cursorDate as any);
-    dataQuery = dataQuery.where("n.created_at", "<", cursorDate as any);
+    const sortColumn = sortBy === "sentAt" ? "n.sent_at" : "n.created_at";
+    countQuery = countQuery.where(sortColumn, "<", cursorDate as any);
+    dataQuery = dataQuery.where(sortColumn, "<", cursorDate as any);
   }
 
   // Get total count
@@ -130,8 +169,9 @@ export async function listNotifications(
   const total = Number(countResult?.total ?? 0);
 
   // Apply ordering and limit
+  const sortColumn = sortBy === "sentAt" ? "n.sent_at" : "n.created_at";
   dataQuery = dataQuery
-    .orderBy("n.created_at desc")
+    .orderBy(sortColumn, sortOrder)
     .limit(limit);
 
   // Apply offset if provided (for offset-based pagination)
@@ -153,11 +193,15 @@ export async function listNotifications(
   const lastItem = items[items.length - 1];
   const hasMore = items.length === limit;
 
+  const nextCursorValue = hasMore
+    ? (sortBy === "sentAt" ? lastItem?.sentAt : lastItem?.createdAt)
+    : undefined;
+
   return {
     items,
     total,
     hasMore,
-    nextCursor: hasMore ? lastItem?.createdAt : undefined,
+    nextCursor: nextCursorValue ?? undefined,
   };
 }
 
@@ -365,4 +409,145 @@ export async function clearUnreadByTheme(
     .executeTakeFirst();
 
   return { updated: Number(result?.numUpdatedRows ?? 0) };
+}
+
+export async function retryFailedNotification(
+  notificationId: string,
+): Promise<{ success: boolean; message?: string }> {
+  const db = getDatabase();
+
+  if (!db) {
+    const notification = mockNotifications.find((item) => item.id === notificationId);
+
+    if (!notification) {
+      return { success: false, message: "Notification not found" };
+    }
+
+    if (notification.status !== "failed") {
+      return { success: false, message: "Notification is not in failed state" };
+    }
+
+    // Simulate retry - in real implementation, this would call the notification channel
+    notification.status = "sent";
+    notification.sentAt = new Date().toISOString();
+    return { success: true };
+  }
+
+  const existing = await db
+    .selectFrom("notifications")
+    .select(["id", "status", "channel"])
+    .where("id", "=", notificationId)
+    .executeTakeFirst();
+
+  if (!existing) {
+    return { success: false, message: "Notification not found" };
+  }
+
+  if (existing.status !== "failed") {
+    return { success: false, message: "Notification is not in failed state" };
+  }
+
+  // In a real implementation, this would:
+  // 1. Get the notification details
+  // 2. Call the appropriate channel (email, webhook, telegram)
+  // 3. Update status based on result
+
+  // For now, we'll just mark it as pending for retry
+  await db
+    .updateTable("notifications")
+    .set({
+      status: "pending",
+      sent_at: null,
+    })
+    .where("id", "=", notificationId)
+    .execute();
+
+  return { success: true };
+}
+
+export async function getNotificationStats(): Promise<{
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+  failureRate: number;
+  recentFailures: Array<{
+    id: string;
+    eventId: string;
+    channel: string;
+    createdAt: string;
+  }>;
+}> {
+  const db = getDatabase();
+
+  if (!db) {
+    const total = mockNotifications.length;
+    const pending = mockNotifications.filter((n) => n.status === "pending").length;
+    const sent = mockNotifications.filter((n) => n.status === "sent").length;
+    const failed = mockNotifications.filter((n) => n.status === "failed").length;
+
+    return {
+      total,
+      pending,
+      sent,
+      failed,
+      failureRate: total > 0 ? failed / total : 0,
+      recentFailures: mockNotifications
+        .filter((n) => n.status === "failed")
+        .slice(0, 5)
+        .map((n) => ({
+          id: n.id,
+          eventId: n.eventId,
+          channel: n.channel,
+          createdAt: n.createdAt,
+        })),
+    };
+  }
+
+  // Get counts by status
+  const statusCounts = await db
+    .selectFrom("notifications")
+    .select(["status"])
+    .select((eb) => eb.fn.count("id").as("count"))
+    .groupBy("status")
+    .execute();
+
+  let total = 0;
+  let pending = 0;
+  let sent = 0;
+  let failed = 0;
+
+  for (const row of statusCounts) {
+    const count = Number(row.count);
+    total += count;
+
+    if (row.status === "pending") pending = count;
+    else if (row.status === "sent") sent = count;
+    else if (row.status === "failed") failed = count;
+  }
+
+  const recentFailures = await db
+    .selectFrom("notifications")
+    .select([
+      "id",
+      "event_id as eventId",
+      "channel",
+      "created_at as createdAt",
+    ])
+    .where("status", "=", "failed")
+    .orderBy("created_at", "desc")
+    .limit(5)
+    .execute();
+
+  return {
+    total,
+    pending,
+    sent,
+    failed,
+    failureRate: total > 0 ? failed / total : 0,
+    recentFailures: recentFailures.map((row) => ({
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    })),
+  };
 }

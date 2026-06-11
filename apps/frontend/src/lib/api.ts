@@ -1119,6 +1119,11 @@ export async function fetchNotifications(options?: {
   limit?: number;
   cursor?: string;
   offset?: number;
+  signal?: string;
+  themeId?: string;
+  onlyUnreadEvents?: boolean;
+  sortBy?: "createdAt" | "sentAt";
+  sortOrder?: "asc" | "desc";
 }): Promise<PaginatedNotifications> {
   const params = new URLSearchParams();
 
@@ -1136,6 +1141,26 @@ export async function fetchNotifications(options?: {
 
   if (options?.offset !== undefined) {
     params.set("offset", String(options.offset));
+  }
+
+  if (options?.signal) {
+    params.set("signal", options.signal);
+  }
+
+  if (options?.themeId) {
+    params.set("themeId", options.themeId);
+  }
+
+  if (options?.onlyUnreadEvents) {
+    params.set("onlyUnreadEvents", "true");
+  }
+
+  if (options?.sortBy) {
+    params.set("sortBy", options.sortBy);
+  }
+
+  if (options?.sortOrder) {
+    params.set("sortOrder", options.sortOrder);
   }
 
   const query = params.toString();
@@ -1208,6 +1233,37 @@ export async function clearUnreadByTheme(themeId: string) {
   }
 
   return (await response.json()) as { updated: number };
+}
+
+export async function retryFailedNotification(notificationId: string) {
+  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/retry`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error((body as { message?: string }).message || `Failed to retry: ${response.status}`);
+  }
+
+  return (await response.json()) as { success: boolean; message: string };
+}
+
+export type NotificationStats = {
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+  failureRate: number;
+  recentFailures: Array<{
+    id: string;
+    eventId: string;
+    channel: string;
+    createdAt: string;
+  }>;
+};
+
+export async function fetchNotificationStats() {
+  return requestJsonStrict<NotificationStats>("/notifications/stats");
 }
 
 // Notification Preferences API

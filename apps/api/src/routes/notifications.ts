@@ -5,9 +5,11 @@ import {
   batchMarkNotificationsRead,
   clearUnreadByTheme,
   getNotificationDetail,
+  getNotificationStats,
   isNotificationStatus,
   listNotifications,
   markNotificationStatus,
+  retryFailedNotification,
 } from "../services/notification-service.js";
 import type { NotificationStatus } from "../services/notification-service.js";
 
@@ -18,6 +20,11 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       limit?: string;
       cursor?: string;
       offset?: string;
+      signal?: string;
+      themeId?: string;
+      onlyUnreadEvents?: string;
+      sortBy?: string;
+      sortOrder?: string;
     };
     let status: NotificationStatus | undefined;
     let limit: number | undefined;
@@ -50,11 +57,19 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       }
     }
 
+    const sortBy = query.sortBy === "sentAt" ? "sentAt" : "createdAt";
+    const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+
     return listNotifications({
       limit,
       status,
       cursor: query.cursor,
       offset,
+      signal: query.signal,
+      themeId: query.themeId,
+      onlyUnreadEvents: query.onlyUnreadEvents === "true",
+      sortBy,
+      sortOrder,
     });
   });
 
@@ -152,5 +167,23 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
     }
 
     return clearUnreadByTheme(themeId);
+  });
+
+  app.post<{ Params: { notificationId: string } }>(
+    "/api/notifications/:notificationId/retry",
+    async (request, reply) => {
+      const result = await retryFailedNotification(request.params.notificationId);
+
+      if (!result.success) {
+        reply.code(result.message === "Notification not found" ? 404 : 400);
+        return { message: result.message };
+      }
+
+      return { success: true, message: "Notification queued for retry" };
+    },
+  );
+
+  app.get("/api/notifications/stats", async () => {
+    return getNotificationStats();
   });
 }

@@ -20,7 +20,7 @@
           <p class="mt-1 text-[0.88rem] text-rose-600">{{ error }}</p>
           <button
             class="mt-3 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-white px-4 py-2 text-[0.82rem] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
-            @click="loadNotifications"
+            @click="void loadNotifications()"
           >
             重试
           </button>
@@ -30,6 +30,20 @@
 
     <!-- Content -->
     <template v-else>
+      <!-- Preset Views -->
+      <section class="flex flex-wrap gap-2">
+        <button
+          v-for="preset in presetViews"
+          :key="preset.id"
+          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+          :class="activePreset === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          @click="applyPreset(preset)"
+        >
+          {{ preset.label }}
+        </button>
+      </section>
+
+      <!-- Filters & Sorting -->
       <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">筛选</span>
@@ -43,8 +57,23 @@
             {{ filter.label }}
           </button>
         </div>
-        <div class="text-[0.88rem] text-[#766f63]">
-          共 {{ filteredNotifications.length }} 条通知
+        <div class="flex items-center gap-3">
+          <select
+            v-model="sortBy"
+            class="rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d]"
+          >
+            <option value="createdAt">按创建时间</option>
+            <option value="sentAt">按发送时间</option>
+          </select>
+          <button
+            class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+            @click="toggleSortOrder"
+          >
+            {{ sortOrder === "desc" ? "↓ 降序" : "↑ 升序" }}
+          </button>
+          <span class="text-[0.88rem] text-[#766f63]">
+            共 {{ filteredNotifications.length }} 条
+          </span>
         </div>
       </section>
 
@@ -100,13 +129,33 @@ import { computed, onMounted, ref } from "vue";
 
 import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../lib/api";
 
+interface PresetView {
+  id: string;
+  label: string;
+  status?: string;
+  signal?: string;
+  sortBy?: "createdAt" | "sentAt";
+  sortOrder?: "asc" | "desc";
+}
+
 const notifications = ref<NotificationItem[]>([]);
 const totalCount = ref(0);
 const hasMore = ref(false);
 const activeStatusFilter = ref<"all" | "pending" | "sent" | "failed">("all");
+const activePreset = ref<string | null>(null);
+const sortBy = ref<"createdAt" | "sentAt">("createdAt");
+const sortOrder = ref<"asc" | "desc">("desc");
 const markingId = ref("");
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+const presetViews: PresetView[] = [
+  { id: "unread", label: "最新未读", status: "pending", sortBy: "createdAt", sortOrder: "desc" },
+  { id: "failed", label: "只看失败", status: "failed" },
+  { id: "signals", label: "只看信号", signal: "30d_low" },
+  { id: "bullish", label: "利好信号", signal: "bullish" },
+  { id: "bearish", label: "利空信号", signal: "bearish" },
+];
 
 const statusFilters = [
   { value: "all" as const, label: "全部" },
@@ -116,12 +165,52 @@ const statusFilters = [
 ];
 
 const filteredNotifications = computed(() => {
-  if (activeStatusFilter.value === "all") {
-    return notifications.value;
+  let items = notifications.value;
+
+  if (activeStatusFilter.value !== "all") {
+    items = items.filter((item) => item.status === activeStatusFilter.value);
   }
 
-  return notifications.value.filter((item) => item.status === activeStatusFilter.value);
+  // Sort
+  items = [...items].sort((left, right) => {
+    const leftVal = sortBy.value === "sentAt" ? left.sentAt || left.createdAt : left.createdAt;
+    const rightVal = sortBy.value === "sentAt" ? right.sentAt || right.createdAt : right.createdAt;
+    return sortOrder.value === "desc"
+      ? rightVal.localeCompare(leftVal)
+      : leftVal.localeCompare(rightVal);
+  });
+
+  return items;
 });
+
+function applyPreset(preset: PresetView) {
+  activePreset.value = preset.id;
+  activeStatusFilter.value = (preset.status as typeof activeStatusFilter.value) || "all";
+
+  if (preset.sortBy) {
+    sortBy.value = preset.sortBy;
+  }
+
+  if (preset.sortOrder) {
+    sortOrder.value = preset.sortOrder;
+  }
+
+  // Reload with server-side filters
+  void loadNotifications({
+    status: preset.status,
+    signal: preset.signal,
+    sortBy: preset.sortBy,
+    sortOrder: preset.sortOrder,
+  });
+}
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
+  void loadNotifications({
+    sortBy: sortBy.value,
+    sortOrder: sortOrder.value,
+  });
+}
 
 function signalLabel(signal: string) {
   if (signal === "30d_low") {
@@ -242,12 +331,22 @@ async function handleMarkRead(notificationId: string) {
   }
 }
 
-async function loadNotifications() {
+async function loadNotifications(options?: {
+  status?: string;
+  signal?: string;
+  sortBy?: "createdAt" | "sentAt";
+  sortOrder?: "asc" | "desc";
+}) {
   loading.value = true;
   error.value = null;
 
   try {
-    const result = await fetchNotifications();
+    const result = await fetchNotifications({
+      status: options?.status,
+      signal: options?.signal,
+      sortBy: options?.sortBy || sortBy.value,
+      sortOrder: options?.sortOrder || sortOrder.value,
+    });
     notifications.value = result.items;
     totalCount.value = result.total;
     hasMore.value = result.hasMore;
@@ -259,5 +358,5 @@ async function loadNotifications() {
   }
 }
 
-onMounted(loadNotifications);
+onMounted(() => loadNotifications());
 </script>
