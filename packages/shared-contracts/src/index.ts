@@ -20,7 +20,9 @@ export type EventSignal =
   | "new_announcement"
   | "content_update"
   | "new_financial_event"
-  | "neutral";
+  | "neutral"
+  | "liquidity_injection"
+  | "liquidity_withdrawal";
 
 // ─── Event Status ─────────────────────────────────────────────────────────────
 
@@ -42,6 +44,11 @@ export type NotificationChannel = "in_app" | "email" | "webhook" | "telegram";
 
 /** Notification delivery status. */
 export type NotificationStatus = "pending" | "sent" | "failed";
+
+// ─── Impact ───────────────────────────────────────────────────────────────────
+
+/** Impact tone for events and themes. */
+export type ImpactTone = "positive" | "negative" | "neutral";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
@@ -75,7 +82,7 @@ export type EventSummary = {
   themeName: string;
   title: string;
   signal: EventSignal | string;
-  status?: EventStatus | null;
+  status?: EventStatus | string | null;
   isRead?: boolean;
   isBookmarked?: boolean;
   bookmarkedAt?: string | null;
@@ -83,7 +90,7 @@ export type EventSummary = {
   eventType?: string;
   occurredAt: string;
   summary: string;
-  infoType?: InfoType | null;
+  infoType?: InfoType | string | null;
   context?: Record<string, unknown> | null;
 };
 
@@ -104,8 +111,8 @@ export type EventExplanation = {
 export type EventStatusHistoryEntry = {
   id: string;
   eventId: string;
-  fromStatus?: EventStatus | null;
-  toStatus: EventStatus;
+  fromStatus?: EventStatus | string | null;
+  toStatus: EventStatus | string;
   changedAt: string;
 };
 
@@ -171,3 +178,191 @@ export type InboxSectionCounts = Record<
   InboxSectionId,
   { total: number; recent: number }
 >;
+
+// ─── Theme Detail ─────────────────────────────────────────────────────────────
+
+export type ThemeRecord = {
+  id: string;
+  sourceId?: string | null;
+  sourceName?: string | null;
+  title: string;
+  occurredAt: string;
+  infoType: string;
+  content: Record<string, unknown>;
+};
+
+export type ThemeAnalysis = {
+  tone: ImpactTone;
+  headline: string;
+  summary: string;
+  keyPoints: string[];
+  risks: string[];
+  actions: string[];
+  recentChange: {
+    headline: string;
+    summary: string;
+    highlights: string[];
+  };
+  trend: {
+    headline: string;
+    summary: string;
+    highlights: string[];
+  };
+};
+
+export type ThemeTimelineEntry = {
+  id: string;
+  kind: "run" | "change" | "event" | string;
+  at: string;
+  title: string;
+  summary: string;
+  meta?: Record<string, unknown>;
+};
+
+export type ThemeBreakdown = {
+  title: string;
+  description: string;
+  items: Array<{ label: string; count: number }>;
+};
+
+export type ThemeDetail = {
+  theme: {
+    id: string;
+    name: string;
+    type: string;
+    infoType?: string;
+    description?: string;
+    status: string;
+    createdAt?: string;
+    latestInsight?: string | null;
+  };
+  sources: Array<{
+    id: string;
+    name: string;
+    status: string;
+    sourceType?: string;
+    adapterKey?: string;
+    config?: Record<string, unknown>;
+    isPaused?: boolean;
+    latestSuccessAt: string | null;
+    latestFailureAt: string | null;
+    latestRunStatus?: string | null;
+    latestRunAt?: string | null;
+  }>;
+  events: Array<{
+    id: string;
+    title: string;
+    signal: string;
+    status?: string | null;
+    isRead?: boolean;
+    isBookmarked?: boolean;
+    occurredAt: string;
+    summary: string;
+  }>;
+  history: Array<{ at: string; label: string }>;
+  breakdown: ThemeBreakdown | null;
+  timeline: ThemeTimelineEntry[];
+  records: ThemeRecord[];
+  analysis: ThemeAnalysis;
+};
+
+// ─── Source Detail ────────────────────────────────────────────────────────────
+
+export type SourceDetailRun = {
+  id: string;
+  status: string;
+  triggerType: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  errorMessage?: string | null;
+};
+
+export type SourceDetailEvent = {
+  id: string;
+  title: string;
+  signal: string;
+  status?: string | null;
+  isRead?: boolean;
+  isBookmarked?: boolean;
+  occurredAt: string;
+  summary: string;
+};
+
+export type SourceDetailRecord = {
+  id: string;
+  title: string;
+  occurredAt: string;
+  infoType: string;
+  content: Record<string, unknown>;
+};
+
+export type SourceDetailChange = {
+  id: string;
+  changeType: string;
+  summary: string;
+  detectedAt: string;
+  details?: Record<string, unknown>;
+};
+
+export type SourceDetailSnapshot = {
+  id: string;
+  sourceRunId: string;
+  fetchedAt: string | null;
+  storagePath?: string | null;
+  payloadPreview: string;
+};
+
+export type SourceAnalysis = {
+  tone: "healthy" | "pending" | "warning";
+  toneLabel: string;
+  headline: string;
+  summary: string;
+  keyPoints: string[];
+  risks: string[];
+  actions: string[];
+};
+
+export type SourceDetail = {
+  source: SourceStatus & {
+    config?: Record<string, unknown>;
+  };
+  runs: SourceDetailRun[];
+  events: SourceDetailEvent[];
+  records: SourceDetailRecord[];
+  changes: SourceDetailChange[];
+  snapshots: SourceDetailSnapshot[];
+  analysis: SourceAnalysis;
+};
+
+// ─── Theme Summary Insight ────────────────────────────────────────────────────
+
+export type ThemeSummaryInsight = {
+  headline: string;
+  summary: string;
+};
+
+// ─── Notification Preferences ─────────────────────────────────────────────────
+
+export type NotificationPreference = {
+  id: string;
+  userId: string;
+  themeId?: string | null;
+  sourceId?: string | null;
+  signal?: string | null;
+  channel: NotificationChannel | string;
+  isEnabled: boolean;
+  isMuted: boolean;
+  priorityOnly: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationPreferenceInput = {
+  themeId?: string | null;
+  sourceId?: string | null;
+  signal?: string | null;
+  channel?: NotificationChannel | string;
+  isEnabled?: boolean;
+  isMuted?: boolean;
+  priorityOnly?: boolean;
+};
