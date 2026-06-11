@@ -631,11 +631,16 @@ def insert_notification(
     )
 
     if existing_row:
+        # Update existing notification: reset status to pending and update payload
+        # This ensures re-notification when event content changes
         connection.execute(
             text(
                 """
                 update notifications
-                set payload = cast(:payload_json as jsonb)
+                set
+                  payload = cast(:payload_json as jsonb),
+                  status = 'pending',
+                  sent_at = null
                 where id = :id
                 """
             ),
