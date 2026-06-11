@@ -17,6 +17,12 @@ dependencies = [
 [project.scripts]
 info-monitor-worker = "info_monitor_worker.main:main"
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff]
 target-version = "py39"
 line-length = 100

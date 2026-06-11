@@ -591,6 +591,92 @@ def insert_event(
     return existing_row._mapping["id"]
 
 
+def find_notification_by_event_and_channel(
+    connection: Connection,
+    event_id: str,
+    channel: str,
+) -> Optional[Dict[str, Any]]:
+    row = connection.execute(
+        text(
+            """
+            select id
+            from notifications
+            where event_id = :event_id
+              and channel = :channel
+            order by created_at desc
+            limit 1
+            """
+        ),
+        {
+            "event_id": event_id,
+            "channel": channel,
+        },
+    ).first()
+
+    return dict(row._mapping) if row else None
+
+
+def insert_notification(
+    connection: Connection,
+    notification_id: str,
+    event_id: str,
+    channel: str,
+    status: str,
+    payload_json: str,
+) -> str:
+    existing_row = find_notification_by_event_and_channel(
+        connection=connection,
+        event_id=event_id,
+        channel=channel,
+    )
+
+    if existing_row:
+        connection.execute(
+            text(
+                """
+                update notifications
+                set payload = cast(:payload_json as jsonb)
+                where id = :id
+                """
+            ),
+            {
+                "id": existing_row["id"],
+                "payload_json": payload_json,
+            },
+        )
+        return existing_row["id"]
+
+    result = connection.execute(
+        text(
+            """
+            insert into notifications (
+              id,
+              event_id,
+              channel,
+              status,
+              payload
+            ) values (
+              :id,
+              :event_id,
+              :channel,
+              :status,
+              cast(:payload_json as jsonb)
+            )
+            returning id
+            """
+        ),
+        {
+            "id": notification_id,
+            "event_id": event_id,
+            "channel": channel,
+            "status": status,
+            "payload_json": payload_json,
+        },
+    ).first()
+
+    return result._mapping["id"] if result else notification_id
+
+
 def find_min_price_in_last_30_days(
     connection: Connection,
     theme_id: str,
