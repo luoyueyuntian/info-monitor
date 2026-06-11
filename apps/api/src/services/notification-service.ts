@@ -1,10 +1,16 @@
 import type {
+  NotificationChannel,
   NotificationItem as SharedNotificationItem,
   NotificationStatus as SharedNotificationStatus,
 } from "@info-monitor/shared-contracts";
 
 import { getDatabase } from "../db/client.js";
 import { mockNotifications } from "../lib/mock-store.js";
+import {
+  type ChannelConfig,
+  type NotificationPayload,
+  sendNotification,
+} from "./notification-channels.js";
 
 export const notificationStatuses = ["pending", "sent", "failed"] as const;
 
@@ -550,4 +556,97 @@ export async function getNotificationStats(): Promise<{
       createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     })),
   };
+}
+
+export async function sendExternalNotification(
+  notificationId: string,
+  channelConfig: ChannelConfig,
+): Promise<{ success: boolean; error?: string }> {
+  const db = getDatabase();
+
+  if (!db) {
+    const notification = mockNotifications.find((n) => n.id === notificationId);
+    if (!notification) {
+      return { success: false, error: "Notification not found" };
+    }
+
+    const payload = notification.payload as Record<string, unknown>;
+    const result = await sendNotification(
+      {
+        id: notification.id,
+        eventId: notification.eventId,
+        channel: notification.channel as NotificationChannel,
+        title: (payload.title as string) || "",
+        summary: (payload.summary as string) || "",
+        signal: (payload.signal as string) || "",
+      },
+      channelConfig,
+    );
+
+    if (result.success) {
+      notification.status = "sent";
+      notification.sentAt = new Date().toISOString();
+    } else {
+      notification.status = "failed";
+    }
+
+    return result;
+  }
+
+  // Get notification with event details
+  const row = await db
+    .selectFrom("notifications as n")
+    .leftJoin("events as e", "e.id", "n.event_id")
+    .select([
+      "n.id as id",
+      "n.event_id as eventId",
+      "n.channel as channel",
+      "n.status as status",
+      "n.payload as payload",
+      "e.title as title",
+      "e.summary as summary",
+      "e.signal as signal",
+    ])
+    .where("n.id", "=", notificationId)
+    .executeTakeFirst();
+
+  if (!row) {
+    return { success: false, error: "Notification not found" };
+  }
+
+  const payload = (row.payload as Record<string, unknown>) || {};
+
+  const result = await sendNotification(
+    {
+      id: row.id,
+      eventId: row.eventId,
+      channel: row.channel as NotificationChannel,
+      title: (payload.title as string) || row.title || "",
+      summary: (payload.summary as string) || row.summary || "",
+      signal: (payload.signal as string) || row.signal || "",
+    },
+    channelConfig,
+  );
+
+  // Update notification status based on result
+  if (result.success) {
+    await db
+      .updateTable("notifications")
+      .set({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      })
+      .where("id", "=", notificationId)
+      .execute();
+  } else {
+    await db
+      .updateTable("notifications")
+      .set({
+        status: "failed",
+      })
+      .where("id", "=", notificationId)
+      .execute();
+  }
+
+  return result;
 }

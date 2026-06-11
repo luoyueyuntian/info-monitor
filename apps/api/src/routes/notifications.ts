@@ -10,8 +10,10 @@ import {
   listNotifications,
   markNotificationStatus,
   retryFailedNotification,
+  sendExternalNotification,
 } from "../services/notification-service.js";
 import type { NotificationStatus } from "../services/notification-service.js";
+import type { ChannelConfig } from "../services/notification-channels.js";
 
 export async function registerNotificationRoutes(app: FastifyInstance) {
   app.get("/api/notifications", async (request, reply) => {
@@ -186,4 +188,30 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
   app.get("/api/notifications/stats", async () => {
     return getNotificationStats();
   });
+
+  app.post<{ Params: { notificationId: string } }>(
+    "/api/notifications/:notificationId/send",
+    async (request, reply) => {
+      const body = request.body as {
+        channelConfig?: ChannelConfig;
+      };
+
+      if (!body?.channelConfig) {
+        reply.code(400);
+        return { message: "channelConfig is required" };
+      }
+
+      const result = await sendExternalNotification(
+        request.params.notificationId,
+        body.channelConfig,
+      );
+
+      if (!result.success) {
+        reply.code(400);
+        return { message: result.error };
+      }
+
+      return { success: true, message: "Notification sent successfully" };
+    },
+  );
 }
