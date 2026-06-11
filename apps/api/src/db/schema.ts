@@ -139,6 +139,17 @@ export interface RuleConfigurationsTable {
   updated_at: TimestampColumn;
 }
 
+export interface NotificationAuditLogTable {
+  id: string;
+  notification_id: string;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  actor: string;
+  metadata: JsonColumn<Record<string, unknown>>;
+  created_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -151,4 +162,5 @@ export interface Database {
   event_status_history: EventStatusHistoryTable;
   notification_preferences: NotificationPreferencesTable;
   rule_configurations: RuleConfigurationsTable;
+  notification_audit_log: NotificationAuditLogTable;
 }

@@ -1266,6 +1266,93 @@ export async function fetchNotificationStats() {
   return requestJsonStrict<NotificationStats>("/notifications/stats");
 }
 
+// Notification Audit API
+export type AuditLogEntry = {
+  id: string;
+  notificationId: string;
+  action: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  actor: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export async function fetchAuditLogs(options?: {
+  notificationId?: string;
+  action?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const params = new URLSearchParams();
+
+  if (options?.notificationId) {
+    params.set("notificationId", options.notificationId);
+  }
+
+  if (options?.action) {
+    params.set("action", options.action);
+  }
+
+  if (options?.limit) {
+    params.set("limit", String(options.limit));
+  }
+
+  if (options?.offset !== undefined) {
+    params.set("offset", String(options.offset));
+  }
+
+  const query = params.toString();
+  const path = query ? `/notification-audit?${query}` : "/notification-audit";
+
+  return requestJsonStrict<{ items: AuditLogEntry[]; total: number }>(path);
+}
+
+export async function fetchNotificationTimeline(notificationId: string) {
+  return requestJsonStrict<AuditLogEntry[]>(`/notification-audit/${notificationId}/timeline`);
+}
+
+// Source Health API
+export type SourceHealthStats = {
+  totalSources: number;
+  healthySources: number;
+  warningSources: number;
+  pausedSources: number;
+  healthRate: number;
+  recentRuns: {
+    total: number;
+    successful: number;
+    failed: number;
+    successRate: number;
+  };
+  averageRunDuration: number | null;
+  recentErrors: Array<{
+    sourceId: string;
+    sourceName: string;
+    errorMessage: string;
+    occurredAt: string;
+  }>;
+  sourceDetails: Array<{
+    id: string;
+    name: string;
+    themeName: string;
+    status: string;
+    isPaused: boolean;
+    latestRunStatus: string | null;
+    latestRunAt: string | null;
+    latestSuccessAt: string | null;
+    latestFailureAt: string | null;
+    lastErrorMessage: string | null;
+    runCount24h: number;
+    successCount24h: number;
+    failureCount24h: number;
+  }>;
+};
+
+export async function fetchSourceHealthStats() {
+  return requestJsonStrict<SourceHealthStats>("/sources/health");
+}
+
 // Notification Preferences API
 export async function fetchNotificationPreferences() {
   return requestJson<NotificationPreference[]>("/notification-preferences", []);

@@ -5,9 +5,11 @@ import { getConfig } from "./config.js";
 import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerHealthRoutes } from "./routes/health.js";
+import { registerNotificationAuditRoutes } from "./routes/notification-audit.js";
 import { registerNotificationPreferenceRoutes } from "./routes/notification-preferences.js";
 import { registerNotificationRoutes } from "./routes/notifications.js";
 import { registerRuleConfigurationRoutes } from "./routes/rule-configurations.js";
+import { registerSourceHealthRoutes } from "./routes/source-health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerThemeRoutes } from "./routes/themes.js";
 
@@ -24,9 +26,11 @@ export async function buildApp() {
   await registerThemeRoutes(app);
   await registerEventRoutes(app);
   await registerNotificationRoutes(app);
+  await registerNotificationAuditRoutes(app);
   await registerNotificationPreferenceRoutes(app);
   await registerRuleConfigurationRoutes(app);
   await registerSourceRoutes(app);
+  await registerSourceHealthRoutes(app);
 
   return app;
 }
