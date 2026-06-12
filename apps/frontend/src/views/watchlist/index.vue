@@ -1,24 +1,24 @@
 <template>
   <section class="flex flex-col gap-5">
     <header>
-      <h2 class="mb-2 text-[1.8rem] font-semibold text-[#1d1d1d]">观察清单</h2>
+      <h2 class="mb-2 text-[1.8rem] font-semibold text-ink">观察清单</h2>
       <p class="m-0 leading-7 text-[#675d4f]">把已经进入长期观察的主题和事件沉淀成固定工作区，支持阶段性复盘和持续跟踪。</p>
     </header>
 
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
       <div class="flex flex-wrap items-center gap-3">
-        <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">快速视角</span>
+        <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">快速视角</span>
         <button
           v-for="preset in phasePresets"
           :key="preset.id"
-          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
-          :class="activePhasePresetId === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
+          :class="activePhasePresetId === preset.id ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
           @click="applyPhasePreset(preset)"
         >
           {{ preset.label }}
         </button>
       </div>
-      <div class="text-[0.88rem] text-[#766f63]">{{ filterSummary }}</div>
+      <div class="text-[0.88rem] text-ink-secondary">{{ filterSummary }}</div>
     </section>
 
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
@@ -56,7 +56,7 @@
           只看仍有未读内容
         </label>
       </div>
-      <div class="text-[0.88rem] text-[#766f63]">
+      <div class="text-[0.88rem] text-ink-secondary">
         当前视角下有 {{ filteredThemes.length }} 个收藏主题、{{ filteredEvents.length }} 条收藏事件。
       </div>
     </section>
@@ -69,13 +69,13 @@
       <div class="flex flex-wrap gap-3">
         <button
           v-if="query"
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
           @click="query = ''"
         >
           清空搜索
         </button>
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
           @click="resetFilters"
         >
           重置筛选
@@ -83,17 +83,17 @@
       </div>
     </section>
 
-    <div class="text-[0.92rem] leading-7 text-[#6f665a]">
+    <div class="text-[0.92rem] leading-7 text-ink-body">
       {{ stageSummary }}
     </div>
 
     <section class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
-      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">阶段快捷切换</span>
+      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">阶段快捷切换</span>
       <button
         v-for="preset in phasePresets"
         :key="preset.id"
-        class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
-        :class="isActivePhasePreset(preset) ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+        class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
+        :class="isActivePhasePreset(preset) ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
         @click="applyPhasePreset(preset)"
       >
         {{ preset.label }}
@@ -104,11 +104,11 @@
       v-if="watchlistSections.length"
       class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]"
     >
-      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">页内导航</span>
+      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">页内导航</span>
       <button
         v-for="section in watchlistSections"
         :key="section.id"
-        class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
+        class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
         @click="scrollToSection(section.id)"
       >
         {{ section.label }}
@@ -119,8 +119,8 @@
       v-if="operationNotice"
       class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
     >
-      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
-      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <strong class="block text-base font-semibold text-ink-heading">操作结果</strong>
+      <div class="mt-2 text-ink-body">{{ operationNotice.message }}</div>
       <div v-if="operationNotice.actions.length" class="mt-3 flex flex-wrap gap-3">
         <RouterLink
           v-for="action in operationNotice.actions"
@@ -146,25 +146,25 @@
           />
           选中当前筛选事件
         </label>
-        <span class="text-[0.88rem] text-[#766f63]">已选 {{ selectedEventIds.length }} 条事件</span>
+        <span class="text-[0.88rem] text-ink-secondary">已选 {{ selectedEventIds.length }} 条事件</span>
       </div>
       <div class="flex flex-wrap gap-3">
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedEventIds.length || bulkUpdating"
           @click="handleBulkUpdateWatchlistEvents({ isRead: true }, 'read')"
         >
           {{ bulkUpdating && pendingBulkAction === 'read' ? "正在更新..." : "批量标记已读" }}
         </button>
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedEventIds.length || bulkUpdating"
           @click="handleBulkUpdateWatchlistEvents({ isRead: false }, 'unread')"
         >
           {{ bulkUpdating && pendingBulkAction === 'unread' ? "正在更新..." : "批量重新标记未读" }}
         </button>
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedEventIds.length || bulkUpdating"
           @click="handleBulkUpdateWatchlistEvents({ isBookmarked: false }, 'unbookmark')"
         >
@@ -186,25 +186,25 @@
           />
           选中当前筛选主题
         </label>
-        <span class="text-[0.88rem] text-[#766f63]">已选 {{ selectedThemeIds.length }} 个主题</span>
+        <span class="text-[0.88rem] text-ink-secondary">已选 {{ selectedThemeIds.length }} 个主题</span>
       </div>
       <div class="flex flex-wrap gap-3">
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedThemeIds.length || bulkThemeUpdating"
           @click="handleBulkUpdateWatchlistThemes({ isRead: true }, 'read')"
         >
           {{ bulkThemeUpdating && pendingThemeBulkAction === 'read' ? "正在更新..." : "选中主题全部标记已读" }}
         </button>
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedThemeIds.length || bulkThemeUpdating"
           @click="handleBulkUpdateWatchlistThemes({ isRead: false }, 'unread')"
         >
           {{ bulkThemeUpdating && pendingThemeBulkAction === 'unread' ? "正在更新..." : "选中主题重新标记未读" }}
         </button>
         <button
-          class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="!selectedThemeIds.length || bulkThemeUpdating"
           @click="handleBulkUpdateWatchlistThemes({ isBookmarked: false }, 'unbookmark')"
         >
@@ -219,7 +219,7 @@
         :to="watchlistTarget({ stage: 'recent', completion: 'pending', unread: true })"
       >
         <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">最近待复盘</span>
-        <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ recentPendingThemeCount }}</span>
+        <span class="text-[1.2rem] font-bold text-ink-heading">{{ recentPendingThemeCount }}</span>
         <span class="text-[0.88rem] leading-[1.45] text-slate-500">最近新加入观察且仍有未读内容的主题</span>
       </RouterLink>
       <RouterLink
@@ -227,7 +227,7 @@
         :to="watchlistTarget({ stage: 'recent', completion: 'pending', unread: true, useType: false })"
       >
         <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">最近待复盘事件</span>
-        <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ recentPendingEventCount }}</span>
+        <span class="text-[1.2rem] font-bold text-ink-heading">{{ recentPendingEventCount }}</span>
         <span class="text-[0.88rem] leading-[1.45] text-slate-500">最近收藏且仍未完成首轮阅读的事件</span>
       </RouterLink>
       <RouterLink
@@ -235,7 +235,7 @@
         :to="watchlistTarget({ stage: 'steady', completion: 'completed' })"
       >
         <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">持续跟踪主题</span>
-        <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ steadyCompletedThemeCount }}</span>
+        <span class="text-[1.2rem] font-bold text-ink-heading">{{ steadyCompletedThemeCount }}</span>
         <span class="text-[0.88rem] leading-[1.45] text-slate-500">已完成首轮复盘，适合低频回看的长期观察主题</span>
       </RouterLink>
       <RouterLink
@@ -243,7 +243,7 @@
         :to="watchlistTarget({ completion: 'all' })"
       >
         <span class="mb-1.5 block text-[0.84rem] uppercase tracking-[0.04em] text-[#736756]">全部观察对象</span>
-        <span class="text-[1.2rem] font-bold text-[#2f2618]">{{ filteredThemes.length }}</span>
+        <span class="text-[1.2rem] font-bold text-ink-heading">{{ filteredThemes.length }}</span>
         <span class="text-[0.88rem] leading-[1.45] text-slate-500">回到当前筛选范围内的全部长期观察主题</span>
       </RouterLink>
     </section>
@@ -290,7 +290,7 @@
     <article v-if="reviewThemes.length" class="card" :ref="setSectionRef('review-themes')">
       <div class="card-topline">
         <h3>待复盘主题</h3>
-        <span class="text-[0.88rem] text-[#766f63]">优先处理仍有未读内容的长期观察主题</span>
+        <span class="text-[0.88rem] text-ink-secondary">优先处理仍有未读内容的长期观察主题</span>
       </div>
       <div class="flex flex-col gap-3">
         <article
@@ -298,7 +298,7 @@
           :key="theme.id"
           class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         >
-          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-ink-secondary">
             <input
               :checked="selectedThemeIds.includes(theme.id)"
               type="checkbox"
@@ -314,42 +314,42 @@
           </div>
           <strong>{{ theme.name }}</strong>
           <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-            <span class="text-[0.88rem] text-[#766f63]">最近事件: {{ formatSmartDateTimeLabel(theme.latestEventAt) }}</span>
-            <span class="text-[0.88rem] text-[#766f63]" v-if="theme.latestBookmarkedAt">最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">最近事件: {{ formatSmartDateTimeLabel(theme.latestEventAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary" v-if="theme.latestBookmarkedAt">最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}</span>
           </div>
-          <div class="text-[#6f665a]">
+          <div class="text-ink-body">
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'events' } }"
             >
               查看主题事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/events', query: { themeId: theme.id, bookmark: 'bookmarked', read: 'unread', sort: 'bookmarkedAt' } }"
             >
               只看本主题未读事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingThemeId === theme.id && pendingThemeAction === 'read'"
               @click.prevent="handleUpdateWatchlistThemeEvents(theme.id, { isRead: true }, 'read')"
             >
               {{ savingThemeId === theme.id && pendingThemeAction === 'read' ? "正在更新..." : "本主题全部标记已读" }}
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
               @click.prevent="goToThemeEventStream(theme.id, 'all')"
             >
               打开本主题完整收藏流
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingThemeId === theme.id && pendingThemeAction === 'unbookmark'"
               @click.prevent="handleUpdateWatchlistThemeEvents(theme.id, { isBookmarked: false }, 'unbookmark')"
             >
@@ -363,7 +363,7 @@
     <article v-if="reviewEvents.length" class="card" :ref="setSectionRef('review-events')">
       <div class="card-topline">
         <h3>待复盘事件</h3>
-        <span class="text-[0.88rem] text-[#766f63]">优先处理仍未读完的长期观察事件</span>
+        <span class="text-[0.88rem] text-ink-secondary">优先处理仍未读完的长期观察事件</span>
       </div>
       <div class="flex flex-col gap-3">
         <article
@@ -371,7 +371,7 @@
           :key="event.id"
           class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         >
-          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-ink-secondary">
             <input
               :checked="selectedEventIds.includes(event.id)"
               type="checkbox"
@@ -387,34 +387,34 @@
           </div>
           <strong>{{ event.title }}</strong>
           <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-            <span class="text-[0.88rem] text-[#766f63]">主题: {{ event.themeName }}</span>
-            <span class="text-[0.88rem] text-[#766f63]">收藏于: {{ formatSmartDateTimeLabel(event.bookmarkedAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">主题: {{ event.themeName }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">收藏于: {{ formatSmartDateTimeLabel(event.bookmarkedAt) }}</span>
           </div>
-          <div class="text-[#6f665a]">{{ event.summary }}</div>
+          <div class="text-ink-body">{{ event.summary }}</div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="`/events/${event.id}`"
             >
               查看事件详情
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${event.themeId}`, query: { section: 'events' } }"
             >
               查看所属主题
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingEventId === event.id && pendingEventAction === 'read'"
               @click="handleUpdateWatchlistEvent(event.id, { isRead: true }, 'read')"
             >
               {{ savingEventId === event.id && pendingEventAction === 'read' ? "正在更新..." : "标记已读" }}
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingEventId === event.id && pendingEventAction === 'unbookmark'"
               @click="handleUpdateWatchlistEvent(event.id, { isBookmarked: false }, 'unbookmark')"
             >
@@ -428,7 +428,7 @@
     <article v-if="completedThemes.length" class="card" :ref="setSectionRef('completed-themes')">
       <div class="card-topline">
         <h3>低频回看主题</h3>
-        <span class="text-[0.88rem] text-[#766f63]">这些主题已经完成首轮复盘，适合按周或按阶段性变化再回看</span>
+        <span class="text-[0.88rem] text-ink-secondary">这些主题已经完成首轮复盘，适合按周或按阶段性变化再回看</span>
       </div>
       <div class="flex flex-col gap-3">
         <article
@@ -436,7 +436,7 @@
           :key="`completed-${theme.id}`"
           class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         >
-          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-ink-secondary">
             <input
               :checked="selectedThemeIds.includes(theme.id)"
               type="checkbox"
@@ -451,42 +451,42 @@
           </div>
           <strong>{{ theme.name }}</strong>
           <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-            <span class="text-[0.88rem] text-[#766f63]">最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}</span>
-            <span class="text-[0.88rem] text-[#766f63]">最近事件: {{ formatSmartDateTimeLabel(theme.latestEventAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">最近事件: {{ formatSmartDateTimeLabel(theme.latestEventAt) }}</span>
           </div>
-          <div class="text-[#6f665a]">
+          <div class="text-ink-body">
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'timeline' } }"
             >
               查看主题时间线
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/events', query: { themeId: theme.id, bookmark: 'bookmarked', sort: 'bookmarkedAt' } }"
             >
               查看本主题收藏事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
               @click.prevent="goToThemeEventStream(theme.id, 'read')"
             >
               只看本主题已读事件
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingThemeId === theme.id && pendingThemeAction === 'unread'"
               @click.prevent="handleUpdateWatchlistThemeEvents(theme.id, { isRead: false }, 'unread')"
             >
               {{ savingThemeId === theme.id && pendingThemeAction === 'unread' ? "正在更新..." : "本主题重新标记未读" }}
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingThemeId === theme.id && pendingThemeAction === 'unbookmark'"
               @click.prevent="handleUpdateWatchlistThemeEvents(theme.id, { isBookmarked: false }, 'unbookmark')"
             >
@@ -500,7 +500,7 @@
     <article v-if="completedEvents.length" class="card" :ref="setSectionRef('completed-events')">
       <div class="card-topline">
         <h3>低频回看事件</h3>
-        <span class="text-[0.88rem] text-[#766f63]">这些收藏事件已经完成首轮阅读，适合后续按节奏复盘</span>
+        <span class="text-[0.88rem] text-ink-secondary">这些收藏事件已经完成首轮阅读，适合后续按节奏复盘</span>
       </div>
       <div class="flex flex-col gap-3">
         <article
@@ -508,7 +508,7 @@
           :key="`completed-event-${event.id}`"
           class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
         >
-          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+          <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-ink-secondary">
             <input
               :checked="selectedEventIds.includes(event.id)"
               type="checkbox"
@@ -524,34 +524,34 @@
           </div>
           <strong>{{ event.title }}</strong>
           <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-            <span class="text-[0.88rem] text-[#766f63]">主题: {{ event.themeName }}</span>
-            <span class="text-[0.88rem] text-[#766f63]">收藏于: {{ formatSmartDateTimeLabel(event.bookmarkedAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">主题: {{ event.themeName }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">收藏于: {{ formatSmartDateTimeLabel(event.bookmarkedAt) }}</span>
           </div>
-          <div class="text-[#6f665a]">{{ event.summary }}</div>
+          <div class="text-ink-body">{{ event.summary }}</div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="`/events/${event.id}`"
             >
               查看事件详情
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${event.themeId}`, query: { section: 'timeline' } }"
             >
               查看所属主题时间线
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingEventId === event.id && pendingEventAction === 'unread'"
               @click="handleUpdateWatchlistEvent(event.id, { isRead: false }, 'unread')"
             >
               {{ savingEventId === event.id && pendingEventAction === 'unread' ? "正在更新..." : "重新标记未读" }}
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="savingEventId === event.id && pendingEventAction === 'unbookmark'"
               @click="handleUpdateWatchlistEvent(event.id, { isBookmarked: false }, 'unbookmark')"
             >

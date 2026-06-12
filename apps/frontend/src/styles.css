@@ -1,9 +1,68 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── 字体 ────────────────────────────────────────────────────────────── */
   --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
-  --color-shell: #f2f4f7;
-  --color-ink: #1d1d1d;
+
+  /* ── 背景色 ──────────────────────────────────────────────────────────── */
+  --color-shell: #f2f4f7;                         /* 页面背景 */
+  --color-surface: #ffffff;                        /* 卡片/面板背景 */
+  --color-surface-elevated: rgba(255,255,255,0.78); /* 半透明卡片 */
+  --color-gradient-start: #f6f7f9;                 /* 渐变起始色 */
+  --color-gradient-end: #eceff3;                   /* 渐变结束色 */
+
+  /* ── 文字色 ──────────────────────────────────────────────────────────── */
+  --color-ink: #1d1d1d;                           /* 主文字/输入框 */
+  --color-ink-heading: #2f2618;                    /* 标题/强调 */
+  --color-ink-emphasis: #3a3126;                   /* 按钮文字/高亮 */
+  --color-ink-label: #6b5e49;                      /* 表单标签 */
+  --color-ink-body: #6f665a;                       /* 正文/描述 */
+  --color-ink-secondary: #766f63;                  /* 次要/元数据 */
+  --color-ink-muted: #8a8078;                      /* 弱化/提示 */
+  --color-ink-link: #6b4f1f;                       /* 链接/可交互 */
+  --color-ink-on-dark: #fff7e7;                    /* 深色背景上的文字 */
+
+  /* ── 按钮色 ──────────────────────────────────────────────────────────── */
+  --color-btn-primary: #e6dcc8;                    /* 主按钮背景 */
+  --color-btn-primary-hover: #ddd1bb;              /* 主按钮悬停 */
+  --color-btn-primary-text: #3a3126;               /* 主按钮文字 */
+  --color-btn-dark: #2f2618;                       /* 深色按钮背景 */
+  --color-btn-dark-hover: #3a3126;                 /* 深色按钮悬停 */
+  --color-btn-dark-text: #fff7e7;                  /* 深色按钮文字 */
+
+  /* ── 边框色 ──────────────────────────────────────────────────────────── */
+  --color-border: rgba(120,120,120,0.22);          /* 输入框/按钮边框 */
+  --color-border-subtle: rgba(148,163,184,0.15);   /* 卡片/面板边框 (slate-400/15) */
+
+  /* ── 状态色 (positive/negative/warning/info/neutral) ──────────────────── */
+  --color-positive-bg: #d9efe0;
+  --color-positive-text: #1f6a3b;
+  --color-negative-bg: #f3d9d7;
+  --color-negative-text: #8b2d28;
+  --color-warning-bg: #e8d8bc;
+  --color-warning-text: #7a4a11;
+  --color-info-bg: #d9e7f2;
+  --color-info-text: #1d537f;
+  --color-accent-bg: #e2ddf1;
+  --color-accent-text: #4f4178;
+  --color-neutral-bg: #e7e4dc;
+  --color-neutral-text: #625749;
+
+  /* ── 事件类型色调 ─────────────────────────────────────────────────────── */
+  --color-tone-price: rgba(232,216,188,0.92);
+  --color-tone-news: rgba(217,231,242,0.92);
+  --color-tone-financial: rgba(226,221,241,0.92);
+  --color-tone-content: rgba(231,228,220,0.92);
+
+  /* ── 阴影 ────────────────────────────────────────────────────────────── */
+  --shadow-card: 0 12px 30px rgba(15,23,42,0.05);
+  --shadow-card-subtle: 0 10px 26px rgba(15,23,42,0.04);
+  --shadow-btn: 0 10px 20px rgba(47,38,24,0.12);
+
+  /* ── 圆角 ────────────────────────────────────────────────────────────── */
+  --radius-card: 18px;
+  --radius-button: 12px;
+  --radius-pill: 9999px;
 }
 
 @layer base {
@@ -25,7 +84,7 @@
     @apply m-0 min-h-screen overflow-hidden bg-shell font-sans text-ink;
     background:
       radial-gradient(circle at top right, rgba(148, 163, 184, 0.12), transparent 24%),
-      linear-gradient(180deg, #f6f7f9 0%, #eceff3 100%);
+      linear-gradient(180deg, var(--color-gradient-start) 0%, var(--color-gradient-end) 100%);
   }
 
   a {
@@ -41,7 +100,7 @@
   .page-header h2 {
     @apply mb-2 font-semibold;
     font-size: 1.8rem;
-    color: #1d1d1d;
+    color: var(--color-ink);
   }
 
   .page-title-row {
@@ -54,7 +113,7 @@
 
   .page-header p {
     @apply m-0;
-    color: #675d4f;
+    color: var(--color-ink-body);
     line-height: 1.6;
   }
 
@@ -74,7 +133,7 @@
     @apply inline-flex cursor-pointer items-center justify-center p-0 leading-none;
     border: none;
     background: transparent;
-    color: #6b4f1f;
+    color: var(--color-ink-link);
     font: inherit;
   }
 
@@ -84,22 +143,22 @@
 
   .breadcrumb {
     @apply inline-flex flex-wrap items-center gap-2;
-    color: #7a6d5d;
+    color: var(--color-ink-label);
     font-size: 0.92rem;
   }
 
   .breadcrumb a {
     @apply font-semibold;
-    color: #6b4f1f;
+    color: var(--color-ink-link);
   }
 
   .breadcrumb-divider {
-    color: #9b8c76;
+    color: var(--color-ink-muted);
   }
 
   .page-primary-action {
     @apply px-4 py-2.5;
-    box-shadow: 0 10px 20px rgba(47, 38, 24, 0.12);
+    box-shadow: var(--shadow-btn);
   }
 
   .grid {
@@ -112,9 +171,9 @@
 
   .card {
     @apply rounded-2xl border p-4;
-    background: rgba(255, 255, 255, 0.78);
-    border-color: rgba(148, 163, 184, 0.14);
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border-subtle);
+    box-shadow: var(--shadow-card);
   }
 
   .card h3 {
@@ -141,8 +200,8 @@
 
 .breakdown-item {
   @apply rounded-2xl border px-4 py-3.5;
-  background: rgba(248, 250, 252, 0.92);
-  border-color: rgba(148, 163, 184, 0.14);
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border-subtle);
 }
 
 .breakdown-item strong {
@@ -153,7 +212,7 @@
 .breakdown-count {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #3f311d;
+  color: var(--color-ink-heading);
 }
 
 @media (max-width: 960px) {

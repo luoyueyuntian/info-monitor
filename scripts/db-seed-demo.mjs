@@ -8,6 +8,13 @@ import {
   upsertSourceRun,
   upsertTheme,
 } from "./lib/db-seed-helpers.mjs";
+import {
+  DEMO_RECORD_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+  DEMO_RUN_IDS,
+} from "./lib/demo-scene-ids.mjs";
 
 dotenv.config();
 
@@ -20,11 +27,11 @@ if (!databaseUrl) {
 
 const client = new pg.Client({ connectionString: databaseUrl });
 
-const themeId = "theme_surface_pro_8_demo";
-const sourceId = "source_surface_pro_8_demo_feed";
-const baselineRunId = "run_surface_pro_8_baseline";
-const baselineSnapshotId = "snapshot_surface_pro_8_baseline";
-const baselineRecordId = "record_surface_pro_8_baseline";
+const themeId = DEMO_THEME_IDS.SURFACE_PRO_8;
+const sourceId = DEMO_SOURCE_IDS.ZHUANZHUAN_SURFACE;
+const runId = DEMO_RUN_IDS.SURFACE_BASELINE;
+const snapshotId = DEMO_SNAPSHOT_IDS.SURFACE_BASELINE;
+const recordId = DEMO_RECORD_IDS.SURFACE_BASELINE;
 
 try {
   await client.connect();
@@ -35,75 +42,73 @@ try {
     name: "Surface Pro 8 16G + 512G Price",
     themeType: "price",
     infoType: "price",
-    description: "Demo price-monitoring theme seeded for local development",
+    description: "Cross-marketplace price monitor for Surface Pro 8 16G + 512G",
   });
 
   await upsertSource(client, {
     id: sourceId,
     themeId,
-    name: "Surface Pro 8 Demo Feed",
+    name: "Zhuanzhuan Search Results",
     sourceType: "page_list",
     adapterKey: "demo_price_feed",
     status: "active",
     config: {
-      file_path: "apps/python-worker/examples/surface-pro-8-price-feed.json",
-      schedule_interval_seconds: 60,
+      schedule_interval_seconds: 3600,
+      emit_events_on_latest_only: true,
     },
-    latestSuccessAt: "2026-05-28T09:30:00Z",
+    latestSuccessAt: "2026-06-01T09:24:00Z",
     latestFailureAt: null,
   });
 
   await upsertSourceRun(client, {
-    id: baselineRunId,
+    id: runId,
     themeId,
     sourceId,
     triggerType: "seed",
     status: "completed",
-    startedAt: "2026-05-28T09:30:00Z",
-    finishedAt: "2026-05-28T09:30:00Z",
+    startedAt: "2026-06-01T09:24:00Z",
+    finishedAt: "2026-06-01T09:24:00Z",
   });
 
   await upsertRawSnapshot(client, {
-    id: baselineSnapshotId,
-    sourceRunId: baselineRunId,
+    id: snapshotId,
+    sourceRunId: runId,
     themeId,
     sourceId,
-    fetchedAt: "2026-05-28T09:30:00Z",
+    fetchedAt: "2026-06-01T09:24:00Z",
     payloadJson: [
       {
-        title: "Surface Pro 8 16G + 512G - baseline",
-        occurred_at: "2026-05-28T09:30:00Z",
+        title: "Surface Pro 8 16G+512G",
         price: 4100,
         currency: "CNY",
-        spec: "16G+512G",
-        url: "https://example.com/xianyu/surface-pro-8-baseline",
+        url: "https://www.zhuanzhuan.com/",
       },
     ],
   });
 
   await upsertNormalizedRecord(client, {
-    id: baselineRecordId,
-    sourceRunId: baselineRunId,
+    id: recordId,
+    sourceRunId: runId,
     themeId,
     sourceId,
     infoType: "price",
-    occurredAt: "2026-05-28T09:30:00Z",
-    title: "Surface Pro 8 16G + 512G - baseline",
-    fingerprint: "baseline_surface_pro_8_price_16g_512g",
-    logicalKey: "surface-pro-8-16g-512g",
+    occurredAt: "2026-06-01T09:24:00Z",
+    title: "Surface Pro 8 16G+512G",
+    fingerprint: "zhuanzhuan_surface_pro8_16g512g_20260601",
+    logicalKey: "zhuanzhuan-surface-pro8-16g512g",
     content: {
       price: 4100,
       currency: "CNY",
       spec: "16G+512G",
-      url: "https://example.com/xianyu/surface-pro-8-baseline",
+      url: "https://www.zhuanzhuan.com/",
     },
   });
 
   await client.query("commit");
-  console.log("Demo theme, source, and baseline price record seeded.");
+  console.log("Surface Pro 8 demo theme, source, and baseline price record seeded.");
 } catch (error) {
   await client.query("rollback").catch(() => undefined);
-  console.error("Failed to seed demo data.");
+  console.error("Failed to seed Surface Pro 8 demo.");
   console.error(error);
   process.exitCode = 1;
 } finally {

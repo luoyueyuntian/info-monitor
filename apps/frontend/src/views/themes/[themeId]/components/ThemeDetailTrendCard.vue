@@ -2,7 +2,7 @@
   <article class="card">
     <div class="card-topline">
       <h3>趋势图</h3>
-      <span class="text-[0.88rem] text-[#766f63]">
+      <span class="text-[0.88rem] text-ink-secondary">
         {{ themeType === "price" ? "最近价格走势" : "最近事件活跃度" }}
       </span>
     </div>
@@ -29,9 +29,9 @@
         </svg>
       </div>
       <div class="mt-3 flex flex-wrap gap-3">
-        <span class="text-[0.88rem] text-[#766f63]">最低: {{ formatMaybeLabel(priceTrendMin) }}</span>
-        <span class="text-[0.88rem] text-[#766f63]">最高: {{ formatMaybeLabel(priceTrendMax) }}</span>
-        <span class="text-[0.88rem] text-[#766f63]">最新: {{ formatMaybeLabel(priceTrendLatest) }}</span>
+        <span class="text-[0.88rem] text-ink-secondary">最低: {{ formatMaybeLabel(priceTrendMin) }}</span>
+        <span class="text-[0.88rem] text-ink-secondary">最高: {{ formatMaybeLabel(priceTrendMax) }}</span>
+        <span class="text-[0.88rem] text-ink-secondary">最新: {{ formatMaybeLabel(priceTrendLatest) }}</span>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">

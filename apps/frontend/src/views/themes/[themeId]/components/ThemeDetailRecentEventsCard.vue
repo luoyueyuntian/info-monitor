@@ -11,13 +11,13 @@
         <span :class="pillToneClass(eventImpactTone(event))">{{ impactToneLabel(eventImpactTone(event)) }}</span>
         <span :class="pillToneClass(event.status)">{{ eventStatusLabel(event.status) }}</span>
         <RouterLink
-          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
           :to="`/events/${event.id}`"
         >
           {{ event.title }}
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
-        <div class="text-[0.88rem] text-[#766f63]">{{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
+        <div class="text-[0.88rem] text-ink-secondary">{{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
         <div class="mt-2 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -40,7 +40,7 @@
         </div>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       这个主题当前还没有事件，下面会先展示已采集到的记录与变化。
     </div>
   </article>

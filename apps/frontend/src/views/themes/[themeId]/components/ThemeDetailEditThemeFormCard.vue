@@ -4,7 +4,7 @@
       <section class="grid gap-3.5">
         <div class="grid gap-1">
           <h3>编辑主题</h3>
-          <p class="m-0 text-[#6f665a]">修改当前主题的名称、描述和状态，保存后会立即刷新当前详情页。</p>
+          <p class="m-0 text-ink-body">修改当前主题的名称、描述和状态，保存后会立即刷新当前详情页。</p>
         </div>
 
         <label class="grid gap-2 font-semibold">
@@ -28,12 +28,12 @@
       </section>
 
       <div class="flex flex-wrap gap-3">
-        <button class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-4 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="saving">
+        <button class="inline-flex items-center justify-center rounded-xl bg-btn-dark px-4 py-2.5 text-ink-on-dark transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="saving">
           {{ saving ? "正在保存..." : "保存主题" }}
         </button>
-        <button class="button secondary inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" type="button" @click="resetForm">重置</button>
+        <button class="button secondary inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover" type="button" @click="resetForm">重置</button>
       </div>
-      <div v-if="statusMessage" class="text-[#6f665a]">{{ statusMessage }}</div>
+      <div v-if="statusMessage" class="text-ink-body">{{ statusMessage }}</div>
     </form>
   </article>
 </template>

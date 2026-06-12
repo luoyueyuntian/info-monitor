@@ -3,20 +3,20 @@
     <header>
       <div class="mb-2 flex items-center gap-3">
         <RouterLink
-          class="inline-flex items-center gap-1.5 text-[0.92rem] font-semibold text-[#6b4f1f]"
+          class="inline-flex items-center gap-1.5 text-[0.92rem] font-semibold text-ink-link"
           to="/notifications/audit"
         >
           ← 返回审计日志
         </RouterLink>
       </div>
-      <h2 class="mb-2 text-[1.8rem] font-semibold text-[#1d1d1d]">通知时间线</h2>
+      <h2 class="mb-2 text-[1.8rem] font-semibold text-ink">通知时间线</h2>
       <p class="m-0 leading-7 text-[#675d4f]">通知 ID: {{ notificationId }}</p>
     </header>
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-400/15 bg-white/78 p-12">
       <div class="h-8 w-8 animate-spin rounded-full border-2 border-[#2f2618] border-t-transparent"></div>
-      <p class="text-[0.92rem] text-[#6f665a]">正在加载时间线...</p>
+      <p class="text-[0.92rem] text-ink-body">正在加载时间线...</p>
     </div>
 
     <!-- Error -->
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!timeline.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-[#6f665a]">
+    <div v-else-if="!timeline.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       暂无时间线记录。
     </div>
 
@@ -67,26 +67,26 @@
               <span :class="actionPillClass(entry.action)">
                 {{ actionLabel(entry.action) }}
               </span>
-              <span class="ml-auto text-[0.82rem] text-[#8a8078]">
+              <span class="ml-auto text-[0.82rem] text-ink-muted">
                 {{ formatTime(entry.createdAt) }}
               </span>
             </div>
 
-            <div v-if="entry.fromStatus || entry.toStatus" class="mt-2 text-[0.88rem] text-[#6f665a]">
+            <div v-if="entry.fromStatus || entry.toStatus" class="mt-2 text-[0.88rem] text-ink-body">
               <span v-if="entry.fromStatus">从 "{{ statusLabel(entry.fromStatus) }}"</span>
               <span v-if="entry.fromStatus && entry.toStatus"> → </span>
               <span v-if="entry.toStatus">变为 "{{ statusLabel(entry.toStatus) }}"</span>
             </div>
 
-            <div class="mt-1 text-[0.82rem] text-[#8a8078]">
+            <div class="mt-1 text-[0.82rem] text-ink-muted">
               操作者: {{ entry.actor }}
             </div>
 
             <div v-if="hasMetadata(entry.metadata)" class="mt-3 rounded-xl border border-slate-400/15 bg-slate-50/80 p-3">
               <dl class="grid grid-cols-2 gap-2">
                 <div v-for="(value, key) in entry.metadata" :key="key">
-                  <dt class="text-[0.78rem] font-semibold text-[#8a8078]">{{ String(key) }}</dt>
-                  <dd class="text-[0.82rem] text-[#2f2618]">{{ formatValue(value) }}</dd>
+                  <dt class="text-[0.78rem] font-semibold text-ink-muted">{{ String(key) }}</dt>
+                  <dd class="text-[0.82rem] text-ink-heading">{{ formatValue(value) }}</dd>
                 </div>
               </dl>
             </div>

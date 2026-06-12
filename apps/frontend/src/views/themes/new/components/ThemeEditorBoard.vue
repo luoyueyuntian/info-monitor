@@ -20,7 +20,7 @@
         <section class="grid gap-3.5">
           <div class="grid gap-1">
             <h3>Preset</h3>
-            <p class="m-0 text-[#6f665a]">Choose a source template, then adjust the fields below if needed.</p>
+            <p class="m-0 text-ink-body">Choose a source template, then adjust the fields below if needed.</p>
           </div>
 
           <div class="grid gap-3 md:grid-cols-2">
@@ -37,7 +37,7 @@
                   <p class="m-0 leading-[1.45] text-[#6d6659]">{{ preset.description }}</p>
                 </div>
               </div>
-              <div class="text-[0.88rem] text-[#766f63]">
+              <div class="text-[0.88rem] text-ink-secondary">
                 {{ preset.themeType }} · {{ preset.infoType }} · {{ preset.sourceType }}
               </div>
             </label>
@@ -47,7 +47,7 @@
         <section class="grid gap-3.5">
           <div class="grid gap-1">
             <h3 class="m-0 text-base font-semibold">Theme</h3>
-            <p class="m-0 text-[#6f665a]">These fields define the long-running topic that will appear in your workspace.</p>
+            <p class="m-0 text-ink-body">These fields define the long-running topic that will appear in your workspace.</p>
           </div>
 
           <label class="grid gap-2 font-semibold">
@@ -86,7 +86,7 @@
         <section class="grid gap-3.5">
           <div class="grid gap-1">
             <h3 class="m-0 text-base font-semibold">Source</h3>
-            <p class="m-0 text-[#6f665a]">Define the first source attached to this theme.</p>
+            <p class="m-0 text-ink-body">Define the first source attached to this theme.</p>
           </div>
 
           <label class="grid gap-2 font-semibold">
@@ -114,7 +114,7 @@
         <section class="grid gap-3.5">
           <div class="grid gap-1">
             <h3 class="m-0 text-base font-semibold">Adapter Config</h3>
-            <p class="m-0 text-[#6f665a]">{{ activePreset.description }}</p>
+            <p class="m-0 text-ink-body">{{ activePreset.description }}</p>
           </div>
 
           <template v-if="activePreset.id !== 'custom'">
@@ -156,7 +156,7 @@
         <section class="grid gap-3.5">
           <div class="grid gap-1">
             <h3 class="m-0 text-base font-semibold">Run Behavior</h3>
-            <p class="m-0 text-[#6f665a]">Choose whether the first source should be queued immediately after the theme is created.</p>
+            <p class="m-0 text-ink-body">Choose whether the first source should be queued immediately after the theme is created.</p>
           </div>
 
           <label class="flex items-center gap-2.5 font-semibold">
@@ -166,12 +166,12 @@
         </section>
 
         <div class="flex flex-wrap gap-3">
-          <button class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-4 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting">
+          <button class="inline-flex items-center justify-center rounded-xl bg-btn-dark px-4 py-2.5 text-ink-on-dark transition-colors hover:bg-[#241d12] disabled:cursor-not-allowed disabled:opacity-60" type="submit" :disabled="submitting">
             {{ submitting ? "Saving..." : "Save Theme" }}
           </button>
-          <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" type="button" @click="handleCancel">Cancel</button>
+          <button class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover" type="button" @click="handleCancel">Cancel</button>
         </div>
-        <div v-if="status" class="text-[#6f665a]">{{ status }}</div>
+        <div v-if="status" class="text-ink-body">{{ status }}</div>
       </form>
     </article>
   </section>

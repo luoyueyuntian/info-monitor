@@ -127,14 +127,21 @@ export const SIGNAL_PRIORITIES: SignalPriorities = {
 
   // Low priority
   content_update: { level: "low", weight: 2, emoji: "📝" },
-  neutral: { level: "low", weight: 1, emoji: "ℹ️" },
+  neutral: { level: "low", weight: 1, emoji: "⚪" },
+};
+
+/** Fallback for unknown signals (distinct from explicit neutral). */
+const UNKNOWN_SIGNAL_PRIORITY: SignalPriority = {
+  level: "low",
+  weight: 0,
+  emoji: "ℹ️",
 };
 
 /**
- * Get priority for a signal, falling back to low.
+ * Get priority for a signal, falling back to unknown signal priority.
  */
 export function getSignalPriority(signal: string): SignalPriority {
-  return SIGNAL_PRIORITIES[signal] || SIGNAL_PRIORITIES.neutral;
+  return SIGNAL_PRIORITIES[signal] || UNKNOWN_SIGNAL_PRIORITY;
 }
 
 /**
@@ -166,7 +173,7 @@ export const SIGNAL_LABELS: SignalLabels = {
   "30d_low": "价格新低",
   bullish: "利好信号",
   bearish: "利空信号",
-  liquidity_injection: "流动性注入",
+  liquidity_injection: "流动性投放",
   liquidity_withdrawal: "流动性回笼",
   new_announcement: "新公告",
   content_update: "内容更新",
@@ -220,7 +227,7 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
     summary: "{{summary}}",
   },
   liquidity_injection: {
-    title: "流动性注入: {{operationType}}",
+    title: "流动性投放: {{operationType}}",
     summary: "检测到 {{operationType}} 操作，金额 {{amount}} 亿元，期限 {{termDays}} 天。",
   },
   liquidity_withdrawal: {

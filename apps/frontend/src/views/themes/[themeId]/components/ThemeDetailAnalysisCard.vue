@@ -5,7 +5,7 @@
       <span :class="pillToneClass(analysis.tone)">{{ analysisToneLabel(analysis.tone) }}</span>
     </div>
     <p class="mb-3.5 text-[#6e665a]">{{ analysis.headline }}</p>
-    <div class="text-[#6f665a]">{{ analysis.summary }}</div>
+    <div class="text-ink-body">{{ analysis.summary }}</div>
 
     <div class="grid two">
       <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
@@ -51,7 +51,7 @@
 
     <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
       <strong>近期变化</strong>
-      <div class="text-[#6f665a]">{{ analysis.recentChange.headline }}</div>
+      <div class="text-ink-body">{{ analysis.recentChange.headline }}</div>
       <div class="mb-0 mt-2 text-[#6e665a]">{{ analysis.recentChange.summary }}</div>
       <div class="mt-2.5 grid gap-2">
         <div
@@ -66,7 +66,7 @@
 
     <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
       <strong>趋势判断</strong>
-      <div class="text-[#6f665a]">{{ analysis.trend.headline }}</div>
+      <div class="text-ink-body">{{ analysis.trend.headline }}</div>
       <div class="mb-0 mt-2 text-[#6e665a]">{{ analysis.trend.summary }}</div>
       <div class="mt-2.5 grid gap-2">
         <div

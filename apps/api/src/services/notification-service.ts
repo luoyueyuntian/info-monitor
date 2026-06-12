@@ -5,7 +5,7 @@ import type {
 } from "@info-monitor/shared-contracts";
 
 import { getDatabase } from "../db/client.js";
-import { mockNotifications } from "../lib/mock-store.js";
+import { mockEvents, mockNotifications } from "../lib/mock-store.js";
 import {
   type ChannelConfig,
   type NotificationPayload,
@@ -110,9 +110,22 @@ export async function listNotifications(
 
     if (options.signal) {
       items = items.filter((item) => {
-        const payload = item.payload as Record<string, unknown>;
-        return payload?.signal === options.signal;
+        return item.signal === options.signal;
       });
+    }
+
+    if (options.themeId) {
+      const themeEventIds = new Set(
+        mockEvents.filter((event) => event.themeId === options.themeId).map((event) => event.id),
+      );
+      items = items.filter((item) => themeEventIds.has(item.eventId));
+    }
+
+    if (options.onlyUnreadEvents) {
+      const readEventIds = new Set(
+        mockEvents.filter((event) => event.isRead).map((event) => event.id),
+      );
+      items = items.filter((item) => !readEventIds.has(item.eventId));
     }
 
     items = items
@@ -378,8 +391,7 @@ export async function batchDeleteNotifications(
       if (filter.status && item.status !== filter.status) return false;
       if (filter.channel && item.channel !== filter.channel) return false;
       if (filter.signal) {
-        const payload = item.payload as Record<string, unknown>;
-        if (payload?.signal !== filter.signal) return false;
+        if (item.signal !== filter.signal) return false;
       }
       if (themeEventIds && !themeEventIds.has(item.eventId)) return false;
       return true;
@@ -887,8 +899,7 @@ export async function sendExternalNotification(
     const themeId = event?.themeId;
 
     // Check preferences and priority (single preference fetch)
-    const notifPayload = notification.payload as Record<string, unknown>;
-    const signal = (notifPayload?.signal as string) || "";
+    const signal = notification.signal || "";
     const guardCheck = await checkSendGuards(notification.channel, themeId, signal);
     if (!guardCheck.allowed) {
       releaseLastSlot(notification.channel);
@@ -900,9 +911,9 @@ export async function sendExternalNotification(
         id: notification.id,
         eventId: notification.eventId,
         channel: notification.channel as NotificationChannel,
-        title: (notifPayload.title as string) || "",
-        summary: (notifPayload.summary as string) || "",
-        signal: (notifPayload.signal as string) || "",
+        title: notification.title || "",
+        summary: notification.summary || "",
+        signal: notification.signal || "",
       },
       channelConfig,
     );

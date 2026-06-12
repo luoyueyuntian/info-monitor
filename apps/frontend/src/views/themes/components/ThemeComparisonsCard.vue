@@ -2,7 +2,7 @@
   <article class="card">
     <div class="card-topline">
       <h3>横向对比</h3>
-      <span class="text-[0.88rem] text-[#766f63]">按主题类型挑出当前最值得优先跟进的对象</span>
+      <span class="text-[0.88rem] text-ink-secondary">按主题类型挑出当前最值得优先跟进的对象</span>
     </div>
     <div class="grid gap-3 md:grid-cols-2">
       <article
@@ -31,7 +31,7 @@
         <div class="font-semibold text-[#1f2937]">
           {{ item.theme ? item.theme.name : "当前筛选下暂无该类型主题" }}
         </div>
-        <div class="text-[0.88rem] text-[#766f63]">{{ item.summary }}</div>
+        <div class="text-[0.88rem] text-ink-secondary">{{ item.summary }}</div>
         <div v-if="item.theme" class="mt-2 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"

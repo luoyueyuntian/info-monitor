@@ -1,6 +1,6 @@
 <template>
   <section class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
-    <h3 class="mb-4 text-[1.05rem] font-semibold text-[#2f2618]">触发原因</h3>
+    <h3 class="mb-4 text-[1.05rem] font-semibold text-ink-heading">触发原因</h3>
 
     <div class="flex flex-col gap-4">
       <!-- Rule Info -->
@@ -8,19 +8,19 @@
         <span class="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-[0.78rem] font-semibold text-blue-700">
           {{ triggerReason.ruleName }}
         </span>
-        <span class="text-[0.82rem] text-[#8a8078]">
+        <span class="text-[0.82rem] text-ink-muted">
           规则标识: {{ triggerReason.ruleKey }}
         </span>
       </div>
 
       <!-- Evidence -->
       <div v-if="triggerReason.evidence?.length" class="flex flex-col gap-2">
-        <h4 class="text-[0.88rem] font-semibold text-[#6b5e49]">判断依据</h4>
+        <h4 class="text-[0.88rem] font-semibold text-ink-label">判断依据</h4>
         <ul class="flex flex-col gap-1.5 pl-4">
           <li
             v-for="(item, index) in triggerReason.evidence"
             :key="index"
-            class="list-disc text-[0.88rem] leading-6 text-[#6f665a]"
+            class="list-disc text-[0.88rem] leading-6 text-ink-body"
           >
             {{ item }}
           </li>
@@ -29,12 +29,12 @@
 
       <!-- Change Details -->
       <div v-if="changeDetails" class="flex flex-col gap-2">
-        <h4 class="text-[0.88rem] font-semibold text-[#6b5e49]">变化详情</h4>
+        <h4 class="text-[0.88rem] font-semibold text-ink-label">变化详情</h4>
         <div class="rounded-xl border border-slate-400/15 bg-slate-50/80 p-3">
           <dl class="grid grid-cols-2 gap-2">
             <div v-for="(value, key) in changeDetails" :key="key">
-              <dt class="text-[0.78rem] font-semibold text-[#8a8078]">{{ formatLabel(String(key)) }}</dt>
-              <dd class="text-[0.88rem] text-[#2f2618]">{{ formatValue(value) }}</dd>
+              <dt class="text-[0.78rem] font-semibold text-ink-muted">{{ formatLabel(String(key)) }}</dt>
+              <dd class="text-[0.88rem] text-ink-heading">{{ formatValue(value) }}</dd>
             </div>
           </dl>
         </div>
@@ -42,17 +42,17 @@
 
       <!-- Original Record -->
       <div v-if="originalRecord" class="flex flex-col gap-2">
-        <h4 class="text-[0.88rem] font-semibold text-[#6b5e49]">原始记录</h4>
+        <h4 class="text-[0.88rem] font-semibold text-ink-label">原始记录</h4>
         <div class="rounded-xl border border-slate-400/15 bg-slate-50/80 p-3">
           <dl class="grid grid-cols-2 gap-2">
             <div v-for="(value, key) in displayRecord" :key="key">
-              <dt class="text-[0.78rem] font-semibold text-[#8a8078]">{{ formatLabel(String(key)) }}</dt>
-              <dd class="text-[0.88rem] text-[#2f2618]">{{ formatValue(value) }}</dd>
+              <dt class="text-[0.78rem] font-semibold text-ink-muted">{{ formatLabel(String(key)) }}</dt>
+              <dd class="text-[0.88rem] text-ink-heading">{{ formatValue(value) }}</dd>
             </div>
           </dl>
           <button
             v-if="hasMoreFields"
-            class="mt-2 text-[0.82rem] font-semibold text-[#6b4f1f] hover:underline"
+            class="mt-2 text-[0.82rem] font-semibold text-ink-link hover:underline"
             @click="showAllFields = !showAllFields"
           >
             {{ showAllFields ? '收起' : '展开全部' }}

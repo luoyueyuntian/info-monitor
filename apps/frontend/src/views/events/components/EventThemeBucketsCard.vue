@@ -2,7 +2,7 @@
   <article class="card">
     <div class="card-topline">
       <h3>按主题聚合</h3>
-      <span class="text-[0.88rem] text-[#766f63]">先看哪个主题压了更多待处理或关注中的事件</span>
+      <span class="text-[0.88rem] text-ink-secondary">先看哪个主题压了更多待处理或关注中的事件</span>
     </div>
     <div class="grid gap-3 md:grid-cols-2">
       <article
@@ -18,30 +18,30 @@
           <span :class="pillToneClass('neutral')" v-if="item.unreadCount">未读 {{ item.unreadCount }}</span>
           <span :class="pillToneClass('30d_low')" v-if="item.bookmarkedCount">收藏 {{ item.bookmarkedCount }}</span>
         </div>
-        <div class="text-[0.88rem] text-[#766f63]">
+        <div class="text-[0.88rem] text-ink-secondary">
           {{ item.summary }}
         </div>
         <div class="mt-3 flex flex-wrap gap-3">
-          <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="eventWorkbenchTarget(item.themeId, item.primaryStatus)">
+          <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="eventWorkbenchTarget(item.themeId, item.primaryStatus)">
             只看该主题事件
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: `/themes/${item.themeId}`, query: { section: item.openCount > 0 ? 'analysis' : 'timeline' } }"
           >
             查看主题
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: '/sources/status', query: { themeId: item.themeId, focus: item.openCount > 0 ? 'warning' : undefined } }"
           >
             查看来源状态
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: '/watchlist', query: { type: undefined, completion: item.bookmarkedCount > 0 ? 'all' : undefined } }"
           >
             查看长期观察

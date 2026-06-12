@@ -23,8 +23,8 @@
         </div>
         <div class="grid gap-2 bg-slate-50/90 px-4 py-3.5">
           <strong>{{ event.title }}</strong>
-          <div class="text-[0.88rem] text-[#766f63]">{{ event.themeName }} · {{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
-          <div class="text-[#6f665a]">{{ event.summary }}</div>
+          <div class="text-[0.88rem] text-ink-secondary">{{ event.themeName }} · {{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
+          <div class="text-ink-body">{{ event.summary }}</div>
           <div class="mt-2.5 grid gap-1.5" v-if="eventDetails(event).length">
             <template v-for="entry in eventDetails(event)" :key="`${event.id}-${entry.label}`">
               <div class="flex flex-wrap gap-1.5">
@@ -36,7 +36,7 @@
         </div>
       </RouterLink>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">{{ emptyText }}</div>
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">{{ emptyText }}</div>
   </article>
 </template>
 

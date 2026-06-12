@@ -69,7 +69,17 @@ load_env_file() {
 }
 
 ensure_node_deps() {
+  local needs_install=0
+
   if [[ ! -d "$ROOT_DIR/node_modules" ]]; then
+    needs_install=1
+  elif [[ ! -d "$ROOT_DIR/node_modules/@info-monitor/shared-contracts" ]]; then
+    needs_install=1
+  elif [[ ! -L "$ROOT_DIR/node_modules/@info-monitor/shared-contracts" && ! -d "$ROOT_DIR/node_modules/@info-monitor/shared-contracts" ]]; then
+    needs_install=1
+  fi
+
+  if [[ "$needs_install" -eq 1 ]]; then
     log "Installing Node dependencies"
     npm install --cache ./.npm-cache
   fi

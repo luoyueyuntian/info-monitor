@@ -146,22 +146,22 @@ const totalCount = computed(() => events.value.length);
 
 function eventHeaderToneClass(event: EventSummary) {
   if (event.infoType === "price") {
-    return "bg-[rgba(232,216,188,0.92)]";
+    return "bg-tone-price";
   }
 
   if (event.infoType === "news_announcement") {
-    return "bg-[rgba(217,231,242,0.92)]";
+    return "bg-tone-news";
   }
 
   if (event.infoType === "content_update") {
-    return "bg-[rgba(241,228,204,0.92)]";
+    return "bg-tone-content";
   }
 
   if (event.infoType === "financial_event") {
-    return "bg-[rgba(226,221,241,0.92)]";
+    return "bg-tone-financial";
   }
 
-  return "bg-[rgba(231,228,220,0.92)]";
+  return "bg-tone-content";
 }
 
 function eventDetails(event: EventSummary) {

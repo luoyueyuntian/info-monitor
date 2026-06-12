@@ -2,7 +2,7 @@
   <article class="card" v-if="runCount">
     <div class="card-topline">
       <h3>运行趋势</h3>
-      <span class="text-[0.88rem] text-[#766f63]">最近 {{ runCount }} 次运行</span>
+      <span class="text-[0.88rem] text-ink-secondary">最近 {{ runCount }} 次运行</span>
     </div>
 
     <div class="grid gap-3 md:grid-cols-2">

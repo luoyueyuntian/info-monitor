@@ -55,13 +55,13 @@
             />
             选中当前筛选主题
           </label>
-          <span class="text-[0.88rem] text-[#766f63]">
+          <span class="text-[0.88rem] text-ink-secondary">
             {{ selectedThemeIds.length > 0 ? `已选 ${selectedThemeIds.length} 个主题` : `未单独选中时，默认使用当前筛选的 ${filteredThemes.length} 个主题` }}
           </span>
         </div>
         <div class="flex flex-wrap gap-3">
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!effectiveBulkThemeIds.length || bulkUpdating"
             @click="handleBulkUpdateThemes('archived')"
           >
@@ -74,7 +74,7 @@
             }}
           </button>
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!effectiveBulkThemeIds.length || bulkUpdating"
             @click="handleBulkUpdateThemes('active')"
           >
@@ -87,19 +87,19 @@
             }}
           </button>
           <RouterLink
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
             :to="{ path: '/events', query: { themeId: selectedThemeContext ?? undefined, impact: impactFilter === 'all' ? undefined : impactFilter, status: eventQueueFilter === 'open' ? 'open' : eventQueueFilter === 'tracking' ? 'tracking' : undefined, sort: eventQueueFilter === 'open' ? 'statusChanged' : 'occurredAt' } }"
           >
             {{ selectedThemeIds.length > 0 ? "查看选中主题事件" : "查看当前筛选主题事件" }}
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
             :to="{ path: '/sources/status', query: { themeId: selectedThemeContext ?? undefined, impact: impactFilter === 'all' ? undefined : impactFilter, focus: healthFilter === 'warning' ? 'warning' : undefined, recent: recentOnly24h ? '24h' : undefined } }"
           >
             {{ selectedThemeIds.length > 0 ? "查看选中主题来源" : "查看当前筛选主题来源" }}
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover"
             :to="{ path: '/themes', query: buildThemeManagedQuery(activeFilters) }"
           >
             回到当前主题视图
@@ -112,8 +112,8 @@
       v-if="operationNotice"
       class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
     >
-      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
-      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <strong class="block text-base font-semibold text-ink-heading">操作结果</strong>
+      <div class="mt-2 text-ink-body">{{ operationNotice.message }}</div>
       <div v-if="operationNotice.actions.length" class="mt-3 grid gap-2.5 md:grid-cols-3">
         <RouterLink
           v-for="action in operationNotice.actions"

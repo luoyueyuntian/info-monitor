@@ -8,6 +8,13 @@ import {
   upsertSourceRun,
   upsertTheme,
 } from "./lib/db-seed-helpers.mjs";
+import {
+  DEMO_RECORD_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+  DEMO_RUN_IDS,
+} from "./lib/demo-scene-ids.mjs";
 
 dotenv.config();
 
@@ -20,11 +27,11 @@ if (!databaseUrl) {
 
 const client = new pg.Client({ connectionString: databaseUrl });
 
-const themeId = "theme_eastmoney_moutai_demo";
-const sourceId = "source_eastmoney_moutai_kline";
-const runId = "run_eastmoney_moutai_demo_seed";
-const snapshotId = "snapshot_eastmoney_moutai_demo_seed";
-const recordId = "record_eastmoney_moutai_demo_seed";
+const themeId = DEMO_THEME_IDS.EASTMONEY_MOUTAI;
+const sourceId = DEMO_SOURCE_IDS.EASTMONEY_MOUTAI_KLINE;
+const runId = DEMO_RUN_IDS.EASTMONEY_MOUTAI_SEED;
+const snapshotId = DEMO_SNAPSHOT_IDS.EASTMONEY_MOUTAI_SEED;
+const recordId = DEMO_RECORD_IDS.EASTMONEY_MOUTAI_SEED;
 
 try {
   await client.connect();

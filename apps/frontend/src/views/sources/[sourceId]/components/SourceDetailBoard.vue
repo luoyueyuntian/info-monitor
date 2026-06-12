@@ -12,7 +12,7 @@
     <article class="card">
       <div class="card-topline">
         <h3>关联主题信号</h3>
-        <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="{ path: `/themes/${detail.source.themeId}`, query: { section: 'analysis' } }">
+        <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="{ path: `/themes/${detail.source.themeId}`, query: { section: 'analysis' } }">
           查看所属主题
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
@@ -26,7 +26,7 @@
           {{ eventSignalLabel(detail.source.latestEventSignal) }}
         </span>
       </div>
-      <div class="text-[#6f665a]">
+      <div class="text-ink-body">
         {{
           detail.source.latestEventSignal
             ? "这个来源当前属于一个最近已经出现明确信号的主题，适合把来源状态和主题判断一起看。"

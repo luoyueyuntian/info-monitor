@@ -3,7 +3,7 @@
     <div class="card-topline">
       <div>
         <h3>{{ compare.headline }}</h3>
-        <p class="m-0 mt-2 text-[#6f665a]">{{ compare.summary }}</p>
+        <p class="m-0 mt-2 text-ink-body">{{ compare.summary }}</p>
       </div>
     </div>
 
@@ -26,11 +26,11 @@
         <span :class="pillToneClass(compare.diagnostic.tone)">{{ compare.diagnostic.toneLabel }}</span>
       </div>
       <div class="mt-2 text-[0.98rem] font-semibold text-[#1f2937]">{{ compare.diagnostic.headline }}</div>
-      <div class="mt-2 text-[#6f665a]">{{ compare.diagnostic.summary }}</div>
+      <div class="mt-2 text-ink-body">{{ compare.diagnostic.summary }}</div>
 
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-400/15 bg-white/70 px-3.5 py-3">
-          <strong class="text-[0.92rem] text-[#2f2618]">当前重点</strong>
+          <strong class="text-[0.92rem] text-ink-heading">当前重点</strong>
           <div class="mt-2 grid gap-2">
             <div
               v-for="item in compare.diagnostic.keyPoints"
@@ -42,7 +42,7 @@
           </div>
         </div>
         <div class="rounded-2xl border border-slate-400/15 bg-white/70 px-3.5 py-3">
-          <strong class="text-[0.92rem] text-[#2f2618]">建议先做</strong>
+          <strong class="text-[0.92rem] text-ink-heading">建议先做</strong>
           <div class="mt-2 grid gap-2">
             <div
               v-for="item in compare.diagnostic.actions"
@@ -59,9 +59,9 @@
         v-if="compare.diagnostic.timing"
         class="mt-3 rounded-2xl border border-slate-400/15 bg-white/70 px-3.5 py-3"
       >
-        <strong class="text-[0.92rem] text-[#2f2618]">连续快照判断</strong>
+        <strong class="text-[0.92rem] text-ink-heading">连续快照判断</strong>
         <div class="mt-2 text-[0.96rem] font-semibold text-[#1f2937]">{{ compare.diagnostic.timing.headline }}</div>
-        <div class="mt-2 text-[#6f665a]">{{ compare.diagnostic.timing.summary }}</div>
+        <div class="mt-2 text-ink-body">{{ compare.diagnostic.timing.summary }}</div>
         <div class="mt-2 grid gap-2">
           <div
             v-for="item in compare.diagnostic.timing.signals"
@@ -97,12 +97,12 @@
                 {{ item.badge }}
               </span>
             </div>
-            <span class="text-[0.88rem] text-[#766f63]">{{ formatDateTimeLabel(item.latestRecordAt) }}</span>
+            <span class="text-[0.88rem] text-ink-secondary">{{ formatDateTimeLabel(item.latestRecordAt) }}</span>
           </div>
 
           <a
             v-if="item.recordLink"
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :href="item.recordLink"
             target="_blank"
             rel="noreferrer"
@@ -115,15 +115,15 @@
         <div class="mt-3 grid gap-2">
           <strong class="text-[1.02rem] text-[#1f2937]">{{ item.primaryValue }}</strong>
           <div v-if="item.secondaryValue" class="text-[0.92rem] text-[#5f574a]">{{ item.secondaryValue }}</div>
-          <div v-if="item.tertiaryValue" class="text-[0.9rem] text-[#766f63]">{{ item.tertiaryValue }}</div>
-          <div v-if="item.deltaLabel" class="text-[0.88rem] font-semibold text-[#6b4f1f]">{{ item.deltaLabel }}</div>
+          <div v-if="item.tertiaryValue" class="text-[0.9rem] text-ink-secondary">{{ item.tertiaryValue }}</div>
+          <div v-if="item.deltaLabel" class="text-[0.88rem] font-semibold text-ink-link">{{ item.deltaLabel }}</div>
           <div
             v-if="item.trendPoints.length"
             class="rounded-xl border border-slate-400/15 bg-white/70 px-3 py-2.5"
           >
             <div class="mb-2 flex flex-wrap items-center gap-2">
-              <span class="text-[0.84rem] font-semibold text-[#2f2618]">{{ item.trendLabel }}</span>
-              <span class="text-[0.84rem] text-[#766f63]">{{ item.trendDeltaLabel }}</span>
+              <span class="text-[0.84rem] font-semibold text-ink-heading">{{ item.trendLabel }}</span>
+              <span class="text-[0.84rem] text-ink-secondary">{{ item.trendDeltaLabel }}</span>
             </div>
             <svg viewBox="0 0 144 64" class="h-16 w-full">
               <polyline
@@ -143,7 +143,7 @@
                 fill="#8a5b1f"
               />
             </svg>
-            <div class="mt-1 flex items-center justify-between text-[0.78rem] text-[#766f63]">
+            <div class="mt-1 flex items-center justify-between text-[0.78rem] text-ink-secondary">
               <span>{{ item.trendPoints[0]?.label }}</span>
               <span>{{ item.trendPoints[item.trendPoints.length - 1]?.label }}</span>
             </div>
@@ -158,7 +158,7 @@
       </article>
     </div>
 
-    <div v-else class="mt-4 rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="mt-4 rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       这个主题当前还没有可用于跨来源比较的记录。
     </div>
   </article>

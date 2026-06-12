@@ -2,7 +2,7 @@
   <article class="card">
     <h3>事件解释</h3>
     <p class="mb-3.5 text-[#6e665a]">{{ explanation.headline }}</p>
-    <div class="text-[#6f665a]">{{ explanation.impact }}</div>
+    <div class="text-ink-body">{{ explanation.impact }}</div>
 
     <div class="grid two">
       <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">

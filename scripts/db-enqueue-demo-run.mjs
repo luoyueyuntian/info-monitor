@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
 import pg from "pg";
 
+import { DEMO_SOURCE_IDS, DEMO_THEME_IDS } from "./lib/demo-scene-ids.mjs";
+
 dotenv.config();
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -12,8 +14,8 @@ if (!databaseUrl) {
 }
 
 const client = new pg.Client({ connectionString: databaseUrl });
-const sourceId = process.argv[2] ?? "source_surface_pro_8_demo_feed";
-const themeId = process.argv[3] ?? "theme_surface_pro_8_demo";
+const sourceId = process.argv[2] ?? DEMO_SOURCE_IDS.ZHUANZHUAN_SURFACE;
+const themeId = process.argv[3] ?? DEMO_THEME_IDS.SURFACE_PRO_8;
 
 try {
   await client.connect();

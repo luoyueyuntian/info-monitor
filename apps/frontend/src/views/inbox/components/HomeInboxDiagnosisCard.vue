@@ -15,8 +15,8 @@
       </div>
     </div>
     <p class="mb-3.5 text-[#6e665a]">{{ diagnostic.headline }}</p>
-    <div class="text-[#6f665a]">{{ diagnostic.summary }}</div>
-    <div v-if="trendSummary" class="mt-2 text-[0.88rem] text-[#766f63]">{{ trendSummary }}</div>
+    <div class="text-ink-body">{{ diagnostic.summary }}</div>
+    <div v-if="trendSummary" class="mt-2 text-[0.88rem] text-ink-secondary">{{ trendSummary }}</div>
 
     <div class="mt-3.5 grid gap-4 md:grid-cols-2">
       <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">

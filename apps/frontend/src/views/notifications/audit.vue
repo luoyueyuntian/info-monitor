@@ -1,23 +1,23 @@
 <template>
   <section class="flex flex-col gap-5">
     <header>
-      <h2 class="mb-2 text-[1.8rem] font-semibold text-[#1d1d1d]">通知审计日志</h2>
+      <h2 class="mb-2 text-[1.8rem] font-semibold text-ink">通知审计日志</h2>
       <p class="m-0 leading-7 text-[#675d4f]">查看通知的完整生命周期，包括创建、发送、失败和已读记录。</p>
     </header>
 
     <!-- Filters -->
     <section class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
-      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">筛选</span>
+      <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">筛选</span>
       <button
         v-for="filter in actionFilters"
         :key="filter.value"
-        class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
-        :class="activeActionFilter === filter.value ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+        class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
+        :class="activeActionFilter === filter.value ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
         @click="activeActionFilter = filter.value"
       >
         {{ filter.label }}
       </button>
-      <span class="ml-auto text-[0.88rem] text-[#766f63]">
+      <span class="ml-auto text-[0.88rem] text-ink-secondary">
         共 {{ totalCount }} 条记录
       </span>
     </section>
@@ -25,7 +25,7 @@
     <!-- Loading -->
     <div v-if="loading" class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-400/15 bg-white/78 p-12">
       <div class="h-8 w-8 animate-spin rounded-full border-2 border-[#2f2618] border-t-transparent"></div>
-      <p class="text-[0.92rem] text-[#6f665a]">正在加载审计日志...</p>
+      <p class="text-[0.92rem] text-ink-body">正在加载审计日志...</p>
     </div>
 
     <!-- Error -->
@@ -46,7 +46,7 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!logs.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-[#6f665a]">
+    <div v-else-if="!logs.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       暂无审计日志记录。
     </div>
 
@@ -61,18 +61,18 @@
           <span :class="actionPillClass(log.action)">
             {{ actionLabel(log.action) }}
           </span>
-          <span v-if="log.fromStatus" class="text-[0.82rem] text-[#8a8078]">
+          <span v-if="log.fromStatus" class="text-[0.82rem] text-ink-muted">
             {{ statusLabel(log.fromStatus) }} →
           </span>
-          <span v-if="log.toStatus" class="text-[0.82rem] font-semibold text-[#2f2618]">
+          <span v-if="log.toStatus" class="text-[0.82rem] font-semibold text-ink-heading">
             {{ statusLabel(log.toStatus) }}
           </span>
-          <span class="ml-auto text-[0.82rem] text-[#8a8078]">
+          <span class="ml-auto text-[0.82rem] text-ink-muted">
             {{ formatTime(log.createdAt) }}
           </span>
         </div>
 
-        <div class="mt-2 flex flex-wrap items-center gap-3 text-[0.82rem] text-[#6f665a]">
+        <div class="mt-2 flex flex-wrap items-center gap-3 text-[0.82rem] text-ink-body">
           <span>通知ID: {{ log.notificationId }}</span>
           <span>操作者: {{ log.actor }}</span>
         </div>
@@ -80,15 +80,15 @@
         <div v-if="hasMetadata(log.metadata)" class="mt-3 rounded-xl border border-slate-400/15 bg-slate-50/80 p-3">
           <dl class="grid grid-cols-2 gap-2">
             <div v-for="(value, key) in log.metadata" :key="key">
-              <dt class="text-[0.78rem] font-semibold text-[#8a8078]">{{ String(key) }}</dt>
-              <dd class="text-[0.82rem] text-[#2f2618]">{{ formatValue(value) }}</dd>
+              <dt class="text-[0.78rem] font-semibold text-ink-muted">{{ String(key) }}</dt>
+              <dd class="text-[0.82rem] text-ink-heading">{{ formatValue(value) }}</dd>
             </div>
           </dl>
         </div>
 
         <div class="mt-3">
           <RouterLink
-            class="inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-ink-link"
             :to="`/notifications/audit/${log.notificationId}`"
           >
             查看完整时间线

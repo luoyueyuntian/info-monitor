@@ -1,14 +1,14 @@
 <template>
   <section class="flex flex-col gap-5">
     <header>
-      <h2 class="mb-2 text-[1.8rem] font-semibold text-[#1d1d1d]">通知中心</h2>
+      <h2 class="mb-2 text-[1.8rem] font-semibold text-ink">通知中心</h2>
       <p class="m-0 leading-7 text-[#675d4f]">查看系统产生的事件通知，及时了解重要的价格信号和金融事件变化。</p>
     </header>
 
     <!-- Loading State -->
     <div v-if="loading" class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-400/15 bg-white/78 p-12">
       <div class="h-8 w-8 animate-spin rounded-full border-2 border-[#2f2618] border-t-transparent"></div>
-      <p class="text-[0.92rem] text-[#6f665a]">正在加载通知...</p>
+      <p class="text-[0.92rem] text-ink-body">正在加载通知...</p>
     </div>
 
     <!-- Error State -->
@@ -35,8 +35,8 @@
         <button
           v-for="preset in presetViews"
           :key="preset.id"
-          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
-          :class="activePreset === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink transition-colors hover:bg-slate-50"
+          :class="activePreset === preset.id ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
           @click="applyPreset(preset)"
         >
           {{ preset.label }}
@@ -46,13 +46,13 @@
       <!-- Filters & Sorting -->
       <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
         <div class="flex flex-wrap items-center gap-3">
-          <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">筛选</span>
+          <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">筛选</span>
           <button
             v-for="filter in statusFilters"
             :key="filter.value"
-            class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
-            :class="activeStatusFilter === filter.value ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
-            @click="activeStatusFilter = filter.value"
+            class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
+            :class="activeStatusFilter === filter.value ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
+            @click="setStatusFilter(filter.value)"
           >
             {{ filter.label }}
           </button>
@@ -60,24 +60,24 @@
         <div class="flex items-center gap-3">
           <select
             v-model="sortBy"
-            class="rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d]"
+            class="rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink"
           >
             <option value="createdAt">按创建时间</option>
             <option value="sentAt">按发送时间</option>
           </select>
           <button
-            class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+            class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink transition-colors hover:bg-slate-50"
             @click="toggleSortOrder"
           >
             {{ sortOrder === "desc" ? "↓ 降序" : "↑ 升序" }}
           </button>
-          <span class="text-[0.88rem] text-[#766f63]">
+          <span class="text-[0.88rem] text-ink-secondary">
             共 {{ filteredNotifications.length }} 条
           </span>
         </div>
       </section>
 
-      <div v-if="!filteredNotifications.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-[#6f665a]">
+      <div v-if="!filteredNotifications.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
         当前筛选条件下没有通知。
       </div>
 
@@ -94,17 +94,17 @@
           <span :class="statusPillClass(notification.status)">
             {{ statusLabel(notification.status) }}
           </span>
-          <span class="text-[0.82rem] text-[#8a8078]">
+          <span class="text-[0.82rem] text-ink-muted">
             {{ formatTime(notification.createdAt) }}
           </span>
         </div>
 
-        <strong class="block text-base font-semibold text-[#2f2618]">{{ notification.title }}</strong>
-        <p class="mt-2 text-[0.92rem] leading-7 text-[#6f665a]">{{ notification.summary }}</p>
+        <strong class="block text-base font-semibold text-ink-heading">{{ notification.title }}</strong>
+        <p class="mt-2 text-[0.92rem] leading-7 text-ink-body">{{ notification.summary }}</p>
 
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="`/events/${notification.eventId}`"
           >
             查看关联事件
@@ -112,7 +112,7 @@
           </RouterLink>
           <button
             v-if="notification.status === 'pending'"
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="markingId === notification.id"
             @click="handleMarkRead(notification.id)"
           >
@@ -128,6 +128,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../lib/api";
+import { getSignalColors, getSignalLabel } from "@info-monitor/shared-contracts";
 
 interface PresetView {
   id: string;
@@ -142,6 +143,7 @@ const notifications = ref<NotificationItem[]>([]);
 const totalCount = ref(0);
 const hasMore = ref(false);
 const activeStatusFilter = ref<"all" | "pending" | "sent" | "failed">("all");
+const activeSignalFilter = ref<string | undefined>(undefined);
 const activePreset = ref<string | null>(null);
 const sortBy = ref<"createdAt" | "sentAt">("createdAt");
 const sortOrder = ref<"asc" | "desc">("desc");
@@ -153,8 +155,8 @@ const presetViews: PresetView[] = [
   { id: "unread", label: "最新未读", status: "pending", sortBy: "createdAt", sortOrder: "desc" },
   { id: "failed", label: "只看失败", status: "failed" },
   { id: "signals", label: "只看信号", signal: "30d_low" },
-  { id: "bullish", label: "利好信号", signal: "bullish" },
-  { id: "bearish", label: "利空信号", signal: "bearish" },
+  { id: "injection", label: "流动性投放", signal: "liquidity_injection" },
+  { id: "withdrawal", label: "流动性回笼", signal: "liquidity_withdrawal" },
 ];
 
 const statusFilters = [
@@ -186,6 +188,7 @@ const filteredNotifications = computed(() => {
 function applyPreset(preset: PresetView) {
   activePreset.value = preset.id;
   activeStatusFilter.value = (preset.status as typeof activeStatusFilter.value) || "all";
+  activeSignalFilter.value = preset.signal;
 
   if (preset.sortBy) {
     sortBy.value = preset.sortBy;
@@ -196,62 +199,29 @@ function applyPreset(preset: PresetView) {
   }
 
   // Reload with server-side filters
-  void loadNotifications({
-    status: preset.status,
-    signal: preset.signal,
-    sortBy: preset.sortBy,
-    sortOrder: preset.sortOrder,
-  });
+  void loadNotifications();
 }
 
 function toggleSortOrder() {
   sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
-  void loadNotifications({
-    sortBy: sortBy.value,
-    sortOrder: sortOrder.value,
-  });
+  void loadNotifications();
+}
+
+function setStatusFilter(status: typeof activeStatusFilter.value) {
+  activeStatusFilter.value = status;
+  activeSignalFilter.value = undefined;
+  activePreset.value = null;
+  void loadNotifications();
 }
 
 function signalLabel(signal: string) {
-  if (signal === "30d_low") {
-    return "价格新低";
-  }
-
-  if (signal === "bullish") {
-    return "利好信号";
-  }
-
-  if (signal === "bearish") {
-    return "利空信号";
-  }
-
-  if (signal === "new_announcement") {
-    return "新公告";
-  }
-
-  if (signal === "content_update") {
-    return "内容更新";
-  }
-
-  return signal || "通知";
+  return getSignalLabel(signal);
 }
 
 function signalPillClass(signal: string) {
   const base = "inline-flex items-center rounded-lg px-2.5 py-1 text-[0.78rem] font-semibold";
-
-  if (signal === "30d_low" || signal === "bullish") {
-    return `${base} bg-emerald-50 text-emerald-700`;
-  }
-
-  if (signal === "bearish") {
-    return `${base} bg-rose-50 text-rose-700`;
-  }
-
-  if (signal === "new_announcement") {
-    return `${base} bg-blue-50 text-blue-700`;
-  }
-
-  return `${base} bg-slate-100 text-slate-600`;
+  const colors = getSignalColors(signal);
+  return `${base} ${colors.background} ${colors.text}`;
 }
 
 function statusLabel(status: string) {
@@ -331,21 +301,16 @@ async function handleMarkRead(notificationId: string) {
   }
 }
 
-async function loadNotifications(options?: {
-  status?: string;
-  signal?: string;
-  sortBy?: "createdAt" | "sentAt";
-  sortOrder?: "asc" | "desc";
-}) {
+async function loadNotifications() {
   loading.value = true;
   error.value = null;
 
   try {
     const result = await fetchNotifications({
-      status: options?.status,
-      signal: options?.signal,
-      sortBy: options?.sortBy || sortBy.value,
-      sortOrder: options?.sortOrder || sortOrder.value,
+      status: activeStatusFilter.value !== "all" ? activeStatusFilter.value : undefined,
+      signal: activeSignalFilter.value,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
     });
     notifications.value = result.items;
     totalCount.value = result.total;

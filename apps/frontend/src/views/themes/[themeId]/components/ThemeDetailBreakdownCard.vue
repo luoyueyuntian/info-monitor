@@ -10,7 +10,7 @@
       >
         <div class="flex items-center justify-between gap-3">
           <strong>{{ item.label }}</strong>
-          <span class="text-[0.88rem] text-[#766f63]">{{ item.count }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">{{ item.count }}</span>
         </div>
         <div class="h-3 w-full overflow-hidden rounded-full bg-slate-200/85">
           <div class="h-full rounded-full bg-[linear-gradient(90deg,#94a3b8_0%,#64748b_100%)]" :style="{ width: `${item.width}%` }"></div>

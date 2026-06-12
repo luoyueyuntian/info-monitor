@@ -325,6 +325,94 @@ function buildFallbackThemeAnalysis(input: {
 }
 
 function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]) {
+  // Eastmoney Moutai: no events, simple price baseline
+  if (theme.id === "theme-eastmoney-moutai") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-eastmoney-moutai-kline",
+        sourceName: "东方财富 K 线: 600519",
+        title: "Kweichow Moutai Daily Close",
+        occurredAt: "2026-05-31T15:00:00Z",
+        infoType: "price",
+        content: {
+          price: 1728.52,
+          currency: "CNY",
+          symbol: "600519",
+          url: "https://quote.eastmoney.com/sh600519.html",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-05-31T15:00:00Z", label: "首个日线价格样本已入库" },
+      ],
+      breakdown: null,
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-05-31T15:00:00Z",
+          title: "首次抓取完成",
+          summary: "已完成东方财富茅台日线数据采集。",
+          meta: { status: "completed", triggerType: "seed", sourceName: "东方财富 K 线: 600519" },
+        },
+      ],
+      records,
+    };
+  }
+
+  // PBOC News: news announcement theme
+  if (theme.id === "theme-pbc-news") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-pbc-news-list",
+        sourceName: "央行新闻发布列表",
+        title: "人民银行发布最新货币政策执行报告",
+        occurredAt: "2026-06-01T07:38:00Z",
+        infoType: "news_announcement",
+        content: {
+          release_topic_label: "货币政策执行报告",
+          publisher: "中国人民银行",
+          category: "news_announcement",
+          description: "Latest monetary policy report and supporting interpretation.",
+        },
+      },
+    ];
+
+    return {
+      history: [
+        { at: "2026-06-01T07:38:00Z", label: "检测到新的政策报告发布" },
+      ],
+      breakdown: null,
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-01T07:40:00Z",
+          title: "最新抓取完成",
+          summary: "已完成央行新闻发布列表抓取与标准化。",
+          meta: { status: "completed", triggerType: "schedule", sourceName: "央行新闻发布列表" },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: "2026-06-01T07:38:00Z",
+          title: events[0]?.title ?? "PBOC published latest policy report",
+          summary: events[0]?.summary ?? "A new monetary policy report was published.",
+          meta: {
+            signal: events[0]?.signal ?? "new_announcement",
+            eventType: events[0]?.eventType ?? "new_release",
+            sourceName: "央行新闻发布列表",
+          },
+        },
+      ],
+      records,
+    };
+  }
+
   if (theme.type === "price") {
     const records: ThemeRecord[] = [
       {
@@ -507,7 +595,7 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           summary: events[0]?.summary ?? "A new content update event was emitted.",
           meta: {
             signal: events[0]?.signal ?? "content_update",
-            eventType: events[0]?.eventType ?? "new_release",
+            eventType: events[0]?.eventType ?? "content_update",
             sourceName: "Figma Release Notes",
           },
         },
@@ -538,8 +626,8 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
       },
       {
         id: `${theme.id}-record-2`,
-        sourceId: "source-pbc-policy",
-        sourceName: "PBOC Policy Page",
+        sourceId: "source-pbc-open-market",
+        sourceName: "PBOC Open Market Announcements",
         title: "公开市场操作结构化记录",
         occurredAt: "2026-05-31T23:00:00Z",
         infoType: "financial_event",
@@ -556,8 +644,8 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
       },
       {
         id: `${theme.id}-record-1`,
-        sourceId: "source-pbc-policy",
-        sourceName: "PBOC Policy Page",
+        sourceId: "source-pbc-open-market",
+        sourceName: "PBOC Open Market Announcements",
         title: "公开市场操作结构化记录",
         occurredAt: "2026-05-29T23:00:00Z",
         infoType: "financial_event",
@@ -597,7 +685,7 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           at: "2026-06-01T06:00:00Z",
           title: "最新抓取失败",
           summary: "来源抓取完成但解析失败，等待复核页面结构变化。",
-          meta: { status: "failed", triggerType: "schedule", sourceName: "PBOC Policy Page" },
+          meta: { status: "failed", triggerType: "schedule", sourceName: "PBOC Open Market Announcements" },
         },
         {
           id: `${theme.id}-timeline-change-1`,
@@ -606,7 +694,7 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           title: "本轮净投放规模扩大",
           summary: "与上一轮相比，金额和方向标签都发生变化。",
           meta: {
-            sourceName: "PBOC Policy Page",
+            sourceName: "PBOC Open Market Announcements",
             details: { title: "[2026]第88号", logical_key: "pbc-omo-20260531-88" },
           },
         },
@@ -618,7 +706,7 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           summary: events[0]?.summary ?? "A new financial event was emitted.",
           meta: {
             signal: events[0]?.signal ?? "liquidity_withdrawal",
-            eventType: events[0]?.eventType ?? "new_release",
+            eventType: events[0]?.eventType ?? "new_financial_event",
             sourceName: "PBOC Open Market History",
           },
         },
@@ -715,35 +803,38 @@ async function requestJsonStrict<T>(path: string): Promise<T> {
 }
 
 export async function fetchDashboard() {
+  const now = Date.now();
+  const recentThreshold = now - 24 * 60 * 60 * 1000;
+
   return requestJson("/dashboard", {
     summary: {
-      activeThemes: 2,
+      activeThemes: fallbackThemes.length,
       openEvents: fallbackEvents.filter((event) => (event.status ?? "open") === "open").length,
       trackingEvents: fallbackEvents.filter((event) => event.status === "tracking").length,
       unreadEvents: fallbackEvents.filter((event) => !event.isRead).length,
       bookmarkedEvents: fallbackEvents.filter((event) => Boolean(event.isBookmarked)).length,
-      recentEvents: 2,
-      warningSources: 1,
-      pendingSources: 0,
+      recentEvents: fallbackEvents.filter((event) => new Date(event.occurredAt).getTime() >= recentThreshold).length,
+      warningSources: fallbackSources.filter((source) => source.status === "warning").length,
+      pendingSources: fallbackSources.filter((source) => source.status === "pending").length,
     },
     events: fallbackEvents,
     bookmarkedEvents: fallbackEvents.filter((event) => event.isBookmarked),
     sectionCounts: {
       "price-signals": {
         total: fallbackEvents.filter((event) => event.infoType === "price").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "price").length,
+        recent: fallbackEvents.filter((event) => event.infoType === "price" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
       },
       "content-updates": {
         total: fallbackEvents.filter((event) => event.infoType === "content_update").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "content_update").length,
+        recent: fallbackEvents.filter((event) => event.infoType === "content_update" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
       },
       "official-releases": {
         total: fallbackEvents.filter((event) => event.signal === "new_announcement").length,
-        recent: fallbackEvents.filter((event) => event.signal === "new_announcement").length,
+        recent: fallbackEvents.filter((event) => event.signal === "new_announcement" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
       },
       "financial-events": {
         total: fallbackEvents.filter((event) => event.infoType === "financial_event").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "financial_event").length,
+        recent: fallbackEvents.filter((event) => event.infoType === "financial_event" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
       },
     },
     themes: fallbackThemes,

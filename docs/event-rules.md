@@ -141,7 +141,7 @@ class TestMyCustomRule:
 | `30d_low` | 30天新低 | 高 |
 | `bullish` | 利好 | 高 |
 | `bearish` | 利空 | 高 |
-| `liquidity_injection` | 流动性注入 | 高 |
+| `liquidity_injection` | 流动性投放 | 高 |
 | `liquidity_withdrawal` | 流动性回笼 | 高 |
 | `new_announcement` | 新公告 | 中 |
 | `content_update` | 内容更新 | 低 |

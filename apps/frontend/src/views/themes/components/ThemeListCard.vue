@@ -2,7 +2,7 @@
   <article class="card">
     <div class="card-topline">
       <h3>主题列表</h3>
-      <span class="text-[0.88rem] text-[#766f63]">共 {{ themes.length }} 个主题</span>
+      <span class="text-[0.88rem] text-ink-secondary">共 {{ themes.length }} 个主题</span>
     </div>
     <div v-if="themes.length" class="flex flex-col gap-3">
       <article
@@ -10,7 +10,7 @@
         :key="theme.id"
         class="grid gap-2.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
       >
-        <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-[#766f63]">
+        <label class="mb-3 flex items-center gap-2.5 text-[0.88rem] text-ink-secondary">
           <input
             :checked="selectedThemeIds.includes(theme.id)"
             type="checkbox"
@@ -43,22 +43,22 @@
           </span>
         </div>
         <RouterLink
-          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
           :to="themeDetailTarget(theme)"
         >
           {{ theme.name }}
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-          <span class="text-[0.88rem] text-[#766f63]">状态: {{ themeStatusLabel(theme.status) }}</span>
-          <span class="text-[0.88rem] text-[#766f63]">来源数: {{ theme.sourceCount }}</span>
-          <span class="text-[0.88rem] text-[#766f63]">最近运行: {{ formatDateTimeLabel(theme.latestRunAt) }}</span>
-          <span class="text-[0.88rem] text-[#766f63]">最近事件: {{ formatDateTimeLabel(theme.latestEventAt) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">状态: {{ themeStatusLabel(theme.status) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">来源数: {{ theme.sourceCount }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">最近运行: {{ formatDateTimeLabel(theme.latestRunAt) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">最近事件: {{ formatDateTimeLabel(theme.latestEventAt) }}</span>
         </div>
-        <div class="text-[#6f665a]">
+        <div class="text-ink-body">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
-        <div class="text-[0.88rem] text-[#766f63]">
+        <div class="text-[0.88rem] text-ink-secondary">
           {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
         </div>
         <div class="mt-2 flex flex-wrap gap-3">
@@ -89,7 +89,7 @@
         </div>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       当前筛选条件下没有匹配的主题。
     </div>
   </article>

@@ -46,8 +46,8 @@
       v-if="operationNotice"
       class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
     >
-      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
-      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <strong class="block text-base font-semibold text-ink-heading">操作结果</strong>
+      <div class="mt-2 text-ink-body">{{ operationNotice.message }}</div>
       <div v-if="operationNotice.actions.length" class="mt-3 grid gap-2.5 md:grid-cols-3">
         <RouterLink
           v-for="action in operationNotice.actions"

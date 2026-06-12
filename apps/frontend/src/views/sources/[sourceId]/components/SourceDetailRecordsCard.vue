@@ -6,7 +6,7 @@
         <span :class="pillToneClass()">{{ themeTypeLabel(record.infoType) }}</span>
         <strong>{{ record.title }}</strong>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-          <span class="text-[0.88rem] text-[#766f63]">{{ formatDateTimeLabel(record.occurredAt) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">{{ formatDateTimeLabel(record.occurredAt) }}</span>
         </div>
         <dl class="mt-2.5 grid gap-1.5">
           <template v-for="entry in recordDetails(record)" :key="`${record.id}-${entry.label}`">
@@ -18,7 +18,7 @@
         </dl>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">这个来源当前还没有标准化记录。</div>
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">这个来源当前还没有标准化记录。</div>
   </article>
 </template>
 

@@ -11,6 +11,16 @@ import {
   upsertSourceRun,
   upsertTheme,
 } from "./lib/db-seed-helpers.mjs";
+import {
+  DEMO_CHANGE_IDS,
+  DEMO_EVENT_IDS,
+  DEMO_EVENT_STATUS_HISTORY_IDS,
+  DEMO_RECORD_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+  DEMO_RUN_IDS,
+} from "./lib/demo-scene-ids.mjs";
 
 dotenv.config();
 
@@ -23,9 +33,9 @@ if (!databaseUrl) {
 
 const client = new pg.Client({ connectionString: databaseUrl });
 
-const themeId = "theme_pbc_open_market_demo";
-const warningSourceId = "source_pbc_open_market_demo";
-const historySourceId = "source_pbc_open_market_history_demo";
+const themeId = DEMO_THEME_IDS.PBC_OPEN_MARKET;
+const warningSourceId = DEMO_SOURCE_IDS.PBC_OPEN_MARKET;
+const historySourceId = DEMO_SOURCE_IDS.PBC_OPEN_MARKET_HISTORY;
 
 try {
   await client.connect();
@@ -42,7 +52,7 @@ try {
   await upsertSource(client, {
     id: warningSourceId,
     themeId,
-    name: "PBOC Open Market Announcement List",
+    name: "PBOC Open Market Announcements",
     sourceType: "page_list",
     adapterKey: "pbc_open_market_announcements",
     status: "active",
@@ -61,7 +71,7 @@ try {
     themeId,
     name: "PBOC Open Market History",
     sourceType: "page_list",
-    adapterKey: "pbc_open_market_history",
+    adapterKey: "pbc_open_market_announcements",
     status: "active",
     config: {
       path: "/zhengcehuobisi/125207/125213/125431/125475/index.html",
@@ -74,7 +84,7 @@ try {
   });
 
   await upsertSourceRun(client, {
-    id: "run_pbc_open_market_demo_neutral",
+    id: DEMO_RUN_IDS.PBC_NEUTRAL,
     themeId,
     sourceId: historySourceId,
     triggerType: "seed",
@@ -84,8 +94,8 @@ try {
   });
 
   await upsertRawSnapshot(client, {
-    id: "snapshot_pbc_open_market_demo_neutral",
-    sourceRunId: "run_pbc_open_market_demo_neutral",
+    id: DEMO_SNAPSHOT_IDS.PBC_NEUTRAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_NEUTRAL,
     themeId,
     sourceId: historySourceId,
     fetchedAt: "2026-05-29T23:00:00Z",
@@ -100,8 +110,8 @@ try {
   });
 
   await upsertNormalizedRecord(client, {
-    id: "record_pbc_open_market_demo_neutral",
-    sourceRunId: "run_pbc_open_market_demo_neutral",
+    id: DEMO_RECORD_IDS.PBC_NEUTRAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_NEUTRAL,
     themeId,
     sourceId: historySourceId,
     infoType: "financial_event",
@@ -122,7 +132,7 @@ try {
   });
 
   await upsertSourceRun(client, {
-    id: "run_pbc_open_market_demo_injection",
+    id: DEMO_RUN_IDS.PBC_INJECTION,
     themeId,
     sourceId: warningSourceId,
     triggerType: "seed",
@@ -132,8 +142,8 @@ try {
   });
 
   await upsertRawSnapshot(client, {
-    id: "snapshot_pbc_open_market_demo_injection",
-    sourceRunId: "run_pbc_open_market_demo_injection",
+    id: DEMO_SNAPSHOT_IDS.PBC_INJECTION,
+    sourceRunId: DEMO_RUN_IDS.PBC_INJECTION,
     themeId,
     sourceId: warningSourceId,
     fetchedAt: "2026-05-31T23:00:00Z",
@@ -148,8 +158,8 @@ try {
   });
 
   await upsertNormalizedRecord(client, {
-    id: "record_pbc_open_market_demo_injection",
-    sourceRunId: "run_pbc_open_market_demo_injection",
+    id: DEMO_RECORD_IDS.PBC_INJECTION,
+    sourceRunId: DEMO_RUN_IDS.PBC_INJECTION,
     themeId,
     sourceId: warningSourceId,
     infoType: "financial_event",
@@ -170,11 +180,11 @@ try {
   });
 
   await upsertChange(client, {
-    id: "change_pbc_open_market_demo_injection",
-    sourceRunId: "run_pbc_open_market_demo_injection",
+    id: DEMO_CHANGE_IDS.PBC_INJECTION,
+    sourceRunId: DEMO_RUN_IDS.PBC_INJECTION,
     themeId,
     sourceId: warningSourceId,
-    normalizedRecordId: "record_pbc_open_market_demo_injection",
+    normalizedRecordId: DEMO_RECORD_IDS.PBC_INJECTION,
     changeType: "updated_record",
     summary: "本轮净投放规模扩大",
     details: {
@@ -185,12 +195,12 @@ try {
   });
 
   await upsertEvent(client, {
-    id: "event_pbc_open_market_demo_injection",
-    sourceRunId: "run_pbc_open_market_demo_injection",
+    id: DEMO_EVENT_IDS.PBC_INJECTION,
+    sourceRunId: DEMO_RUN_IDS.PBC_INJECTION,
     themeId,
     sourceId: warningSourceId,
-    changeId: "change_pbc_open_market_demo_injection",
-    eventType: "new_release",
+    changeId: DEMO_CHANGE_IDS.PBC_INJECTION,
+    eventType: "new_financial_event",
     signal: "liquidity_injection",
     title: "Potential bullish macro event recorded",
     summary: "A macro release was classified as a potentially bullish event.",
@@ -207,15 +217,15 @@ try {
   });
 
   await upsertEventStatusHistory(client, {
-    id: "event_status_history_pbc_open_market_demo_injection",
-    eventId: "event_pbc_open_market_demo_injection",
+    id: DEMO_EVENT_STATUS_HISTORY_IDS.PBC_INJECTION,
+    eventId: DEMO_EVENT_IDS.PBC_INJECTION,
     fromStatus: "open",
     toStatus: "tracking",
     changedAt: "2026-05-31T09:00:00Z",
   });
 
   await upsertSourceRun(client, {
-    id: "run_pbc_open_market_demo_withdrawal",
+    id: DEMO_RUN_IDS.PBC_WITHDRAWAL,
     themeId,
     sourceId: historySourceId,
     triggerType: "seed",
@@ -225,8 +235,8 @@ try {
   });
 
   await upsertRawSnapshot(client, {
-    id: "snapshot_pbc_open_market_demo_withdrawal",
-    sourceRunId: "run_pbc_open_market_demo_withdrawal",
+    id: DEMO_SNAPSHOT_IDS.PBC_WITHDRAWAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_WITHDRAWAL,
     themeId,
     sourceId: historySourceId,
     fetchedAt: "2026-06-01T06:10:00Z",
@@ -241,8 +251,8 @@ try {
   });
 
   await upsertNormalizedRecord(client, {
-    id: "record_pbc_open_market_demo_withdrawal",
-    sourceRunId: "run_pbc_open_market_demo_withdrawal",
+    id: DEMO_RECORD_IDS.PBC_WITHDRAWAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_WITHDRAWAL,
     themeId,
     sourceId: historySourceId,
     infoType: "financial_event",
@@ -263,11 +273,11 @@ try {
   });
 
   await upsertChange(client, {
-    id: "change_pbc_open_market_demo_withdrawal",
-    sourceRunId: "run_pbc_open_market_demo_withdrawal",
+    id: DEMO_CHANGE_IDS.PBC_WITHDRAWAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_WITHDRAWAL,
     themeId,
     sourceId: historySourceId,
-    normalizedRecordId: "record_pbc_open_market_demo_withdrawal",
+    normalizedRecordId: DEMO_RECORD_IDS.PBC_WITHDRAWAL,
     changeType: "updated_record",
     summary: "本轮净回笼规模扩大",
     details: {
@@ -278,12 +288,12 @@ try {
   });
 
   await upsertEvent(client, {
-    id: "event_pbc_open_market_demo_withdrawal",
-    sourceRunId: "run_pbc_open_market_demo_withdrawal",
+    id: DEMO_EVENT_IDS.PBC_WITHDRAWAL,
+    sourceRunId: DEMO_RUN_IDS.PBC_WITHDRAWAL,
     themeId,
     sourceId: historySourceId,
-    changeId: "change_pbc_open_market_demo_withdrawal",
-    eventType: "new_release",
+    changeId: DEMO_CHANGE_IDS.PBC_WITHDRAWAL,
+    eventType: "new_financial_event",
     signal: "liquidity_withdrawal",
     title: "Liquidity withdrawal signal recorded",
     summary: "A new open market operation was classified as a liquidity withdrawal signal.",
@@ -300,8 +310,8 @@ try {
   });
 
   await upsertEventStatusHistory(client, {
-    id: "event_status_history_pbc_open_market_demo_withdrawal",
-    eventId: "event_pbc_open_market_demo_withdrawal",
+    id: DEMO_EVENT_STATUS_HISTORY_IDS.PBC_WITHDRAWAL,
+    eventId: DEMO_EVENT_IDS.PBC_WITHDRAWAL,
     fromStatus: null,
     toStatus: "open",
     changedAt: "2026-06-01T06:10:00Z",

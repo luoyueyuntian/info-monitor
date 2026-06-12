@@ -2,12 +2,12 @@
   <div>
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
       <div class="flex flex-wrap items-center gap-2.5">
-        <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-[#6b5e49]">快速视角</span>
+        <span class="text-[0.82rem] font-bold uppercase tracking-[0.06em] text-ink-label">快速视角</span>
         <button
           v-for="preset in presets"
           :key="preset.id"
-          class="quick-preset-button inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-4 py-2.5 text-[#1d1d1d] transition-colors hover:bg-slate-50"
-          :class="activePresetId === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          class="quick-preset-button inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-ink transition-colors hover:bg-slate-50"
+          :class="activePresetId === preset.id ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
           @click="applySourcePreset(preset.id)"
         >
           {{ preset.label }}
@@ -16,7 +16,7 @@
       <div class="flex flex-wrap items-center gap-2.5 text-[#625847]">
         <strong>当前筛选</strong>
         <span>{{ filterSummary }}</span>
-        <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" @click="resetFilters">重置筛选</button>
+        <button class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover" @click="resetFilters">重置筛选</button>
       </div>
     </section>
 
@@ -49,11 +49,11 @@
     <section v-if="sinceFilter" class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-50/80 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
       <div class="flex flex-wrap items-center gap-2.5">
         <strong>增量视图</strong>
-        <span class="text-[0.88rem] text-[#766f63]">
+        <span class="text-[0.88rem] text-ink-secondary">
           当前只看 {{ formatDateTimeLabel(sinceFilter) }} 之后有新活动或状态变化的来源，共 {{ incrementalSourceCount }} 个。
         </span>
       </div>
-      <button class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb]" @click="clearSinceFilter">退出增量视图</button>
+      <button class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover" @click="clearSinceFilter">退出增量视图</button>
     </section>
   </div>
 </template>

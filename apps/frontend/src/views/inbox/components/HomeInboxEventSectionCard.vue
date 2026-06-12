@@ -5,11 +5,11 @@
   >
     <div class="flex items-start justify-between gap-3">
       <div class="grid min-w-0 gap-1">
-        <h3 class="m-0 text-[1.02rem] font-semibold text-[#2f2618]">{{ section.title }}</h3>
+        <h3 class="m-0 text-[1.02rem] font-semibold text-ink-heading">{{ section.title }}</h3>
         <p class="m-0 text-[0.9rem] leading-[1.45] text-[#756a5b]">{{ section.description }}</p>
       </div>
       <RouterLink
-        class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+        class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
         :to="`/inbox/sections/${section.id}`"
       >
         {{ section.recentCount > 0 ? `查看更多 ${section.recentCount}` : "查看更多" }}
@@ -19,7 +19,7 @@
 
     <div class="mb-3.5 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
       <strong>{{ section.digest.headline }}</strong>
-      <div class="text-[#6f665a]">{{ section.digest.summary }}</div>
+      <div class="text-ink-body">{{ section.digest.summary }}</div>
       <div class="mt-2.5 grid gap-2">
         <div
           v-for="item in section.digest.highlights"
@@ -31,7 +31,7 @@
       </div>
       <RouterLink
         v-if="section.digest.primaryTarget"
-        class="mt-2.5 inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+        class="mt-2.5 inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
         :to="section.digest.primaryTarget"
       >
         {{ section.digest.primaryActionLabel }}
@@ -69,14 +69,14 @@
         </div>
         <div class="grid gap-2 bg-slate-50/90 px-4 py-3.5">
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
             :to="`/events/${event.id}`"
           >
             {{ event.title }}
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
-          <div class="text-[0.88rem] text-[#766f63]">{{ event.themeName }} · {{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
-          <div class="text-[#6f665a]">{{ event.summary }}</div>
+          <div class="text-[0.88rem] text-ink-secondary">{{ event.themeName }} · {{ formatSmartDateTimeLabel(event.occurredAt) }}</div>
+          <div class="text-ink-body">{{ event.summary }}</div>
           <div class="mt-2.5 grid gap-1.5" v-if="eventDetails(event).length">
             <template v-for="entry in eventDetails(event)" :key="`${event.id}-${entry.label}`">
               <div class="flex flex-wrap gap-1.5">
@@ -108,7 +108,7 @@
         </div>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       这一分区当前没有新的事件。
     </div>
   </article>

@@ -9,6 +9,14 @@ import {
   upsertSourceRun,
   upsertTheme,
 } from "./lib/db-seed-helpers.mjs";
+import {
+  DEMO_EVENT_IDS,
+  DEMO_RECORD_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+  DEMO_RUN_IDS,
+} from "./lib/demo-scene-ids.mjs";
 
 dotenv.config();
 
@@ -21,12 +29,12 @@ if (!databaseUrl) {
 
 const client = new pg.Client({ connectionString: databaseUrl });
 
-const themeId = "theme_pbc_news_demo";
-const sourceId = "source_pbc_news_list_demo";
-const runId = "run_pbc_news_demo_latest";
-const snapshotId = "snapshot_pbc_news_demo_latest";
-const recordId = "record_pbc_news_demo_latest";
-const eventId = "event_pbc_news_demo_latest";
+const themeId = DEMO_THEME_IDS.PBC_NEWS;
+const sourceId = DEMO_SOURCE_IDS.PBC_NEWS_LIST;
+const runId = DEMO_RUN_IDS.PBC_NEWS_LATEST;
+const snapshotId = DEMO_SNAPSHOT_IDS.PBC_NEWS_LATEST;
+const recordId = DEMO_RECORD_IDS.PBC_NEWS_LATEST;
+const eventId = DEMO_EVENT_IDS.PBC_NEWS_LATEST;
 
 try {
   await client.connect();

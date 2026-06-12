@@ -2,7 +2,7 @@
   <article class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
     <div class="mb-3 flex flex-wrap items-start justify-between gap-4">
       <div class="grid min-w-0 gap-1">
-        <h3 class="m-0 text-[1.02rem] font-semibold text-[#2f2618]">最近更新的主题</h3>
+        <h3 class="m-0 text-[1.02rem] font-semibold text-ink-heading">最近更新的主题</h3>
         <p class="m-0 text-[0.9rem] leading-[1.45] text-[#756a5b]">{{ description }}</p>
       </div>
       <select v-model="sortBy" class="min-w-32 rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5">
@@ -17,19 +17,19 @@
         <button
           v-for="preset in themeQueuePresets"
           :key="preset.id"
-          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.88rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
-          :class="themeQueueFilter === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.88rem] text-ink transition-colors hover:bg-slate-50"
+          :class="themeQueueFilter === preset.id ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
           @click="themeQueueFilter = preset.id"
         >
           {{ preset.label }}
         </button>
       </div>
-      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="themeCenterTarget">
+      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="themeCenterTarget">
         查看主题中心
         <span aria-hidden="true" class="text-base leading-none">›</span>
       </RouterLink>
     </div>
-    <div class="mb-3 text-[0.88rem] text-[#766f63]">{{ summary }}</div>
+    <div class="mb-3 text-[0.88rem] text-ink-secondary">{{ summary }}</div>
     <div v-if="sortedThemes.length" class="flex flex-col gap-3">
       <article
         v-for="theme in sortedThemes"
@@ -37,13 +37,13 @@
         class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
       >
         <RouterLink
-          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
           :to="themeDetailTarget(theme)"
         >
           {{ theme.name }}
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
-        <div class="text-[0.88rem] text-[#766f63]">
+        <div class="text-[0.88rem] text-ink-secondary">
           {{ themeTypeLabel(theme.type) }} · 状态: {{ themeStatusLabel(theme.status) }} · 来源数: {{ theme.sourceCount }}
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2" v-if="theme.latestEventSignal">
@@ -51,37 +51,37 @@
           <span :class="pillToneClass(theme.latestEventSignal)">{{ eventSignalLabel(theme.latestEventSignal) }}</span>
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2" v-if="theme.openEventCount || theme.trackingEventCount || theme.unreadEventCount || theme.bookmarkedEventCount">
-          <span class="text-[0.88rem] text-[#766f63]" v-if="theme.openEventCount">待处理 {{ theme.openEventCount }}</span>
-          <span class="text-[0.88rem] text-[#766f63]" v-if="theme.trackingEventCount">关注中 {{ theme.trackingEventCount }}</span>
-          <span class="text-[0.88rem] text-[#766f63]" v-if="theme.unreadEventCount">未读 {{ theme.unreadEventCount }}</span>
-          <span class="text-[0.88rem] text-[#766f63]" v-if="theme.bookmarkedEventCount">收藏 {{ theme.bookmarkedEventCount }}</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="theme.openEventCount">待处理 {{ theme.openEventCount }}</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="theme.trackingEventCount">关注中 {{ theme.trackingEventCount }}</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="theme.unreadEventCount">未读 {{ theme.unreadEventCount }}</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="theme.bookmarkedEventCount">收藏 {{ theme.bookmarkedEventCount }}</span>
         </div>
-        <div class="text-[#6f665a]">
+        <div class="text-ink-body">
           {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
         </div>
-        <div class="text-[0.88rem] text-[#766f63]">
+        <div class="text-[0.88rem] text-ink-secondary">
           {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
         </div>
-        <div class="text-[0.88rem] text-[#766f63]" v-if="theme.latestBookmarkedAt">
+        <div class="text-[0.88rem] text-ink-secondary" v-if="theme.latestBookmarkedAt">
           最近收藏于 {{ formatSmartDateTimeLabel(theme.latestBookmarkedAt) }}
         </div>
         <div class="mt-2 flex flex-wrap gap-3">
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="themeDetailTarget(theme)"
           >
             查看主题
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: '/events', query: { themeId: theme.id, impact: themeImpactTone(theme) !== 'neutral' ? themeImpactTone(theme) : undefined, status: (theme.openEventCount ?? 0) > 0 ? 'open' : undefined, sort: (theme.openEventCount ?? 0) > 0 ? 'statusChanged' : 'occurredAt' } }"
           >
             查看相关事件
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
           >
             查看来源状态
@@ -90,7 +90,7 @@
         </div>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       当前视角下没有匹配的主题。
     </div>
   </article>

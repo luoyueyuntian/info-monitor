@@ -2,9 +2,9 @@
   <article class="card" v-if="workspace">
     <div class="card-topline">
       <h3>成组处理</h3>
-      <span class="text-[0.88rem] text-[#766f63]">从当前事件集合直接切到处理视图</span>
+      <span class="text-[0.88rem] text-ink-secondary">从当前事件集合直接切到处理视图</span>
     </div>
-    <div class="text-[#6f665a]">{{ workspace.summary }}</div>
+    <div class="text-ink-body">{{ workspace.summary }}</div>
     <div class="mt-3 grid gap-2.5 md:grid-cols-3">
       <RouterLink
         v-for="action in workspace.actions"

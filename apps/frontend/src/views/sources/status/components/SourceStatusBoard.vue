@@ -26,7 +26,7 @@
     <article class="card" v-if="sourceWorkspaceActions.length">
       <div class="card-topline">
         <h3>跨页处理</h3>
-        <span class="text-[0.88rem] text-[#766f63]">{{ sourceWorkspaceSummary }}</span>
+        <span class="text-[0.88rem] text-ink-secondary">{{ sourceWorkspaceSummary }}</span>
       </div>
       <div class="grid gap-2.5 md:grid-cols-3">
         <RouterLink
@@ -54,13 +54,13 @@
             />
             选中当前筛选来源
           </label>
-          <span class="text-[0.88rem] text-[#766f63]">
+          <span class="text-[0.88rem] text-ink-secondary">
             {{ selectedSourceIds.length > 0 ? `已选 ${selectedSourceIds.length} 个来源` : `未单独选中时，默认使用当前筛选的 ${filteredSources.length} 个来源` }}
           </span>
         </div>
         <div class="flex flex-wrap gap-3">
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkTriggerSources"
           >
@@ -73,7 +73,7 @@
             }}
           </button>
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkToggleSourcesPaused(true)"
           >
@@ -86,7 +86,7 @@
             }}
           </button>
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#e6dcc8] px-4 py-2.5 text-[#3a3126] transition-colors hover:bg-[#ddd1bb] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="!effectiveBulkSourceIds.length || bulkUpdating"
             @click="handleBulkToggleSourcesPaused(false)"
           >
@@ -106,8 +106,8 @@
       v-if="operationNotice"
       class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
     >
-      <strong class="block text-base font-semibold text-[#2f2618]">操作结果</strong>
-      <div class="mt-2 text-[#6f665a]">{{ operationNotice.message }}</div>
+      <strong class="block text-base font-semibold text-ink-heading">操作结果</strong>
+      <div class="mt-2 text-ink-body">{{ operationNotice.message }}</div>
       <div v-if="operationNotice.actions.length" class="mt-3 grid gap-2.5 md:grid-cols-3">
         <RouterLink
           v-for="action in operationNotice.actions"

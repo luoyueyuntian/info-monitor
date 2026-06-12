@@ -2,9 +2,9 @@
   <article class="card" v-if="themes.length">
     <div class="card-topline">
       <h3>长期观察</h3>
-      <span class="text-[0.88rem] text-[#766f63]">优先回看已经沉淀了收藏事件的主题</span>
+      <span class="text-[0.88rem] text-ink-secondary">优先回看已经沉淀了收藏事件的主题</span>
       <RouterLink
-        class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+        class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
         :to="{ path: '/watchlist' }"
       >
         打开观察清单
@@ -28,13 +28,13 @@
               {{ sourceHealthLabel(theme.sourceHealth) }}
             </span>
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{
               theme.latestBookmarkedAt
                 ? `最近收藏于 ${formatSmartDateTimeLabel(theme.latestBookmarkedAt)}。`
@@ -45,28 +45,28 @@
           </div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'events' } }"
             >
               查看主题事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/events', query: { themeId: theme.id, bookmark: 'bookmarked', sort: 'bookmarkedAt' } }"
             >
               只看收藏事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'timeline' } }"
             >
               查看时间线
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
             >
               查看来源状态
@@ -93,13 +93,13 @@
               {{ sourceHealthLabel(theme.sourceHealth) }}
             </span>
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{ theme.latestInsight ?? theme.latestEventTitle ?? "这个主题当前还没有摘要。" }}
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{ buildThemeSummaryInsight(theme).headline }}：{{ buildThemeSummaryInsight(theme).summary }}
           </div>
-          <div class="text-[0.88rem] text-[#766f63]">
+          <div class="text-[0.88rem] text-ink-secondary">
             {{
               theme.latestBookmarkedAt
                 ? `最近收藏于 ${formatSmartDateTimeLabel(theme.latestBookmarkedAt)}。`
@@ -110,28 +110,28 @@
           </div>
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'events' } }"
             >
               查看主题事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/events', query: { themeId: theme.id, bookmark: 'bookmarked', sort: 'bookmarkedAt' } }"
             >
               只看收藏事件
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: `/themes/${theme.id}`, query: { section: 'timeline' } }"
             >
               查看时间线
               <span aria-hidden="true" class="text-base leading-none">›</span>
             </RouterLink>
             <RouterLink
-              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
               :to="{ path: '/sources/status', query: { themeId: theme.id, focus: theme.sourceHealth === 'warning' ? 'warning' : undefined } }"
             >
               查看来源状态

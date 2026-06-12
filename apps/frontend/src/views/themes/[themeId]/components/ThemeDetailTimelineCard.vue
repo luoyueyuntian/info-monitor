@@ -1,7 +1,7 @@
 <template>
   <article class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
-    <h3 class="mb-2 text-[1.05rem] font-semibold text-[#2f2618]">主题时间线</h3>
-    <p class="mb-4 text-[0.88rem] text-[#6f665a]">
+    <h3 class="mb-2 text-[1.05rem] font-semibold text-ink-heading">主题时间线</h3>
+    <p class="mb-4 text-[0.88rem] text-ink-body">
       把来源运行、记录变化、事件信号和通知串成一条线，方便追踪"发生了什么，为什么发生"。
     </p>
 
@@ -9,19 +9,19 @@
     <div class="mb-4 flex flex-wrap gap-3 text-[0.78rem]">
       <div class="flex items-center gap-1.5">
         <span class="h-2.5 w-2.5 rounded-full bg-[#5c7488]"></span>
-        <span class="text-[#6f665a]">来源运行</span>
+        <span class="text-ink-body">来源运行</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span class="h-2.5 w-2.5 rounded-full bg-[#7d6540]"></span>
-        <span class="text-[#6f665a]">记录变化</span>
+        <span class="text-ink-body">记录变化</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span class="h-2.5 w-2.5 rounded-full bg-[#bb7a17]"></span>
-        <span class="text-[#6f665a]">事件信号</span>
+        <span class="text-ink-body">事件信号</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span class="h-2.5 w-2.5 rounded-full bg-blue-500"></span>
-        <span class="text-[#6f665a]">通知</span>
+        <span class="text-ink-body">通知</span>
       </div>
     </div>
 
@@ -59,20 +59,20 @@
               >
                 {{ timelineMeta(entry).emphasis }}
               </span>
-              <span class="ml-auto text-[0.82rem] text-[#8a8078]">
+              <span class="ml-auto text-[0.82rem] text-ink-muted">
                 {{ formatSmartDateTimeLabel(entry.at) }}
               </span>
             </div>
 
-            <strong class="block text-[0.95rem] font-semibold text-[#2f2618]">{{ entry.title }}</strong>
+            <strong class="block text-[0.95rem] font-semibold text-ink-heading">{{ entry.title }}</strong>
 
-            <div class="mt-1 flex flex-wrap items-center gap-3 text-[0.82rem] text-[#8a8078]">
+            <div class="mt-1 flex flex-wrap items-center gap-3 text-[0.82rem] text-ink-muted">
               <span v-if="timelineMeta(entry).sourceName">
                 来源: {{ timelineMeta(entry).sourceName }}
               </span>
             </div>
 
-            <p class="mt-2 text-[0.88rem] leading-6 text-[#6f665a]">{{ entry.summary }}</p>
+            <p class="mt-2 text-[0.88rem] leading-6 text-ink-body">{{ entry.summary }}</p>
 
             <dl v-if="timelineMeta(entry).details.length" class="mt-3 rounded-lg border border-slate-200 bg-white p-3">
               <div v-for="item in timelineMeta(entry).details" :key="`${entry.id}-${item.label}`" class="flex flex-wrap gap-1.5">
@@ -85,7 +85,7 @@
       </div>
     </div>
 
-    <div v-else class="rounded-2xl border border-slate-400/15 bg-slate-50/80 p-6 text-center text-[#6f665a]">
+    <div v-else class="rounded-2xl border border-slate-400/15 bg-slate-50/80 p-6 text-center text-ink-body">
       这个主题当前还没有时间线条目。
     </div>
   </article>

@@ -1,6 +1,15 @@
+import {
+  DEFAULT_EVENT_TYPES,
+  DEMO_EVENT_IDS,
+  DEMO_EVENT_STATUS_HISTORY_IDS,
+  DEMO_NOTIFICATION_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+} from "@info-monitor/shared-contracts";
 import type {
   EventStatusHistoryEntry,
   EventSummary as SharedEventSummary,
+  NotificationItem,
   SourceStatus as SharedSourceStatus,
   ThemeSummary as SharedThemeSummary,
 } from "@info-monitor/shared-contracts";
@@ -28,7 +37,7 @@ type DemoThemeFixture = {
 
 const surfaceTheme: DemoThemeFixture = {
   theme: {
-    id: "theme-surface-pro-8",
+    id: DEMO_THEME_IDS.SURFACE_PRO_8,
     name: "Surface Pro 8 16G + 512G Price",
     type: "price",
     status: "active",
@@ -38,8 +47,8 @@ const surfaceTheme: DemoThemeFixture = {
   },
   events: [
     {
-      id: "event-surface-low",
-      themeId: "theme-surface-pro-8",
+      id: DEMO_EVENT_IDS.SURFACE_LOW,
+      themeId: DEMO_THEME_IDS.SURFACE_PRO_8,
       themeName: "Surface Pro 8 16G + 512G Price",
       title: "30-day low detected across marketplaces",
       signal: "30d_low",
@@ -47,7 +56,7 @@ const surfaceTheme: DemoThemeFixture = {
       isRead: false,
       isBookmarked: true,
       bookmarkedAt: "2026-06-01T10:00:00Z",
-      eventType: "price_low",
+      eventType: DEFAULT_EVENT_TYPES.price,
       occurredAt: "2026-06-01T09:31:00Z",
       summary: "A new cross-platform low price was detected for the same configuration.",
       infoType: "price",
@@ -65,8 +74,8 @@ const surfaceTheme: DemoThemeFixture = {
   ],
   sources: [
     {
-      id: "source-xianyu-surface",
-      themeId: "theme-surface-pro-8",
+      id: DEMO_SOURCE_IDS.XIANYU_SURFACE,
+      themeId: DEMO_THEME_IDS.SURFACE_PRO_8,
       themeName: "Surface Pro 8 16G + 512G Price",
       themeType: "price",
       latestEventSignal: "30d_low",
@@ -82,8 +91,8 @@ const surfaceTheme: DemoThemeFixture = {
       lastErrorMessage: null,
     },
     {
-      id: "source-zhuanzhuan-surface",
-      themeId: "theme-surface-pro-8",
+      id: DEMO_SOURCE_IDS.ZHUANZHUAN_SURFACE,
+      themeId: DEMO_THEME_IDS.SURFACE_PRO_8,
       themeName: "Surface Pro 8 16G + 512G Price",
       themeType: "price",
       latestEventSignal: "30d_low",
@@ -103,7 +112,7 @@ const surfaceTheme: DemoThemeFixture = {
 
 const pbcTheme: DemoThemeFixture = {
   theme: {
-    id: "theme-pbc-open-market",
+    id: DEMO_THEME_IDS.PBC_OPEN_MARKET,
     name: "PBOC Open Market Operations",
     type: "financial_event",
     status: "active",
@@ -113,8 +122,8 @@ const pbcTheme: DemoThemeFixture = {
   },
   events: [
     {
-      id: "event-pbc-withdrawal",
-      themeId: "theme-pbc-open-market",
+      id: DEMO_EVENT_IDS.PBC_WITHDRAWAL,
+      themeId: DEMO_THEME_IDS.PBC_OPEN_MARKET,
       themeName: "PBOC Open Market Operations",
       title: "Liquidity withdrawal signal recorded",
       signal: "liquidity_withdrawal",
@@ -122,7 +131,7 @@ const pbcTheme: DemoThemeFixture = {
       isRead: false,
       isBookmarked: false,
       bookmarkedAt: null,
-      eventType: "new_release",
+      eventType: DEFAULT_EVENT_TYPES.financial_event,
       occurredAt: "2026-06-01T06:10:00Z",
       summary: "A new open market operation was classified as a liquidity withdrawal signal.",
       infoType: "financial_event",
@@ -141,8 +150,8 @@ const pbcTheme: DemoThemeFixture = {
       ],
     },
     {
-      id: "event-pbc-injection",
-      themeId: "theme-pbc-open-market",
+      id: DEMO_EVENT_IDS.PBC_INJECTION,
+      themeId: DEMO_THEME_IDS.PBC_OPEN_MARKET,
       themeName: "PBOC Open Market Operations",
       title: "Potential bullish macro event recorded",
       signal: "liquidity_injection",
@@ -150,7 +159,7 @@ const pbcTheme: DemoThemeFixture = {
       isRead: true,
       isBookmarked: false,
       bookmarkedAt: null,
-      eventType: "new_release",
+      eventType: DEFAULT_EVENT_TYPES.financial_event,
       occurredAt: "2026-05-31T03:00:00Z",
       summary: "A macro release was classified as a potentially bullish event.",
       infoType: "financial_event",
@@ -171,15 +180,15 @@ const pbcTheme: DemoThemeFixture = {
   ],
   sources: [
     {
-      id: "source-pbc-policy",
-      themeId: "theme-pbc-open-market",
+      id: DEMO_SOURCE_IDS.PBC_OPEN_MARKET,
+      themeId: DEMO_THEME_IDS.PBC_OPEN_MARKET,
       themeName: "PBOC Open Market Operations",
       themeType: "financial_event",
       latestEventSignal: "liquidity_withdrawal",
-      name: "PBOC Policy Page",
+      name: "PBOC Open Market Announcements",
       status: "warning",
       sourceType: "page_list",
-      adapterKey: "pbc_news_list",
+      adapterKey: "pbc_open_market_announcements",
       isPaused: false,
       latestRunStatus: "failed",
       latestRunAt: "2026-06-01T06:00:00Z",
@@ -188,15 +197,15 @@ const pbcTheme: DemoThemeFixture = {
       lastErrorMessage: "Parsing failed on latest page fetch.",
     },
     {
-      id: "source-pbc-open-market-history",
-      themeId: "theme-pbc-open-market",
+      id: DEMO_SOURCE_IDS.PBC_OPEN_MARKET_HISTORY,
+      themeId: DEMO_THEME_IDS.PBC_OPEN_MARKET,
       themeName: "PBOC Open Market Operations",
       themeType: "financial_event",
       latestEventSignal: "liquidity_withdrawal",
       name: "PBOC Open Market History",
       status: "healthy",
       sourceType: "page_list",
-      adapterKey: "pbc_open_market_history",
+      adapterKey: "pbc_open_market_announcements",
       isPaused: false,
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T06:12:00Z",
@@ -209,7 +218,7 @@ const pbcTheme: DemoThemeFixture = {
 
 const cpiTheme: DemoThemeFixture = {
   theme: {
-    id: "theme-stats-cpi-releases",
+    id: DEMO_THEME_IDS.STATS_CPI_RELEASES,
     name: "NBS CPI Releases",
     type: "news_announcement",
     status: "active",
@@ -219,8 +228,8 @@ const cpiTheme: DemoThemeFixture = {
   },
   events: [
     {
-      id: "event-cpi-release",
-      themeId: "theme-stats-cpi-releases",
+      id: DEMO_EVENT_IDS.CPI_RELEASE,
+      themeId: DEMO_THEME_IDS.STATS_CPI_RELEASES,
       themeName: "NBS CPI Releases",
       title: "NBS published latest CPI release",
       signal: "new_announcement",
@@ -228,7 +237,7 @@ const cpiTheme: DemoThemeFixture = {
       isRead: false,
       isBookmarked: false,
       bookmarkedAt: null,
-      eventType: "new_release",
+      eventType: DEFAULT_EVENT_TYPES.news_announcement,
       occurredAt: "2026-06-01T08:02:00Z",
       summary: "A new CPI release was published on the National Bureau of Statistics site.",
       infoType: "news_announcement",
@@ -247,8 +256,8 @@ const cpiTheme: DemoThemeFixture = {
   ],
   sources: [
     {
-      id: "source-stats-cpi-release",
-      themeId: "theme-stats-cpi-releases",
+      id: DEMO_SOURCE_IDS.STATS_CPI_RELEASE,
+      themeId: DEMO_THEME_IDS.STATS_CPI_RELEASES,
       themeName: "NBS CPI Releases",
       themeType: "news_announcement",
       latestEventSignal: "new_announcement",
@@ -268,7 +277,7 @@ const cpiTheme: DemoThemeFixture = {
 
 const figmaTheme: DemoThemeFixture = {
   theme: {
-    id: "theme-figma-updates",
+    id: DEMO_THEME_IDS.FIGMA_UPDATES,
     name: "Figma Product Updates",
     type: "content_update",
     status: "active",
@@ -278,8 +287,8 @@ const figmaTheme: DemoThemeFixture = {
   },
   events: [
     {
-      id: "event-figma-release",
-      themeId: "theme-figma-updates",
+      id: DEMO_EVENT_IDS.FIGMA_RELEASE,
+      themeId: DEMO_THEME_IDS.FIGMA_UPDATES,
       themeName: "Figma Product Updates",
       title: "Figma released a new dev mode update",
       signal: "content_update",
@@ -287,7 +296,7 @@ const figmaTheme: DemoThemeFixture = {
       isRead: false,
       isBookmarked: true,
       bookmarkedAt: "2026-06-01T08:30:00Z",
-      eventType: "new_release",
+      eventType: DEFAULT_EVENT_TYPES.content_update,
       occurredAt: "2026-06-01T07:35:00Z",
       summary: "A new product update was detected on the Figma release notes page.",
       infoType: "content_update",
@@ -306,8 +315,8 @@ const figmaTheme: DemoThemeFixture = {
   ],
   sources: [
     {
-      id: "source-figma-release-notes",
-      themeId: "theme-figma-updates",
+      id: DEMO_SOURCE_IDS.FIGMA_RELEASE_NOTES,
+      themeId: DEMO_THEME_IDS.FIGMA_UPDATES,
       themeName: "Figma Product Updates",
       themeType: "content_update",
       latestEventSignal: "content_update",
@@ -325,75 +334,154 @@ const figmaTheme: DemoThemeFixture = {
   ],
 };
 
-export const mockFixtures: DemoThemeFixture[] = [surfaceTheme, pbcTheme, cpiTheme, figmaTheme];
+const eastmoneyTheme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.EASTMONEY_MOUTAI,
+    name: "贵州茅台每日价格",
+    type: "price",
+    status: "active",
+    latestRunAt: "2026-05-31T15:00:00Z",
+    latestEventAt: null,
+    sourceCount: 1,
+  },
+  events: [],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.EASTMONEY_MOUTAI_KLINE,
+      themeId: DEMO_THEME_IDS.EASTMONEY_MOUTAI,
+      themeName: "贵州茅台每日价格",
+      themeType: "price",
+      latestEventSignal: null,
+      name: "东方财富 K 线: 600519",
+      status: "healthy",
+      sourceType: "api",
+      adapterKey: "eastmoney_stock_kline",
+      isPaused: false,
+      latestRunStatus: "completed",
+      latestRunAt: "2026-05-31T15:00:00Z",
+      latestSuccessAt: "2026-05-31T15:00:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
+const pbcNewsTheme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.PBC_NEWS,
+    name: "央行新闻发布",
+    type: "news_announcement",
+    status: "active",
+    latestRunAt: "2026-06-01T07:40:00Z",
+    latestEventAt: "2026-06-01T07:38:00Z",
+    sourceCount: 1,
+  },
+  events: [
+    {
+      id: DEMO_EVENT_IDS.PBC_NEWS_LATEST,
+      themeId: DEMO_THEME_IDS.PBC_NEWS,
+      themeName: "央行新闻发布",
+      title: "PBOC published latest policy report",
+      signal: "new_announcement",
+      status: "open",
+      isRead: false,
+      isBookmarked: false,
+      bookmarkedAt: null,
+      eventType: DEFAULT_EVENT_TYPES.news_announcement,
+      occurredAt: "2026-06-01T07:38:00Z",
+      summary: "A new monetary policy report was published on the PBOC news list.",
+      infoType: "news_announcement",
+      context: {
+        release_topic_label: "货币政策执行报告",
+        publisher: "中国人民银行",
+        category: "news_announcement",
+        description: "Latest monetary policy report and supporting interpretation.",
+      },
+      evidence: [
+        "PBOC news list fetched successfully.",
+        "Latest report normalized into a release record.",
+        "Announcement event emitted from the newest release item.",
+      ],
+    },
+  ],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.PBC_NEWS_LIST,
+      themeId: DEMO_THEME_IDS.PBC_NEWS,
+      themeName: "央行新闻发布",
+      themeType: "news_announcement",
+      latestEventSignal: "new_announcement",
+      name: "央行新闻发布列表",
+      status: "healthy",
+      sourceType: "page_list",
+      adapterKey: "pbc_news_list",
+      isPaused: false,
+      latestRunStatus: "completed",
+      latestRunAt: "2026-06-01T07:40:00Z",
+      latestSuccessAt: "2026-06-01T07:40:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
+export const mockFixtures: DemoThemeFixture[] = [surfaceTheme, pbcTheme, cpiTheme, figmaTheme, eastmoneyTheme, pbcNewsTheme];
 
 export const mockThemes = mockFixtures.map((fixture) => fixture.theme);
 export const mockEvents = mockFixtures.flatMap((fixture) => fixture.events);
 export const mockSources = mockFixtures.flatMap((fixture) => fixture.sources);
 export const mockEventStatusHistory: EventStatusHistory[] = [
   {
-    id: "event_status_history_seed_pbc_injection",
-    eventId: "event-pbc-injection",
+    id: DEMO_EVENT_STATUS_HISTORY_IDS.PBC_INJECTION,
+    eventId: DEMO_EVENT_IDS.PBC_INJECTION,
     fromStatus: "open",
     toStatus: "tracking",
     changedAt: "2026-05-31T09:00:00Z",
   },
   {
-    id: "event_status_history_seed_pbc_withdrawal",
-    eventId: "event-pbc-withdrawal",
+    id: DEMO_EVENT_STATUS_HISTORY_IDS.PBC_WITHDRAWAL,
+    eventId: DEMO_EVENT_IDS.PBC_WITHDRAWAL,
     fromStatus: null,
     toStatus: "open",
     changedAt: "2026-06-01T06:10:00Z",
   },
 ];
 
-type NotificationFixture = {
-  id: string;
-  eventId: string;
-  channel: string;
-  status: string;
-  payload: Record<string, unknown>;
-  sentAt: string | null;
-  createdAt: string;
-};
-
-export const mockNotifications: NotificationFixture[] = [
+/**
+ * Notifications use flat structure matching shared-contracts NotificationItem.
+ * Previously used nested `payload` object, now unified to top-level fields.
+ */
+export const mockNotifications: NotificationItem[] = [
   {
-    id: "notification-surface-low",
-    eventId: "event-surface-low",
+    id: DEMO_NOTIFICATION_IDS.SURFACE_LOW,
+    eventId: DEMO_EVENT_IDS.SURFACE_LOW,
     channel: "in_app",
     status: "pending",
-    payload: {
-      title: "30-day low detected across marketplaces",
-      summary: "Detected a new 30-day low price for Surface Pro 8 16G + 512G.",
-      signal: "30d_low",
-    },
+    title: "30-day low detected across marketplaces",
+    summary: "Detected a new 30-day low price for Surface Pro 8 16G + 512G.",
+    signal: "30d_low",
     sentAt: null,
     createdAt: "2026-06-01T09:31:00Z",
   },
   {
-    id: "notification-pbc-injection",
-    eventId: "event-pbc-injection",
+    id: DEMO_NOTIFICATION_IDS.PBC_INJECTION,
+    eventId: DEMO_EVENT_IDS.PBC_INJECTION,
     channel: "in_app",
     status: "sent",
-    payload: {
-      title: "Bullish signal: reverse repo liquidity injection detected",
-      summary: "A liquidity injection operation was detected for PBOC 7-day reverse repo. This typically indicates looser short-term monetary conditions.",
-      signal: "bullish",
-    },
+    title: "Liquidity injection: reverse repo operation detected",
+    summary: "A liquidity injection operation was detected for PBOC 7-day reverse repo. This typically indicates looser short-term monetary conditions.",
+    signal: "liquidity_injection",
     sentAt: "2026-06-01T06:05:00Z",
     createdAt: "2026-06-01T06:05:00Z",
   },
   {
-    id: "notification-pbc-withdrawal",
-    eventId: "event-pbc-withdrawal",
+    id: DEMO_NOTIFICATION_IDS.PBC_WITHDRAWAL,
+    eventId: DEMO_EVENT_IDS.PBC_WITHDRAWAL,
     channel: "in_app",
     status: "pending",
-    payload: {
-      title: "Bearish signal: outright repo liquidity withdrawal detected",
-      summary: "A liquidity withdrawal operation was detected for PBOC 14-day outright repo. This typically indicates tighter short-term monetary conditions.",
-      signal: "bearish",
-    },
+    title: "Liquidity withdrawal: outright repo operation detected",
+    summary: "A liquidity withdrawal operation was detected for PBOC 14-day outright repo. This typically indicates tighter short-term monetary conditions.",
+    signal: "liquidity_withdrawal",
     sentAt: null,
     createdAt: "2026-06-01T06:10:00Z",
   },

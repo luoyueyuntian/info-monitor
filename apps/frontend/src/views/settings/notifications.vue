@@ -1,15 +1,15 @@
 <template>
   <section class="flex flex-col gap-5">
     <header>
-      <h2 class="mb-2 text-[1.8rem] font-semibold text-[#1d1d1d]">通知偏好设置</h2>
+      <h2 class="mb-2 text-[1.8rem] font-semibold text-ink">通知偏好设置</h2>
       <p class="m-0 leading-7 text-[#675d4f]">配置通知的触发条件和显示方式，按主题、信号类型或渠道进行精细控制。</p>
     </header>
 
-    <div v-if="loading" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-[#6f665a]">
+    <div v-if="loading" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       加载中...
     </div>
 
-    <div v-else-if="!preferences.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-[#6f665a]">
+    <div v-else-if="!preferences.length" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       暂无通知偏好配置。点击下方按钮添加。
     </div>
 
@@ -33,13 +33,13 @@
           </div>
           <div class="flex items-center gap-2">
             <button
-              class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+              class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink transition-colors hover:bg-slate-50"
               @click="toggleEnabled(pref)"
             >
               {{ pref.isEnabled ? '已启用' : '已禁用' }}
             </button>
             <button
-              class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.82rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
+              class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink transition-colors hover:bg-slate-50"
               @click="toggleMuted(pref)"
             >
               {{ pref.isMuted ? '已静音' : '未静音' }}
@@ -52,7 +52,7 @@
             </button>
           </div>
         </div>
-        <div class="mt-3 flex flex-wrap items-center gap-3 text-[0.82rem] text-[#8a8078]">
+        <div class="mt-3 flex flex-wrap items-center gap-3 text-[0.82rem] text-ink-muted">
           <label class="flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -67,7 +67,7 @@
 
     <div class="flex flex-wrap gap-3">
       <button
-        class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-5 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#3a3126]"
+        class="inline-flex items-center justify-center rounded-xl bg-btn-dark px-5 py-2.5 text-ink-on-dark transition-colors hover:bg-[#3a3126]"
         @click="showAddForm = !showAddForm"
       >
         {{ showAddForm ? '取消' : '添加偏好' }}
@@ -79,13 +79,13 @@
       class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
       @submit.prevent="handleCreate"
     >
-      <h3 class="mb-4 text-lg font-semibold text-[#2f2618]">新建通知偏好</h3>
+      <h3 class="mb-4 text-lg font-semibold text-ink-heading">新建通知偏好</h3>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="mb-1.5 block text-[0.82rem] font-semibold text-[#6b5e49]">渠道</label>
+          <label class="mb-1.5 block text-[0.82rem] font-semibold text-ink-label">渠道</label>
           <select
             v-model="newPref.channel"
-            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-[#1d1d1d]"
+            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-ink"
           >
             <option value="in_app">应用内</option>
             <option value="email">邮件</option>
@@ -94,47 +94,47 @@
           </select>
         </div>
         <div>
-          <label class="mb-1.5 block text-[0.82rem] font-semibold text-[#6b5e49]">信号类型（可选）</label>
+          <label class="mb-1.5 block text-[0.82rem] font-semibold text-ink-label">信号类型（可选）</label>
           <select
             v-model="newPref.signal"
-            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-[#1d1d1d]"
+            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-ink"
           >
             <option value="">全部</option>
             <option value="30d_low">价格新低</option>
-            <option value="bullish">利好信号</option>
-            <option value="bearish">利空信号</option>
+            <option value="liquidity_injection">流动性投放</option>
+            <option value="liquidity_withdrawal">流动性回笼</option>
             <option value="new_announcement">新公告</option>
             <option value="content_update">内容更新</option>
           </select>
         </div>
         <div>
-          <label class="mb-1.5 block text-[0.82rem] font-semibold text-[#6b5e49]">主题ID（可选）</label>
+          <label class="mb-1.5 block text-[0.82rem] font-semibold text-ink-label">主题ID（可选）</label>
           <input
             v-model="newPref.themeId"
             type="text"
             placeholder="留空表示所有主题"
-            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-[#1d1d1d]"
+            class="w-full rounded-xl border border-slate-400/15 bg-white px-4 py-2.5 text-ink"
           />
         </div>
         <div class="flex items-end gap-4">
           <label class="flex items-center gap-2">
             <input v-model="newPref.isEnabled" type="checkbox" />
-            <span class="text-[0.82rem] text-[#6b5e49]">启用</span>
+            <span class="text-[0.82rem] text-ink-label">启用</span>
           </label>
           <label class="flex items-center gap-2">
             <input v-model="newPref.isMuted" type="checkbox" />
-            <span class="text-[0.82rem] text-[#6b5e49]">静音</span>
+            <span class="text-[0.82rem] text-ink-label">静音</span>
           </label>
           <label class="flex items-center gap-2">
             <input v-model="newPref.priorityOnly" type="checkbox" />
-            <span class="text-[0.82rem] text-[#6b5e49]">仅高优先级</span>
+            <span class="text-[0.82rem] text-ink-label">仅高优先级</span>
           </label>
         </div>
       </div>
       <div class="mt-4">
         <button
           type="submit"
-          class="inline-flex items-center justify-center rounded-xl bg-[#2f2618] px-5 py-2.5 text-[#fff7e7] transition-colors hover:bg-[#3a3126]"
+          class="inline-flex items-center justify-center rounded-xl bg-btn-dark px-5 py-2.5 text-ink-on-dark transition-colors hover:bg-[#3a3126]"
         >
           创建
         </button>

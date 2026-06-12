@@ -2,10 +2,10 @@
   <article class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
     <div class="mb-3 flex flex-wrap items-start justify-between gap-4">
       <div class="grid min-w-0 gap-1">
-        <h3 class="m-0 text-[1.02rem] font-semibold text-[#2f2618]">来源健康</h3>
+        <h3 class="m-0 text-[1.02rem] font-semibold text-ink-heading">来源健康</h3>
         <p class="m-0 text-[0.9rem] leading-[1.45] text-[#756a5b]">{{ description }}</p>
       </div>
-      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]" :to="sourceStatusPanelTarget">
+      <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="sourceStatusPanelTarget">
         查看来源状态
         <span aria-hidden="true" class="text-base leading-none">›</span>
       </RouterLink>
@@ -15,15 +15,15 @@
         <button
           v-for="preset in sourcePanelPresets"
           :key="preset.id"
-          class="inline-flex items-center justify-center rounded-xl border border-[rgba(120,120,120,0.22)] bg-white px-3 py-2 text-[0.88rem] text-[#1d1d1d] transition-colors hover:bg-slate-50"
-          :class="sourcePanelFocus === preset.id ? 'border-[#2f2618] bg-[#2f2618] text-[#fff7e7] hover:bg-[#2f2618]' : ''"
+          class="inline-flex items-center justify-center rounded-xl border border-border bg-white px-3 py-2 text-[0.88rem] text-ink transition-colors hover:bg-slate-50"
+          :class="sourcePanelFocus === preset.id ? 'border-[#2f2618] bg-btn-dark text-ink-on-dark hover:bg-btn-dark' : ''"
           @click="sourcePanelFocus = preset.id"
         >
           {{ preset.label }}
         </button>
       </div>
     </div>
-    <div class="mb-3 text-[0.88rem] text-[#766f63]">{{ summary }}</div>
+    <div class="mb-3 text-[0.88rem] text-ink-secondary">{{ summary }}</div>
     <div v-if="sortedSources.length" class="flex flex-col gap-3">
       <article
         v-for="source in sortedSources"
@@ -31,13 +31,13 @@
         class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5"
       >
         <RouterLink
-          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-[#6b4f1f]"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
           :to="`/sources/${source.id}`"
         >
           {{ source.name }}
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
-        <div class="text-[0.88rem] text-[#766f63]">
+        <div class="text-[0.88rem] text-ink-secondary">
           {{ source.themeName }} · {{ sourceStatusLabel(source.status) }} · {{ sourceTypeLabel(source.sourceType) }}
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2" v-if="source.themeType || source.latestEventSignal">
@@ -47,10 +47,10 @@
           </span>
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-          <span class="text-[0.88rem] text-[#766f63]" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
-          <span class="text-[0.88rem] text-[#766f63]" v-if="source.isPaused">已暂停</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary" v-if="source.isPaused">已暂停</span>
         </div>
-        <div class="text-[#6f665a]">
+        <div class="text-ink-body">
           {{
             source.lastErrorMessage
               ? `最近错误：${source.lastErrorMessage}`
@@ -59,21 +59,21 @@
         </div>
         <div class="mt-2 flex flex-wrap gap-3">
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="`/sources/${source.id}`"
           >
             查看来源详情
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: `/themes/${source.themeId}`, query: { section: themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) === 'negative' ? 'analysis' : 'timeline' } }"
           >
             {{ themeImpactTone({ type: source.themeType ?? "", latestEventSignal: source.latestEventSignal ?? null }) === "negative" ? "查看主题分析" : "查看主题时间线" }}
             <span aria-hidden="true" class="text-base leading-none">›</span>
           </RouterLink>
           <RouterLink
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-[#6b4f1f]"
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="{ path: '/events', query: { themeId: source.themeId, impact: themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) !== 'neutral' ? themeImpactTone({ type: source.themeType ?? '', latestEventSignal: source.latestEventSignal ?? null }) : undefined, sort: 'occurredAt' } }"
           >
             查看相关事件
@@ -82,7 +82,7 @@
         </div>
       </article>
     </div>
-    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-[#6f665a]">
+    <div v-else class="rounded-2xl bg-slate-100/90 p-4 text-ink-body">
       当前视角下没有匹配的来源。
     </div>
   </article>

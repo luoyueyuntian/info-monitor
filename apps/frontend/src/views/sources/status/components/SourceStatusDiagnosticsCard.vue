@@ -5,7 +5,7 @@
       <span :class="pillToneClass(diagnostic.tone)">{{ diagnostic.toneLabel }}</span>
     </div>
     <p class="mb-3.5 text-[#6e665a]">{{ diagnostic.headline }}</p>
-    <div class="text-[#6f665a]">{{ diagnostic.summary }}</div>
+    <div class="text-ink-body">{{ diagnostic.summary }}</div>
 
     <div class="grid two">
       <div class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">

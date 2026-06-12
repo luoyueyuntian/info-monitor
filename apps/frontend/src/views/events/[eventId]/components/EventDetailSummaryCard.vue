@@ -8,7 +8,7 @@
       <span :class="pillToneClass(detail.isRead ? 'active' : 'pending')">{{ eventReadLabel(detail.isRead) }}</span>
       <span :class="pillToneClass(detail.isBookmarked ? '30d_low' : 'neutral')">{{ eventBookmarkLabel(detail.isBookmarked) }}</span>
     </div>
-    <div class="text-[0.88rem] text-[#766f63]">
+    <div class="text-[0.88rem] text-ink-secondary">
       主题: {{ detail.themeName }} · 时间: {{ formatDateTimeLabel(detail.occurredAt) }}
       <span v-if="detail.sourceName"> · 来源: {{ detail.sourceName }}</span>
     </div>

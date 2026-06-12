@@ -8,10 +8,10 @@
           <span :class="pillToneClass()">{{ run.triggerType }}</span>
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
-          <span class="text-[0.88rem] text-[#766f63]">开始: {{ formatDateTimeLabel(run.startedAt) }}</span>
-          <span class="text-[0.88rem] text-[#766f63]">结束: {{ formatDateTimeLabel(run.finishedAt) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">开始: {{ formatDateTimeLabel(run.startedAt) }}</span>
+          <span class="text-[0.88rem] text-ink-secondary">结束: {{ formatDateTimeLabel(run.finishedAt) }}</span>
         </div>
-        <div v-if="run.errorMessage" class="text-[#6f665a]">错误: {{ run.errorMessage }}</div>
+        <div v-if="run.errorMessage" class="text-ink-body">错误: {{ run.errorMessage }}</div>
       </div>
     </div>
   </article>

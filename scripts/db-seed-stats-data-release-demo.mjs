@@ -9,6 +9,14 @@ import {
   upsertSourceRun,
   upsertTheme,
 } from "./lib/db-seed-helpers.mjs";
+import {
+  DEMO_EVENT_IDS,
+  DEMO_RECORD_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_THEME_IDS,
+  DEMO_RUN_IDS,
+} from "./lib/demo-scene-ids.mjs";
 
 dotenv.config();
 
@@ -21,8 +29,12 @@ if (!databaseUrl) {
 
 const client = new pg.Client({ connectionString: databaseUrl });
 
-const themeId = "theme_stats_data_release_demo";
-const sourceId = "source_stats_data_release_demo";
+const themeId = DEMO_THEME_IDS.STATS_CPI_RELEASES;
+const sourceId = DEMO_SOURCE_IDS.STATS_CPI_RELEASE;
+const runId = DEMO_RUN_IDS.STATS_DATA_RELEASE_LATEST;
+const snapshotId = DEMO_SNAPSHOT_IDS.STATS_DATA_RELEASE_LATEST;
+const recordId = DEMO_RECORD_IDS.STATS_DATA_RELEASE_LATEST;
+const eventId = DEMO_EVENT_IDS.STATS_DATA_RELEASE_LATEST;
 
 try {
   await client.connect();
@@ -54,7 +66,7 @@ try {
   });
 
   await upsertSourceRun(client, {
-    id: "run_stats_data_release_demo_latest",
+    id: runId,
     themeId,
     sourceId,
     triggerType: "seed",
@@ -64,8 +76,8 @@ try {
   });
 
   await upsertRawSnapshot(client, {
-    id: "snapshot_stats_data_release_demo_latest",
-    sourceRunId: "run_stats_data_release_demo_latest",
+    id: snapshotId,
+    sourceRunId: runId,
     themeId,
     sourceId,
     fetchedAt: "2026-06-01T08:02:00Z",
@@ -78,8 +90,8 @@ try {
   });
 
   await upsertNormalizedRecord(client, {
-    id: "record_stats_data_release_demo_latest",
-    sourceRunId: "run_stats_data_release_demo_latest",
+    id: recordId,
+    sourceRunId: runId,
     themeId,
     sourceId,
     infoType: "news_announcement",
@@ -96,8 +108,8 @@ try {
   });
 
   await upsertEvent(client, {
-    id: "event_stats_data_release_demo_latest",
-    sourceRunId: "run_stats_data_release_demo_latest",
+    id: eventId,
+    sourceRunId: runId,
     themeId,
     sourceId,
     changeId: null,

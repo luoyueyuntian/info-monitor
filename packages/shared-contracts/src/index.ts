@@ -474,3 +474,24 @@ export type {
   TemplateVariables,
   StatusColorScheme,
 } from "./notification-theme.js";
+
+// Re-export demo scene definitions
+export {
+  DEMO_THEME_IDS,
+  DEMO_SOURCE_IDS,
+  DEMO_EVENT_IDS,
+  DEMO_RUN_IDS,
+  DEMO_SNAPSHOT_IDS,
+  DEMO_RECORD_IDS,
+  DEMO_CHANGE_IDS,
+  DEMO_NOTIFICATION_IDS,
+  DEMO_EVENT_STATUS_HISTORY_IDS,
+  DEMO_THEMES,
+  DEMO_SOURCES,
+  DEFAULT_EVENT_TYPES,
+} from "./demo-scene-definitions.js";
+
+export type {
+  DemoThemeDefinition,
+  DemoSourceDefinition,
+} from "./demo-scene-definitions.js";

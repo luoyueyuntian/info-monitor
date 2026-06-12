@@ -6,7 +6,7 @@
         <strong>
           {{ item.fromStatus ? `${eventStatusLabel(item.fromStatus)} → ${eventStatusLabel(item.toStatus)}` : eventStatusLabel(item.toStatus) }}
         </strong>
-        <div class="text-[0.88rem] text-[#766f63]">{{ formatSmartDateTimeLabel(item.changedAt) }}</div>
+        <div class="text-[0.88rem] text-ink-secondary">{{ formatSmartDateTimeLabel(item.changedAt) }}</div>
       </div>
     </div>
   </article>

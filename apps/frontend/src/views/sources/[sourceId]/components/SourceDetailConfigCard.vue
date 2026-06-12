@@ -19,7 +19,7 @@
         <dd class="m-0 text-[#695e4c]">{{ formatDateTimeLabel(latestFailureAt) }}</dd>
       </div>
     </dl>
-    <div class="mt-3 rounded-xl border border-slate-400/15 bg-slate-50/90 p-3 font-mono text-[0.84rem] whitespace-pre-wrap break-words text-[#6f665a]">
+    <div class="mt-3 rounded-xl border border-slate-400/15 bg-slate-50/90 p-3 font-mono text-[0.84rem] whitespace-pre-wrap break-words text-ink-body">
       {{ JSON.stringify(config ?? {}, null, 2) }}
     </div>
   </article>

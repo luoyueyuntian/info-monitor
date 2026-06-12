@@ -280,41 +280,41 @@ export function pillToneClass(value?: string | null, variant: "default" | "text"
   switch (value) {
     case "positive":
     case "bullish":
-      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
+      return `${base} ${variant === "text" ? "text-positive-text" : "bg-positive-bg text-positive-text"}`;
     case "negative":
     case "bearish":
-      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
+      return `${base} ${variant === "text" ? "text-negative-text" : "bg-negative-bg text-negative-text"}`;
     case "30d_low":
-      return `${base} ${variant === "text" ? "text-[#7a4a11]" : "bg-[#e8d8bc] text-[#7a4a11]"}`;
+      return `${base} ${variant === "text" ? "text-warning-text" : "bg-warning-bg text-warning-text"}`;
     case "content_update":
-      return `${base} ${variant === "text" ? "text-[#8a5b1f]" : "bg-[#f1e4cc] text-[#8a5b1f]"}`;
+      return `${base} ${variant === "text" ? "text-warning-text" : "bg-warning-bg text-warning-text"}`;
     case "new_announcement":
-      return `${base} ${variant === "text" ? "text-[#1d537f]" : "bg-[#d9e7f2] text-[#1d537f]"}`;
+      return `${base} ${variant === "text" ? "text-info-text" : "bg-info-bg text-info-text"}`;
     case "new_financial_event":
-      return `${base} ${variant === "text" ? "text-[#4f4178]" : "bg-[#e2ddf1] text-[#4f4178]"}`;
+      return `${base} ${variant === "text" ? "text-accent-text" : "bg-accent-bg text-accent-text"}`;
     case "liquidity_injection":
-      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
+      return `${base} ${variant === "text" ? "text-positive-text" : "bg-positive-bg text-positive-text"}`;
     case "liquidity_withdrawal":
-      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
+      return `${base} ${variant === "text" ? "text-negative-text" : "bg-negative-bg text-negative-text"}`;
     case "neutral":
-      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
+      return `${base} ${variant === "text" ? "text-neutral-text" : "bg-neutral-bg text-neutral-text"}`;
     case "open":
-      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
+      return `${base} ${variant === "text" ? "text-neutral-text" : "bg-neutral-bg text-neutral-text"}`;
     case "tracking":
-      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
+      return `${base} ${variant === "text" ? "text-positive-text" : "bg-positive-bg text-positive-text"}`;
     case "ignored":
-      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
+      return `${base} ${variant === "text" ? "text-negative-text" : "bg-negative-bg text-negative-text"}`;
     case "healthy":
     case "completed":
     case "active":
-      return `${base} ${variant === "text" ? "text-[#1f6a3b]" : "bg-[#d9efe0] text-[#1f6a3b]"}`;
+      return `${base} ${variant === "text" ? "text-positive-text" : "bg-positive-bg text-positive-text"}`;
     case "warning":
     case "failed":
-      return `${base} ${variant === "text" ? "text-[#8b2d28]" : "bg-[#f3d9d7] text-[#8b2d28]"}`;
+      return `${base} ${variant === "text" ? "text-negative-text" : "bg-negative-bg text-negative-text"}`;
     case "pending":
     case "running":
-      return `${base} ${variant === "text" ? "text-[#625749]" : "bg-[#e7e4dc] text-[#625749]"}`;
+      return `${base} ${variant === "text" ? "text-neutral-text" : "bg-neutral-bg text-neutral-text"}`;
     default:
-      return `${base} ${variant === "text" ? "text-[#6a4b14]" : "bg-[#efe2c2] text-[#6a4b14]"}`;
+      return `${base} ${variant === "text" ? "text-warning-text" : "bg-warning-bg text-warning-text"}`;
   }
 }

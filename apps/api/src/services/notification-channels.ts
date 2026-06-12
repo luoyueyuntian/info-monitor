@@ -6,6 +6,7 @@
  */
 
 import type { NotificationChannel } from "@info-monitor/shared-contracts";
+import { getSignalPriority } from "@info-monitor/shared-contracts";
 
 export interface NotificationPayload {
   id: string;
@@ -103,16 +104,7 @@ async function sendTelegram(
 
   try {
     // Format message for Telegram
-    const signalEmoji: Record<string, string> = {
-      "30d_low": "📉",
-      bullish: "🟢",
-      bearish: "🔴",
-      new_announcement: "📢",
-      content_update: "📝",
-      neutral: "⚪",
-    };
-
-    const emoji = signalEmoji[payload.signal] || "ℹ️";
+    const emoji = getSignalPriority(payload.signal).emoji;
     const message = `${emoji} *${escapeMarkdown(payload.title)}*\n\n${escapeMarkdown(payload.summary)}`;
 
     const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;

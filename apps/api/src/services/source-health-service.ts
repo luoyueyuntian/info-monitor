@@ -104,8 +104,8 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       averageRunDuration: 1500,
       recentErrors: [
         {
-          sourceId: "source-pbc-policy",
-          sourceName: "PBOC Policy Page",
+          sourceId: "source-pbc-open-market",
+          sourceName: "PBOC Open Market Announcements",
           errorMessage: "Parsing failed on latest page fetch.",
           occurredAt: "2026-06-01T06:00:00Z",
         },
@@ -289,13 +289,13 @@ export async function getOperationalMetrics(): Promise<OperationalMetrics> {
           errorMessage: "Connection timeout to upstream source",
           count: 5,
           lastOccurredAt: new Date(now.getTime() - 3600_000).toISOString(),
-          sourceIds: ["source-pbc-policy", "source-eastmoney-sh"],
+          sourceIds: ["source-pbc-open-market", "source-stats-cpi-release"],
         },
         {
           errorMessage: "Parsing failed on latest page fetch",
           count: 2,
           lastOccurredAt: new Date(now.getTime() - 7200_000).toISOString(),
-          sourceIds: ["source-pbc-policy"],
+          sourceIds: ["source-pbc-open-market"],
         },
       ],
       hourlyDistribution: Array.from({ length: 24 }, (_, hour) => {
