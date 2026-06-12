@@ -4,6 +4,7 @@ import {
   batchDeleteNotifications,
   batchMarkNotificationsRead,
   clearUnreadByTheme,
+  getDueRetries,
   getNotificationDetail,
   getNotificationStats,
   isNotificationStatus,
@@ -182,14 +183,20 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
   app.post<{ Params: { notificationId: string } }>(
     "/api/notifications/:notificationId/retry",
     async (request, reply) => {
-      const result = await retryFailedNotification(request.params.notificationId);
+      const body = request.body as { channelConfig?: ChannelConfig } | undefined;
+      const result = await retryFailedNotification(
+        request.params.notificationId,
+        body?.channelConfig,
+      );
 
       if (!result.success) {
         reply.code(result.message === "Notification not found" ? 404 : 400);
         return { message: result.message };
       }
 
-      return { success: true, message: "Notification queued for retry" };
+      return { success: true, message: body?.channelConfig
+        ? "Notification retry sent"
+        : "Notification queued for retry" };
     },
   );
 
@@ -222,4 +229,13 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       return { success: true, message: "Notification sent successfully" };
     },
   );
+
+  // ─── Due Retries ──────────────────────────────────────────────────────────
+  app.get("/api/notifications/due-retries", async () => {
+    const dueRetries = await getDueRetries();
+    return {
+      count: dueRetries.length,
+      notifications: dueRetries,
+    };
+  });
 }

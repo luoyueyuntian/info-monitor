@@ -11,6 +11,25 @@ import {
   type NotificationPayload,
   sendNotification,
 } from "./notification-channels.js";
+import { logAuditEvent } from "./notification-audit-service.js";
+import { checkRateLimit, releaseLastSlot } from "./rate-limiter.js";
+import { getEffectivePreference } from "./notification-preference-service.js";
+import { getEffectiveRuleConfig } from "./rule-config-service.js";
+
+// ─── Retry Configuration ─────────────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000; // 1 second
+
+/**
+ * Calculate the next retry time using exponential backoff with jitter.
+ * delay = baseDelay * 2^retryCount + random jitter
+ */
+function calculateNextRetryDelay(retryCount: number): number {
+  const exponentialDelay = BASE_DELAY_MS * Math.pow(2, retryCount);
+  const jitter = Math.random() * BASE_DELAY_MS; // 0-1s jitter
+  return exponentialDelay + jitter;
+}
 
 export const notificationStatuses = ["pending", "sent", "failed"] as const;
 
@@ -444,6 +463,7 @@ export async function clearUnreadByTheme(
 
 export async function retryFailedNotification(
   notificationId: string,
+  channelConfig?: ChannelConfig,
 ): Promise<{ success: boolean; message?: string }> {
   const db = getDatabase();
 
@@ -458,15 +478,47 @@ export async function retryFailedNotification(
       return { success: false, message: "Notification is not in failed state" };
     }
 
-    // Simulate retry - in real implementation, this would call the notification channel
-    notification.status = "sent";
-    notification.sentAt = new Date().toISOString();
+    // Track retry count in mock
+    const retryCount = ((notification as Record<string, unknown>).retryCount as number) || 0;
+    const maxRetries = ((notification as Record<string, unknown>).maxRetries as number) || MAX_RETRIES;
+    if (retryCount >= maxRetries) {
+      return { success: false, message: `Maximum retry attempts (${maxRetries}) exceeded` };
+    }
+
+    if (channelConfig) {
+      // Simulate immediate retry send (no real external call in mock mode)
+      notification.status = "sent";
+      notification.sentAt = new Date().toISOString();
+      (notification as Record<string, unknown>).retryCount = retryCount + 1;
+
+      await logAuditEvent(notificationId, "retried", "failed", "pending", "system", {
+        retryCount: retryCount + 1,
+        channel: notification.channel,
+      });
+      await logAuditEvent(notificationId, "sent", "pending", "sent", "system", {
+        channel: notification.channel,
+      });
+
+      return { success: true };
+    }
+
+    // No channelConfig - queue for later retry (mirrors DB path behavior)
+    (notification as Record<string, unknown>).retryCount = retryCount + 1;
+    (notification as Record<string, unknown>).mockRetryNextAt =
+      new Date(Date.now() + calculateNextRetryDelay(retryCount)).toISOString();
+
+    await logAuditEvent(notificationId, "retried", "failed", "failed", "system", {
+      retryCount: retryCount + 1,
+      channel: notification.channel,
+      scheduled: true,
+    });
+
     return { success: true };
   }
 
   const existing = await db
     .selectFrom("notifications")
-    .select(["id", "status", "channel"])
+    .select(["id", "status", "channel", "retry_count", "max_retries"])
     .where("id", "=", notificationId)
     .executeTakeFirst();
 
@@ -478,20 +530,137 @@ export async function retryFailedNotification(
     return { success: false, message: "Notification is not in failed state" };
   }
 
-  // In a real implementation, this would:
-  // 1. Get the notification details
-  // 2. Call the appropriate channel (email, webhook, telegram)
-  // 3. Update status based on result
+  if (existing.retry_count >= (existing.max_retries || MAX_RETRIES)) {
+    return { success: false, message: `Maximum retry attempts (${existing.max_retries || MAX_RETRIES}) exceeded` };
+  }
 
-  // For now, we'll just mark it as pending for retry
+  // If channelConfig is provided, attempt to send immediately (consumes rate limit)
+  if (channelConfig) {
+    // Check rate limit only when actually sending
+    const rateLimit = checkRateLimit(existing.channel);
+    if (!rateLimit.allowed) {
+      return { success: false, message: `Rate limit exceeded for ${existing.channel}. Try again later.` };
+    }
+
+    // Get full notification details for sending
+    const notifRow = await db
+      .selectFrom("notifications as n")
+      .leftJoin("events as e", "e.id", "n.event_id")
+      .select([
+        "n.id as id",
+        "n.event_id as eventId",
+        "n.channel as channel",
+        "n.payload as payload",
+        "e.title as title",
+        "e.summary as summary",
+        "e.signal as signal",
+        "e.theme_id as themeId",
+      ])
+      .where("n.id", "=", notificationId)
+      .executeTakeFirst();
+
+    if (notifRow) {
+      // Check preference and priority guards before committing to retry
+      const payload = (notifRow.payload as Record<string, unknown>) || {};
+      const signal = (notifRow.signal as string) || (payload?.signal as string) || "";
+      const guardCheck = await checkSendGuards(
+        notifRow.channel,
+        notifRow.themeId ?? undefined,
+        signal,
+      );
+      if (!guardCheck.allowed) {
+        releaseLastSlot(existing.channel);
+        return { success: false, message: guardCheck.reason };
+      }
+
+      // Guards passed - log retry attempt to audit before sending
+      await logAuditEvent(notificationId, "retried", "failed", "pending", "system", {
+        retryCount: existing.retry_count + 1,
+        channel: existing.channel,
+      });
+
+      const sendResult = await sendNotification(
+        {
+          id: notifRow.id,
+          eventId: notifRow.eventId,
+          channel: notifRow.channel as NotificationChannel,
+          title: (payload.title as string) || notifRow.title || "",
+          summary: (payload.summary as string) || notifRow.summary || "",
+          signal: (payload.signal as string) || notifRow.signal || "",
+        },
+        channelConfig,
+      );
+
+      if (sendResult.success) {
+        // Send succeeded - mark as sent
+        await db
+          .updateTable("notifications")
+          .set({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            retry_count: existing.retry_count + 1,
+            last_retry_at: new Date().toISOString(),
+          })
+          .where("id", "=", notificationId)
+          .execute();
+
+        await logAuditEvent(notificationId, "sent", "pending", "sent", "system", {
+          channel: existing.channel,
+          retryCount: existing.retry_count + 1,
+        });
+
+        return { success: true };
+      }
+
+      // Send failed - release rate limit slot and mark as failed with retry tracking
+      releaseLastSlot(existing.channel);
+
+      const nextRetryDelay = calculateNextRetryDelay(existing.retry_count);
+      await db
+        .updateTable("notifications")
+        .set({
+          status: "failed",
+          retry_count: existing.retry_count + 1,
+          last_retry_at: new Date().toISOString(),
+          next_retry_at: new Date(Date.now() + nextRetryDelay).toISOString(),
+        })
+        .where("id", "=", notificationId)
+        .execute();
+
+      await logAuditEvent(notificationId, "failed", "pending", "failed", "system", {
+        channel: existing.channel,
+        error: sendResult.error,
+        retryCount: existing.retry_count + 1,
+      });
+
+      return { success: false, message: `Retry send failed: ${sendResult.error}` };
+    }
+
+    // notifRow was null (notification not found in join) - release rate limit slot
+    releaseLastSlot(existing.channel);
+  }
+
+  // No channelConfig or notification not found for sending - keep status as "failed"
+  // but update retry tracking so getDueRetries() can find it later.
+  const nextRetryDelay = calculateNextRetryDelay(existing.retry_count);
+  const now = new Date().toISOString();
   await db
     .updateTable("notifications")
     .set({
-      status: "pending",
-      sent_at: null,
+      retry_count: existing.retry_count + 1,
+      last_retry_at: now,
+      next_retry_at: new Date(Date.now() + nextRetryDelay).toISOString(),
     })
     .where("id", "=", notificationId)
     .execute();
+
+  // Log scheduling only - status remains "failed", not "pending"
+  await logAuditEvent(notificationId, "retried", "failed", "failed", "system", {
+    retryCount: existing.retry_count + 1,
+    channel: existing.channel,
+    scheduled: true,
+    nextRetryAt: new Date(Date.now() + nextRetryDelay).toISOString(),
+  });
 
   return { success: true };
 }
@@ -583,6 +752,117 @@ export async function getNotificationStats(): Promise<{
   };
 }
 
+// ─── Preference & Rule Config Integration ────────────────────────────────────
+
+/**
+ * Check if a notification should be sent based on user preferences.
+ * Returns { allowed, reason } - if not allowed, the reason explains why.
+ */
+export async function shouldSendNotification(
+  channel: string,
+  themeId?: string,
+  signal?: string,
+): Promise<{ allowed: boolean; reason?: string }> {
+  const preference = await getEffectivePreference(themeId, undefined, signal, channel);
+
+  if (!preference) {
+    // No preference configured - allow by default
+    return { allowed: true };
+  }
+
+  if (!preference.isEnabled) {
+    return { allowed: false, reason: `Notifications disabled for ${themeId ? `theme ${themeId}` : signal ? `signal ${signal}` : channel}` };
+  }
+
+  if (preference.isMuted) {
+    return { allowed: false, reason: `Notifications muted for ${themeId ? `theme ${themeId}` : signal ? `signal ${signal}` : channel}` };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Get the effective rule configuration for a given signal and theme.
+ * Used to determine notification behavior (e.g., priority level, dedup window).
+ */
+export async function getNotificationRuleConfig(
+  signal: string,
+  themeId?: string,
+): Promise<Record<string, unknown> | null> {
+  // Map signal to rule key
+  const signalToRuleKey: Record<string, string> = {
+    "30d_low": "price_30d_low",
+    "price_breakout": "price_breakout",
+    "consecutive_movement": "consecutive_movement",
+    "bullish": "financial_direction",
+    "bearish": "financial_direction",
+    "liquidity_injection": "financial_direction",
+    "liquidity_withdrawal": "financial_direction",
+    "new_announcement": "news_announcement",
+    "content_update": "content_update",
+  };
+
+  const ruleKey = signalToRuleKey[signal];
+  if (!ruleKey) {
+    return null;
+  }
+
+  return getEffectiveRuleConfig(ruleKey, themeId);
+}
+
+/**
+ * Check if a notification should be sent based on rule config's priority_only setting.
+ * If `preference` is provided, skips the redundant getEffectivePreference call.
+ */
+export async function shouldSendByPriority(
+  signal: string,
+  themeId?: string,
+  channel: string = "in_app",
+  preference?: { priorityOnly: boolean } | null,
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (preference === undefined) {
+    preference = await getEffectivePreference(themeId, undefined, signal, channel);
+  }
+
+  if (!preference?.priorityOnly) {
+    return { allowed: true };
+  }
+
+  // If priority_only is set, check the rule config for notification level
+  const ruleConfig = await getNotificationRuleConfig(signal, themeId);
+  const level = ruleConfig?.notificationLevel as string | undefined;
+
+  if (!level || level === "high" || level === "critical") {
+    return { allowed: true };
+  }
+
+  return { allowed: false, reason: `Priority-only mode: ${signal} has level "${level}", not high/critical` };
+}
+
+/**
+ * Combined guard: check preferences and priority in a single call.
+ * Fetches the effective preference once and reuses it for both checks.
+ */
+export async function checkSendGuards(
+  channel: string,
+  themeId?: string,
+  signal?: string,
+): Promise<{ allowed: boolean; reason?: string }> {
+  const preference = await getEffectivePreference(themeId, undefined, signal, channel);
+
+  if (preference) {
+    if (!preference.isEnabled) {
+      return { allowed: false, reason: `Notifications disabled for ${themeId ? `theme ${themeId}` : signal ? `signal ${signal}` : channel}` };
+    }
+    if (preference.isMuted) {
+      return { allowed: false, reason: `Notifications muted for ${themeId ? `theme ${themeId}` : signal ? `signal ${signal}` : channel}` };
+    }
+  }
+
+  // Pass the already-fetched preference to avoid redundant query
+  return shouldSendByPriority(signal ?? "", themeId, channel, preference);
+}
+
 export async function sendExternalNotification(
   notificationId: string,
   channelConfig: ChannelConfig,
@@ -595,15 +875,34 @@ export async function sendExternalNotification(
       return { success: false, error: "Notification not found" };
     }
 
-    const payload = notification.payload as Record<string, unknown>;
+    // Check rate limit
+    const rateLimit = checkRateLimit(notification.channel);
+    if (!rateLimit.allowed) {
+      return { success: false, error: `Rate limit exceeded for ${notification.channel}` };
+    }
+
+    // Get themeId from mock events
+    const { mockEvents } = await import("../lib/mock-store.js");
+    const event = mockEvents.find((e) => e.id === notification.eventId);
+    const themeId = event?.themeId;
+
+    // Check preferences and priority (single preference fetch)
+    const notifPayload = notification.payload as Record<string, unknown>;
+    const signal = (notifPayload?.signal as string) || "";
+    const guardCheck = await checkSendGuards(notification.channel, themeId, signal);
+    if (!guardCheck.allowed) {
+      releaseLastSlot(notification.channel);
+      return { success: false, error: guardCheck.reason };
+    }
+
     const result = await sendNotification(
       {
         id: notification.id,
         eventId: notification.eventId,
         channel: notification.channel as NotificationChannel,
-        title: (payload.title as string) || "",
-        summary: (payload.summary as string) || "",
-        signal: (payload.signal as string) || "",
+        title: (notifPayload.title as string) || "",
+        summary: (notifPayload.summary as string) || "",
+        signal: (notifPayload.signal as string) || "",
       },
       channelConfig,
     );
@@ -611,8 +910,21 @@ export async function sendExternalNotification(
     if (result.success) {
       notification.status = "sent";
       notification.sentAt = new Date().toISOString();
+      await logAuditEvent(notificationId, "sent", "pending", "sent", "system", {
+        channel: notification.channel,
+      });
     } else {
+      releaseLastSlot(notification.channel);
       notification.status = "failed";
+      // Track retry timing in mock mode for getDueRetries consistency
+      const mockRetryCount = ((notification as Record<string, unknown>).retryCount as number) || 0;
+      (notification as Record<string, unknown>).retryCount = mockRetryCount + 1;
+      (notification as Record<string, unknown>).mockRetryNextAt =
+        new Date(Date.now() + calculateNextRetryDelay(mockRetryCount)).toISOString();
+      await logAuditEvent(notificationId, "failed", "pending", "failed", "system", {
+        channel: notification.channel,
+        error: result.error,
+      });
     }
 
     return result;
@@ -628,9 +940,11 @@ export async function sendExternalNotification(
       "n.channel as channel",
       "n.status as status",
       "n.payload as payload",
+      "n.retry_count as retry_count",
       "e.title as title",
       "e.summary as summary",
       "e.signal as signal",
+      "e.theme_id as themeId",
     ])
     .where("n.id", "=", notificationId)
     .executeTakeFirst();
@@ -639,7 +953,20 @@ export async function sendExternalNotification(
     return { success: false, error: "Notification not found" };
   }
 
+  // Check rate limit
+  const rateLimit = checkRateLimit(row.channel);
+  if (!rateLimit.allowed) {
+    return { success: false, error: `Rate limit exceeded for ${row.channel}` };
+  }
+
+  // Check preferences and priority (single preference fetch)
   const payload = (row.payload as Record<string, unknown>) || {};
+  const signal = (row.signal as string) || (payload?.signal as string) || "";
+  const guardCheck = await checkSendGuards(row.channel, row.themeId ?? undefined, signal);
+  if (!guardCheck.allowed) {
+    releaseLastSlot(row.channel);
+    return { success: false, error: guardCheck.reason };
+  }
 
   const result = await sendNotification(
     {
@@ -653,7 +980,7 @@ export async function sendExternalNotification(
     channelConfig,
   );
 
-  // Update notification status based on result
+  // Update notification status and log to audit
   if (result.success) {
     await db
       .updateTable("notifications")
@@ -663,15 +990,69 @@ export async function sendExternalNotification(
       })
       .where("id", "=", notificationId)
       .execute();
+
+    await logAuditEvent(notificationId, "sent", row.status, "sent", "system", {
+      channel: row.channel,
+    });
   } else {
+    // Release rate limit slot on failure
+    releaseLastSlot(row.channel);
+
+    // Get current retry_count for proper backoff calculation
+    const currentRetryCount = (row as Record<string, unknown>).retry_count as number ?? 0;
+    const nextRetryDelay = calculateNextRetryDelay(currentRetryCount);
     await db
       .updateTable("notifications")
       .set({
         status: "failed",
+        retry_count: currentRetryCount + 1,
+        last_retry_at: new Date().toISOString(),
+        next_retry_at: new Date(Date.now() + nextRetryDelay).toISOString(),
       })
       .where("id", "=", notificationId)
       .execute();
+
+    await logAuditEvent(notificationId, "failed", row.status, "failed", "system", {
+      channel: row.channel,
+      error: result.error,
+    });
   }
 
   return result;
+}
+
+// ─── Due Retries ─────────────────────────────────────────────────────────────
+
+/**
+ * Find notifications that are due for automatic retry.
+ * These are failed notifications whose next_retry_at has passed.
+ */
+export async function getDueRetries(): Promise<Array<{ id: string; channel: string }>> {
+  const db = getDatabase();
+
+  if (!db) {
+    const now = Date.now();
+    return mockNotifications
+      .filter((n) => {
+        const retryCount = ((n as Record<string, unknown>).retryCount as number) || 0;
+        const maxRetries = ((n as Record<string, unknown>).maxRetries as number) || MAX_RETRIES;
+        if (n.status !== "failed" || retryCount >= maxRetries) return false;
+        // Check timing if available (matches DB path's next_retry_at <= now)
+        const retryNextAt = (n as Record<string, unknown>).mockRetryNextAt as string | undefined;
+        if (retryNextAt && new Date(retryNextAt).getTime() > now) return false;
+        return true;
+      })
+      .map((n) => ({ id: n.id, channel: n.channel }));
+  }
+
+  const now = new Date().toISOString();
+  const rows = await db
+    .selectFrom("notifications")
+    .select(["id", "channel"])
+    .where("status", "=", "failed")
+    .where("next_retry_at", "<=", now as any)
+    .whereRef("retry_count", "<", "max_retries")
+    .execute();
+
+  return rows;
 }

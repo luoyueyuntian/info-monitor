@@ -36,6 +36,8 @@ export interface SendResult {
 
 // ─── Channel Implementations ─────────────────────────────────────────────────
 
+const REQUEST_TIMEOUT_MS = 10_000; // 10 seconds
+
 async function sendWebhook(
   payload: NotificationPayload,
   config: ChannelConfig["webhook"],
@@ -43,6 +45,9 @@ async function sendWebhook(
   if (!config?.url) {
     return { success: false, error: "Webhook URL not configured" };
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     const response = await fetch(config.url, {
@@ -61,6 +66,7 @@ async function sendWebhook(
         timestamp: new Date().toISOString(),
         ...payload.metadata,
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -72,10 +78,15 @@ async function sendWebhook(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { success: false, error: `Webhook request timed out after ${REQUEST_TIMEOUT_MS}ms` };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -86,6 +97,9 @@ async function sendTelegram(
   if (!config?.botToken || !config?.chatId) {
     return { success: false, error: "Telegram bot token or chat ID not configured" };
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     // Format message for Telegram
@@ -113,6 +127,7 @@ async function sendTelegram(
         text: message,
         parse_mode: "Markdown",
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -130,16 +145,22 @@ async function sendTelegram(
       messageId: result.result?.message_id?.toString(),
     };
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { success: false, error: `Telegram request timed out after ${REQUEST_TIMEOUT_MS}ms` };
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 function escapeMarkdown(text: string): string {
-  // Escape special Markdown characters for Telegram
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
+  // Telegram MarkdownV1 only has these special characters: _ * [ `
+  // Escape backslash first, then MarkdownV1 specials
+  return text.replace(/\\/g, "\\\\").replace(/([_*`\[])/g, "\\$&");
 }
 
 // ─── Channel Dispatcher ──────────────────────────────────────────────────────

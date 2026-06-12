@@ -6,9 +6,13 @@
 
 ### 架构设计
 
-- [通知模型](./notification-model.md) - 通知数据模型、生命周期和 API
+- [通知模型](./notification-model.md) - 通知数据模型、生命周期、偏好、限流和 API
 - [事件规则](./event-rules.md) - 事件规则系统扩展指南
 - [Shared Contracts](./shared-contracts.md) - 共享类型包使用规范
+
+### 部署运维
+
+- [部署指南](./deployment.md) - 部署方式、环境变量、故障排查
 
 ### 开发指南
 
@@ -161,6 +165,8 @@ info-monitor/
 | `GET /api/notification-preferences` | 通知偏好 |
 | `GET /api/rule-configurations` | 规则配置 |
 | `GET /api/sources/health` | 来源健康监控 |
+| `GET /api/sources/operational-metrics` | 运维指标（耗时趋势、失败率、积压、异常聚合） |
+| `GET /api/channels` | 支持的通知通道列表 |
 
 ## 部署
 
@@ -174,10 +180,12 @@ npm run build
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `DATABASE_URL` | PostgreSQL 连接字符串 | - |
-| `API_PORT` | API 端口 | 3001 |
-| `FRONTEND_PORT` | 前端端口 | 5173 |
-| `CORS_ORIGIN` | CORS 允许的来源 | - |
+| `DATABASE_URL` | PostgreSQL 连接字符串（为空时进入 Mock 模式） | - |
+| `API_PORT` | API 服务端口 | 3001 |
+| `API_HOST` | API 绑定地址 | 0.0.0.0 |
+| `CORS_ORIGIN` | CORS 允许的来源 | http://localhost:5173 |
+
+详细配置参见 [部署指南](./deployment.md#环境变量)。
 
 ## 常见问题
 

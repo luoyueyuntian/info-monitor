@@ -633,6 +633,7 @@ def insert_notification(
     if existing_row:
         # Update existing notification: reset status to pending and update payload
         # This ensures re-notification when event content changes
+        # Also reset retry tracking so stale retry state doesn't carry over
         connection.execute(
             text(
                 """
@@ -640,7 +641,10 @@ def insert_notification(
                 set
                   payload = cast(:payload_json as jsonb),
                   status = 'pending',
-                  sent_at = null
+                  sent_at = null,
+                  retry_count = 0,
+                  last_retry_at = null,
+                  next_retry_at = null
                 where id = :id
                 """
             ),

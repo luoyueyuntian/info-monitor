@@ -103,6 +103,10 @@ export interface NotificationsTable {
   status: string;
   payload: JsonColumn<Record<string, unknown>>;
   sent_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
+  retry_count: number;
+  last_retry_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
+  next_retry_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
+  max_retries: number;
   created_at: TimestampColumn;
 }
 

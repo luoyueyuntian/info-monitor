@@ -16,6 +16,7 @@ import { registerRuleConfigurationRoutes } from "./routes/rule-configurations.js
 import { registerSourceHealthRoutes } from "./routes/source-health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerThemeRoutes } from "./routes/themes.js";
+import { registerChannelConfigRoutes } from "./routes/channel-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,7 @@ export async function buildApp() {
   await registerRuleConfigurationRoutes(app);
   await registerSourceRoutes(app);
   await registerSourceHealthRoutes(app);
+  await registerChannelConfigRoutes(app);
 
   // Serve frontend static files
   // __dirname is /app/apps/api/src
