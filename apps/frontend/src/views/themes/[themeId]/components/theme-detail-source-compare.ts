@@ -536,6 +536,214 @@ function buildFinancialEventDiagnostic(input: {
   };
 }
 
+// ─── Continuous Snapshot Compare ─────────────────────────────────────────────
+
+export type SnapshotRound = {
+  roundIndex: number;
+  occurredAt: string;
+  sources: Array<{
+    sourceId: string;
+    sourceName: string;
+    price: number | null;
+    isLowest: boolean;
+    isHighest: boolean;
+    deltaFromLowest: string | null;
+    /** Per-source trend label based on price change across rounds */
+    trendLabel: string | null;
+  }>;
+  spread: number | null;
+  spreadRatio: number | null;
+  lowestSourceName: string | null;
+};
+
+export type ContinuousSnapshotCompareData = {
+  headline: string;
+  summary: string;
+  rounds: SnapshotRound[];
+  spreadTrend: "widening" | "narrowing" | "stable" | "insufficient";
+  spreadTrendLabel: string;
+  lowestSourceStability: "stable" | "switching" | "insufficient";
+  lowestSourceStabilityLabel: string;
+  stats: string[];
+};
+
+export function buildContinuousSnapshotCompareData(detail: ThemeDetail): ContinuousSnapshotCompareData | null {
+  if (detail.theme.type !== "price") {
+    return null;
+  }
+
+  const records = [...detail.records]
+    .filter((record) => record.infoType === "price" && record.sourceId)
+    .sort((left, right) => toTimestamp(right.occurredAt) - toTimestamp(left.occurredAt));
+
+  if (records.length < 2) {
+    return null;
+  }
+
+  // Group records by time window (rounds)
+  // Records within 1 hour of each other are considered the same round
+  const rounds: Array<{ occurredAt: string; records: ThemeRecord[] }> = [];
+  const ROUND_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+  for (const record of records) {
+    const recordTime = toTimestamp(record.occurredAt);
+    const existingRound = rounds.find(
+      (round) => Math.abs(toTimestamp(round.occurredAt) - recordTime) < ROUND_WINDOW_MS
+    );
+
+    if (existingRound) {
+      existingRound.records.push(record);
+    } else {
+      rounds.push({
+        occurredAt: record.occurredAt,
+        records: [record],
+      });
+    }
+  }
+
+  // Take last 5 rounds
+  const recentRounds = rounds.slice(0, 5);
+
+  if (recentRounds.length < 2) {
+    return null;
+  }
+
+  // Build snapshot rounds incrementally (must use let + loop, not const + map,
+  // because each round's trend label depends on the previous round's data)
+  const snapshotRounds: SnapshotRound[] = [];
+
+  for (let index = 0; index < recentRounds.length; index++) {
+    const round = recentRounds[index];
+    const pricesBySource = new Map<string, number>();
+
+    for (const record of round.records) {
+      const price = Number(record.content.price ?? NaN);
+      if (Number.isFinite(price) && record.sourceId) {
+        pricesBySource.set(record.sourceId, price);
+      }
+    }
+
+    const prices = [...pricesBySource.values()];
+    const minPrice = prices.length ? Math.min(...prices) : null;
+    const maxPrice = prices.length ? Math.max(...prices) : null;
+    const spread = minPrice != null && maxPrice != null ? maxPrice - minPrice : null;
+    const spreadRatio = minPrice != null && minPrice > 0 && maxPrice != null
+      ? ((maxPrice - minPrice) / minPrice) * 100
+      : null;
+
+    const sources = detail.sources.map((source) => {
+      const price = pricesBySource.get(source.id) ?? null;
+      const isLowest = minPrice != null && price === minPrice;
+      const isHighest = maxPrice != null && minPrice != null && price === maxPrice && maxPrice > minPrice;
+      const deltaFromLowest = price != null && minPrice != null && price > minPrice && minPrice > 0
+        ? `+${(((price - minPrice) / minPrice) * 100).toFixed(1)}%`
+        : null;
+
+      // Compute per-source trend label by comparing with previous round
+      let trendLabel: string | null = null;
+      if (index > 0 && price != null) {
+        const previousRound = snapshotRounds[index - 1];
+        const previousPrice = previousRound.sources.find((s) => s.sourceId === source.id)?.price;
+        if (previousPrice != null && previousPrice > 0) {
+          const deltaPercent = ((price - previousPrice) / previousPrice) * 100;
+          if (deltaPercent <= -1.5) {
+            trendLabel = "继续下探";
+          } else if (deltaPercent >= 1.5) {
+            trendLabel = "短线回升";
+          } else {
+            trendLabel = "基本持平";
+          }
+        }
+      }
+
+      return {
+        sourceId: source.id,
+        sourceName: source.name,
+        price,
+        isLowest,
+        isHighest,
+        deltaFromLowest,
+        trendLabel,
+      };
+    });
+
+    const lowestSource = sources.find((s) => s.isLowest);
+
+    snapshotRounds.push({
+      roundIndex: index + 1,
+      occurredAt: round.occurredAt,
+      sources,
+      spread,
+      spreadRatio,
+      lowestSourceName: lowestSource?.sourceName ?? null,
+    });
+  }
+
+  // Analyze spread trend
+  const roundsWithSpread = snapshotRounds.filter((r) => r.spread != null);
+  let spreadTrend: ContinuousSnapshotCompareData["spreadTrend"] = "insufficient";
+  let spreadTrendLabel = "快照样本不足，暂无法判断价差趋势";
+
+  if (roundsWithSpread.length >= 2) {
+    const latestSpread = roundsWithSpread[0].spread!;
+    const previousSpread = roundsWithSpread[1].spread!;
+    const spreadDelta = latestSpread - previousSpread;
+
+    if (Math.abs(spreadDelta) < 1) {
+      spreadTrend = "stable";
+      spreadTrendLabel = `价差基本持平，当前约为 ${latestSpread.toLocaleString("zh-CN")} CNY`;
+    } else if (spreadDelta > 0) {
+      spreadTrend = "widening";
+      spreadTrendLabel = `价差正在扩大，较上一轮增加了 ${spreadDelta.toLocaleString("zh-CN")} CNY`;
+    } else {
+      spreadTrend = "narrowing";
+      spreadTrendLabel = `价差正在收敛，较上一轮减少了 ${Math.abs(spreadDelta).toLocaleString("zh-CN")} CNY`;
+    }
+  }
+
+  // Analyze lowest source stability
+  const lowestSourceNames = snapshotRounds
+    .map((r) => r.lowestSourceName)
+    .filter((name): name is string => name != null);
+
+  let lowestSourceStability: ContinuousSnapshotCompareData["lowestSourceStability"] = "insufficient";
+  let lowestSourceStabilityLabel = "快照样本不足，暂无法判断最低来源稳定性";
+
+  if (lowestSourceNames.length >= 2) {
+    const allSame = lowestSourceNames.every((name) => name === lowestSourceNames[0]);
+
+    if (allSame) {
+      lowestSourceStability = "stable";
+      lowestSourceStabilityLabel = `最低来源始终是 ${lowestSourceNames[0]}，格局较为稳定`;
+    } else {
+      lowestSourceStability = "switching";
+      lowestSourceStabilityLabel = `最低来源在 ${[...new Set(lowestSourceNames)].join("、")} 之间切换`;
+    }
+  }
+
+  // Build stats
+  const coveredSources = new Set(records.map((r) => r.sourceId));
+  const stats = [
+    `已展示 ${snapshotRounds.length} 轮快照`,
+    `覆盖 ${coveredSources.size}/${detail.sources.length} 个来源`,
+    spreadTrendLabel,
+    lowestSourceStabilityLabel,
+  ];
+
+  return {
+    headline: "连续快照对比",
+    summary: `展示最近 ${snapshotRounds.length} 轮快照中各来源的价格变化，帮助你判断最低价是否稳定、价差是在扩大还是收敛。`,
+    rounds: snapshotRounds,
+    spreadTrend,
+    spreadTrendLabel,
+    lowestSourceStability,
+    lowestSourceStabilityLabel,
+    stats,
+  };
+}
+
+// ─── Main Compare Data ──────────────────────────────────────────────────────
+
 export function buildThemeSourceCompareData(detail: ThemeDetail): ThemeSourceCompareData {
   const records = [...detail.records].sort((left, right) => toTimestamp(right.occurredAt) - toTimestamp(left.occurredAt));
   const latestRecordBySource = new Map<string, ThemeRecord>();

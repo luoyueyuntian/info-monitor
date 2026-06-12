@@ -110,6 +110,14 @@
       <ThemeDetailSourceCompareCard :compare="sourceCompareData" />
     </div>
 
+    <div v-if="continuousSnapshotData" :ref="setSectionRef('continuous-snapshot')">
+      <ThemeDetailContinuousSnapshotCard :data="continuousSnapshotData" />
+    </div>
+
+    <div v-if="financialRhythmData" :ref="setSectionRef('financial-rhythm')">
+      <ThemeDetailFinancialRhythmCard :data="financialRhythmData" />
+    </div>
+
     <div class="grid two">
       <div :ref="setSectionRef('events')">
         <ThemeDetailRecentEventsCard :theme-id="detail.theme.id" :events="detail.events" />
@@ -142,6 +150,10 @@
         :timeline-meta="timelineMeta"
       />
     </div>
+
+    <div :ref="setSectionRef('review-note')">
+      <ThemeDetailReviewNoteCard :theme-id="detail.theme.id" />
+    </div>
   </section>
 </template>
 
@@ -154,6 +166,7 @@ import ThemeDetailAnalysisCard from "./ThemeDetailAnalysisCard.vue";
 import ThemeDetailAddSourceFormCard from "./ThemeDetailAddSourceFormCard.vue";
 import ThemeDetailActionsBar from "./ThemeDetailActionsBar.vue";
 import ThemeDetailBreakdownCard from "./ThemeDetailBreakdownCard.vue";
+import ThemeDetailReviewNoteCard from "./ThemeDetailReviewNoteCard.vue";
 import ThemeDetailEditThemeFormCard from "./ThemeDetailEditThemeFormCard.vue";
 import ThemeDetailEventQueueCard from "./ThemeDetailEventQueueCard.vue";
 import ThemeDetailHeader from "./ThemeDetailHeader.vue";
@@ -162,13 +175,16 @@ import ThemeDetailRecentEventsCard from "./ThemeDetailRecentEventsCard.vue";
 import ThemeDetailRecordsCard from "./ThemeDetailRecordsCard.vue";
 import ThemeDetailSectionNav from "./ThemeDetailSectionNav.vue";
 import ThemeDetailSourceCompareCard from "./ThemeDetailSourceCompareCard.vue";
+import ThemeDetailContinuousSnapshotCard from "./ThemeDetailContinuousSnapshotCard.vue";
+import ThemeDetailFinancialRhythmCard from "./ThemeDetailFinancialRhythmCard.vue";
 import ThemeDetailStatsGrid from "./ThemeDetailStatsGrid.vue";
 import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
 import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
-import { buildThemeSourceCompareData } from "./theme-detail-source-compare";
+import { buildThemeSourceCompareData, buildContinuousSnapshotCompareData } from "./theme-detail-source-compare";
+import { buildFinancialRhythmData } from "./theme-detail-financial-rhythm";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
 import {
   createSource,
@@ -499,6 +515,22 @@ const sourceCompareData = computed(() => {
   }
 
   return buildThemeSourceCompareData(detail.value);
+});
+
+const continuousSnapshotData = computed(() => {
+  if (!detail.value) {
+    return null;
+  }
+
+  return buildContinuousSnapshotCompareData(detail.value);
+});
+
+const financialRhythmData = computed(() => {
+  if (!detail.value) {
+    return null;
+  }
+
+  return buildFinancialRhythmData(detail.value);
 });
 
 const analysisReviewActions = computed(() => {

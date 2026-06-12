@@ -37,8 +37,11 @@ describe("source-health-service (mock mode)", () => {
       const stats = await getSourceHealthStats();
 
       if (stats.totalSources > 0) {
-        const expectedRate = stats.healthySources / stats.totalSources;
-        expect(stats.healthRate).toBeCloseTo(expectedRate, 5);
+        // healthRate is now based on average health score (0-1)
+        expect(stats.healthRate).toBeGreaterThanOrEqual(0);
+        expect(stats.healthRate).toBeLessThanOrEqual(1);
+        // With mock data, should have reasonable health rate
+        expect(stats.healthRate).toBeGreaterThan(0.5);
       } else {
         expect(stats.healthRate).toBe(0);
       }

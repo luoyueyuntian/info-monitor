@@ -117,10 +117,10 @@ export function buildInboxSectionDigest(
       primaryTarget: latestEvent
         ? {
             path: `/themes/${latestEvent.themeId}`,
-            query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "analysis" },
+            query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "compare" },
           }
         : null,
-      primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题分析",
+      primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题对比",
     };
   }
 
@@ -150,10 +150,10 @@ export function buildInboxSectionDigest(
       primaryTarget: latestEvent
         ? {
             path: `/themes/${latestEvent.themeId}`,
-            query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "analysis" },
+            query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "timeline" },
           }
         : null,
-      primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题分析",
+      primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题时间线",
     };
   }
 
@@ -182,9 +182,9 @@ export function buildInboxSectionDigest(
     primaryTarget: latestEvent
       ? {
           path: `/themes/${latestEvent.themeId}`,
-          query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "analysis" },
+          query: { section: (latestEvent.status ?? "open") === "open" ? "events" : "financial-rhythm" },
         }
       : null,
-    primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题分析",
+    primaryActionLabel: (latestEvent?.status ?? "open") === "open" ? "查看重点主题待处理事件" : "查看重点主题节奏",
   };
 }

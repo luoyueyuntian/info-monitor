@@ -79,52 +79,333 @@ export type SourceHealthStats = {
   }>;
 };
 
+/**
+ * Calculate health score for a source based on its metrics.
+ * Score ranges from 0-100:
+ * - >80: healthy
+ * - 60-80: degraded
+ * - <60: unhealthy
+ */
+export type HealthScoreInput = {
+  status: string;
+  isPaused?: boolean;
+  latestRunStatus?: string | null;
+  latestSuccessAt?: string | null;
+  latestFailureAt?: string | null;
+  lastErrorMessage?: string | null;
+};
+
+function calculateSourceHealthScore(source: HealthScoreInput): number {
+  let score = 100;
+
+  // Factor 1: Latest run status (fetchStatus)
+  if (source.latestRunStatus === "failed") {
+    score -= 30;
+  } else if (source.latestRunStatus === "pending" || source.latestRunStatus === "running") {
+    score -= 10;
+  }
+
+  // Factor 2: Current status (contentStatus indicator)
+  if (source.status === "warning") {
+    score -= 25;
+  }
+
+  // Factor 3: Consecutive failures (based on latestFailureAt vs latestSuccessAt)
+  if (source.latestFailureAt && source.latestSuccessAt) {
+    const failureTime = new Date(source.latestFailureAt).getTime();
+    const successTime = new Date(source.latestSuccessAt).getTime();
+    // If failure is more recent than success, indicates consecutive failures
+    if (failureTime > successTime) {
+      score -= 20;
+    }
+  } else if (source.latestFailureAt && !source.latestSuccessAt) {
+    // Only failures, no successes
+    score -= 40;
+  }
+
+  // Factor 4: Error message presence
+  if (source.lastErrorMessage) {
+    score -= 15;
+  }
+
+  // Factor 5: Paused status
+  if (source.isPaused) {
+    score -= 10;
+  }
+
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Determine health status based on score.
+ * - >80: healthy
+ * - ≤80: warning (degraded and unhealthy both map to "warning" for UI consistency)
+ */
+function getHealthStatusFromScore(score: number): string {
+  if (score > 80) return "healthy";
+  return "warning";
+}
+
+// ─── Source Health Explanation ──────────────────────────────────────────────
+
+export type SourceHealthExplanation = {
+  /** Source ID */
+  sourceId: string;
+  /** Source name */
+  sourceName: string;
+  /** Current health status */
+  status: "healthy" | "warning" | "paused";
+  /** Health score (0-100) */
+  healthScore: number;
+  /** Primary issue explanation */
+  issue: string | null;
+  /** Why this issue matters */
+  impact: string | null;
+  /** Impact level on theme judgment */
+  impactLevel: "none" | "low" | "medium" | "high";
+  /** What the user should do */
+  recommendation: string | null;
+  /** Detailed breakdown of issues */
+  issues: Array<{
+    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message";
+    label: string;
+    description: string;
+    impact: string;
+  }>;
+};
+
+/**
+ * Generate a unified health explanation for a source.
+ * Explains why a source is abnormal and what the impact is on theme judgment.
+ */
+export function explainSourceHealth(source: {
+  id: string;
+  name: string;
+  status: string;
+  isPaused?: boolean;
+  latestRunStatus?: string | null;
+  latestRunAt?: string | null;
+  latestSuccessAt?: string | null;
+  latestFailureAt?: string | null;
+  lastErrorMessage?: string | null;
+  runCount24h?: number;
+  failureCount24h?: number;
+}): SourceHealthExplanation {
+  const issues: SourceHealthExplanation["issues"] = [];
+  const now = Date.now();
+
+  // Check for paused status
+  if (source.isPaused) {
+    issues.push({
+      type: "paused",
+      label: "来源已暂停",
+      description: "该来源当前处于暂停状态，不会自动执行抓取任务。",
+      impact: "无法获取该来源的最新数据，主题判断可能缺少该渠道的信息。",
+    });
+  }
+
+  // Check for recent fetch failures
+  if (source.latestRunStatus === "failed") {
+    issues.push({
+      type: "fetch_failed",
+      label: "最近抓取失败",
+      description: source.lastErrorMessage || "最近一次抓取任务执行失败。",
+      impact: "最新数据可能缺失或不完整，需要检查失败原因并重新抓取。",
+    });
+  }
+
+  // Check for stale data (no success in 24 hours)
+  if (source.latestSuccessAt) {
+    const lastSuccess = new Date(source.latestSuccessAt).getTime();
+    const hoursSinceSuccess = (now - lastSuccess) / (1000 * 60 * 60);
+
+    if (hoursSinceSuccess > 24) {
+      issues.push({
+        type: "long_stale",
+        label: "长时间未更新",
+        description: `最近一次成功抓取在 ${Math.floor(hoursSinceSuccess)} 小时前。`,
+        impact: "数据可能已经过时，无法反映最新情况。",
+      });
+    }
+  } else if (!source.isPaused) {
+    issues.push({
+      type: "long_stale",
+      label: "从未成功抓取",
+      description: "该来源还没有成功抓取记录。",
+      impact: "无法判断该来源的数据质量，需要先完成一次成功抓取。",
+    });
+  }
+
+  // Check for pending backlog
+  if (source.latestRunStatus === "pending") {
+    issues.push({
+      type: "pending_backlog",
+      label: "任务排队中",
+      description: "抓取任务正在排队等待执行。",
+      impact: "数据更新会有延迟，但通常不会影响最终结果。",
+    });
+  }
+
+  // Check for error message
+  if (source.lastErrorMessage && source.latestRunStatus !== "failed") {
+    issues.push({
+      type: "error_message",
+      label: "存在错误信息",
+      description: source.lastErrorMessage,
+      impact: "可能存在间歇性问题，需要关注是否会影响数据质量。",
+    });
+  }
+
+  // Determine primary issue
+  const primaryIssue = issues[0] ?? null;
+
+  // Determine impact level
+  let impactLevel: SourceHealthExplanation["impactLevel"] = "none";
+  if (source.isPaused) {
+    impactLevel = "low"; // Paused is intentional, low impact
+  } else if (source.status === "warning" || source.latestRunStatus === "failed") {
+    impactLevel = "high";
+  } else if (issues.length > 0) {
+    impactLevel = "medium";
+  }
+
+  // Generate recommendation
+  let recommendation: string | null = null;
+  if (source.isPaused) {
+    recommendation = "如需继续监控，可以恢复该来源。";
+  } else if (source.latestRunStatus === "failed") {
+    recommendation = "检查错误信息并重新运行抓取任务。";
+  } else if (issues.some((i) => i.type === "long_stale")) {
+    recommendation = "手动触发一次抓取，确认来源是否仍然可用。";
+  } else if (source.latestRunStatus === "pending") {
+    recommendation = "等待当前任务完成，或检查是否有任务积压。";
+  }
+
+  // Calculate health score
+  const healthScore = calculateSourceHealthScore({
+    status: source.status,
+    isPaused: source.isPaused,
+    latestRunStatus: source.latestRunStatus,
+    latestSuccessAt: source.latestSuccessAt,
+    latestFailureAt: source.latestFailureAt,
+    lastErrorMessage: source.lastErrorMessage,
+  });
+
+  // Determine status
+  const status = source.isPaused ? "paused" : getHealthStatusFromScore(healthScore) as "healthy" | "warning";
+
+  return {
+    sourceId: source.id,
+    sourceName: source.name,
+    status,
+    healthScore,
+    issue: primaryIssue?.label ?? null,
+    impact: primaryIssue?.impact ?? null,
+    impactLevel,
+    recommendation,
+    issues,
+  };
+}
+
+/**
+ * Generate health explanations for multiple sources.
+ */
+export function explainMultipleSourceHealth(sources: Array<{
+  id: string;
+  name: string;
+  status: string;
+  isPaused?: boolean;
+  latestRunStatus?: string | null;
+  latestRunAt?: string | null;
+  latestSuccessAt?: string | null;
+  latestFailureAt?: string | null;
+  lastErrorMessage?: string | null;
+  runCount24h?: number;
+  failureCount24h?: number;
+}>): SourceHealthExplanation[] {
+  return sources.map((source) => explainSourceHealth(source));
+}
+
 export async function getSourceHealthStats(): Promise<SourceHealthStats> {
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode
+    // Mock mode - calculate health based on actual source metrics
     const totalSources = mockSources.length;
-    const healthySources = mockSources.filter((s) => s.status === "healthy").length;
-    const warningSources = mockSources.filter((s) => s.status === "warning").length;
+
+    // Calculate health scores for each source
+    const sourceHealthScores = mockSources.map((s) => ({
+      source: s,
+      healthScore: calculateSourceHealthScore(s),
+    }));
+
+    // Count sources by calculated status
+    // Note: healthy and warning exclude paused sources to avoid double-counting
+    const healthySources = sourceHealthScores.filter(
+      (item) => !item.source.isPaused && item.healthScore > 80
+    ).length;
+    const warningSources = sourceHealthScores.filter(
+      (item) => !item.source.isPaused && item.healthScore <= 80
+    ).length;
     const pausedSources = mockSources.filter((s) => s.isPaused).length;
+
+    // Calculate overall health rate based on health scores
+    const activeSources = sourceHealthScores.filter((item) => !item.source.isPaused);
+    const averageHealthScore = activeSources.length > 0
+      ? activeSources.reduce((sum, item) => sum + item.healthScore, 0) / activeSources.length
+      : 0;
+    const healthRate = averageHealthScore / 100;
+
+    // Calculate run statistics based on source data
+    const sourcesWithFailures = mockSources.filter((s) => s.latestRunStatus === "failed");
+    const totalRuns = mockSources.length * 3; // Assume 3 runs per source in 24h
+    const failedRuns = sourcesWithFailures.length * 2; // Failed sources have ~2 failures
+    const successfulRuns = totalRuns - failedRuns;
+
+    // Collect recent errors from sources with failures
+    const recentErrors = mockSources
+      .filter((s) => s.lastErrorMessage && s.latestFailureAt)
+      .map((s) => ({
+        sourceId: s.id,
+        sourceName: s.name,
+        errorMessage: s.lastErrorMessage!,
+        occurredAt: s.latestFailureAt!,
+      }));
 
     return {
       totalSources,
       healthySources,
       warningSources,
       pausedSources,
-      healthRate: totalSources > 0 ? healthySources / totalSources : 0,
+      healthRate,
       recentRuns: {
-        total: 10,
-        successful: 8,
-        failed: 2,
-        successRate: 0.8,
+        total: totalRuns,
+        successful: successfulRuns,
+        failed: failedRuns,
+        successRate: totalRuns > 0 ? successfulRuns / totalRuns : 0,
       },
       averageRunDuration: 1500,
-      recentErrors: [
-        {
-          sourceId: "source-pbc-open-market",
-          sourceName: "PBOC Open Market Announcements",
-          errorMessage: "Parsing failed on latest page fetch.",
-          occurredAt: "2026-06-01T06:00:00Z",
-        },
-      ],
-      sourceDetails: mockSources.map((s) => ({
-        id: s.id,
-        name: s.name,
-        themeName: s.themeName,
-        status: s.status,
-        isPaused: s.isPaused ?? false,
-        latestRunStatus: s.latestRunStatus ?? null,
-        latestRunAt: s.latestRunAt ?? null,
-        latestSuccessAt: s.latestSuccessAt,
-        latestFailureAt: s.latestFailureAt,
-        lastErrorMessage: s.lastErrorMessage ?? null,
-        runCount24h: 3,
-        successCount24h: s.status === "healthy" ? 3 : 1,
-        failureCount24h: s.status === "warning" ? 2 : 0,
-      })),
+      recentErrors,
+      sourceDetails: mockSources.map((s) => {
+        const healthScore = calculateSourceHealthScore(s);
+        const calculatedStatus = s.isPaused ? "paused" : getHealthStatusFromScore(healthScore);
+
+        return {
+          id: s.id,
+          name: s.name,
+          themeName: s.themeName,
+          status: calculatedStatus,
+          isPaused: s.isPaused ?? false,
+          latestRunStatus: s.latestRunStatus ?? null,
+          latestRunAt: s.latestRunAt ?? null,
+          latestSuccessAt: s.latestSuccessAt,
+          latestFailureAt: s.latestFailureAt,
+          lastErrorMessage: s.lastErrorMessage ?? null,
+          runCount24h: 3,
+          successCount24h: s.latestRunStatus === "failed" ? 1 : 3,
+          failureCount24h: s.latestRunStatus === "failed" ? 2 : 0,
+        };
+      }),
     };
   }
 

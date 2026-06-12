@@ -154,6 +154,15 @@ export interface NotificationAuditLogTable {
   created_at: TimestampColumn;
 }
 
+export interface EventFeedbackTable {
+  id: string;
+  event_id: string;
+  feedback: string;
+  note: string | null;
+  created_at: TimestampColumn;
+  updated_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -167,4 +176,5 @@ export interface Database {
   notification_preferences: NotificationPreferencesTable;
   rule_configurations: RuleConfigurationsTable;
   notification_audit_log: NotificationAuditLogTable;
+  event_feedback: EventFeedbackTable;
 }

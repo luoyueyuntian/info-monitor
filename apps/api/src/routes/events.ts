@@ -1,6 +1,15 @@
 import type { FastifyInstance } from "fastify";
 
-import { getEventDetail, inboxSectionIds, listInboxSectionEvents, updateEventState } from "../services/event-service.js";
+import {
+  getEventDetail,
+  getEventFeedback,
+  inboxSectionIds,
+  listInboxSectionEvents,
+  upsertEventFeedback,
+  deleteEventFeedback,
+  updateEventState,
+  type EventFeedback,
+} from "../services/event-service.js";
 
 export async function registerEventRoutes(app: FastifyInstance) {
   app.get<{ Params: { sectionId: string } }>("/api/inbox/sections/:sectionId/events", async (request, reply) => {
@@ -53,5 +62,53 @@ export async function registerEventRoutes(app: FastifyInstance) {
     }
 
     return updated;
+  });
+
+  // Event feedback endpoints
+  app.get<{ Params: { eventId: string } }>("/api/events/:eventId/feedback", async (request, reply) => {
+    const feedback = await getEventFeedback(request.params.eventId);
+
+    if (!feedback) {
+      reply.code(404);
+      return { message: "No feedback found for this event" };
+    }
+
+    return feedback;
+  });
+
+  app.put<{
+    Params: { eventId: string };
+    Body: { feedback?: string; note?: string };
+  }>("/api/events/:eventId/feedback", async (request, reply) => {
+    const body = request.body;
+
+    if (!body?.feedback || !["useful", "noise", "watch"].includes(body.feedback)) {
+      reply.code(400);
+      return { message: "feedback must be one of: useful, noise, watch" };
+    }
+
+    const result = await upsertEventFeedback(
+      request.params.eventId,
+      body.feedback as EventFeedback,
+      body.note,
+    );
+
+    if (!result) {
+      reply.code(404);
+      return { message: "Event not found" };
+    }
+
+    return result;
+  });
+
+  app.delete<{ Params: { eventId: string } }>("/api/events/:eventId/feedback", async (request, reply) => {
+    const deleted = await deleteEventFeedback(request.params.eventId);
+
+    if (!deleted) {
+      reply.code(404);
+      return { message: "No feedback found for this event" };
+    }
+
+    return { success: true };
   });
 }

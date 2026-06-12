@@ -37,6 +37,11 @@
 
     <SourceDetailAnalysisCard :analysis="detail.analysis" :review-actions="reviewActions" />
 
+    <SourceHealthExplanationCard
+      v-if="healthExplanation"
+      :explanation="healthExplanation"
+    />
+
     <SourceDetailStatsGrid
       :theme-name="detail.source.themeName"
       :source-type="detail.source.sourceType"
@@ -91,7 +96,8 @@ import SourceDetailRunTrendCard from "./SourceDetailRunTrendCard.vue";
 import SourceDetailRunsCard from "./SourceDetailRunsCard.vue";
 import SourceDetailSnapshotsCard from "./SourceDetailSnapshotsCard.vue";
 import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
-import { fetchSourceDetail, type SourceDetail } from "../../../../lib/api";
+import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
+import { fetchSourceDetail, fetchSourceHealthExplanation, type SourceDetail, type SourceHealthExplanation } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
 import {
   eventSignalLabel,
@@ -104,6 +110,7 @@ import {
 const route = useRoute();
 const router = useRouter();
 const detail = ref<SourceDetail | null>(null);
+const healthExplanation = ref<SourceHealthExplanation | null>(null);
 
 function handleBack() {
   if (window.history.length > 1) {
@@ -243,5 +250,12 @@ function changeDetails(change: SourceDetail["changes"][number]) {
 onMounted(async () => {
   const sourceId = String(route.params.sourceId);
   detail.value = await fetchSourceDetail(sourceId);
+
+  // Fetch health explanation (don't fail if it errors)
+  try {
+    healthExplanation.value = await fetchSourceHealthExplanation(sourceId);
+  } catch {
+    // Health explanation is optional, don't break the page
+  }
 });
 </script>

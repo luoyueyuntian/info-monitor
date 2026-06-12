@@ -47,9 +47,9 @@
         <RouterLink
           v-if="section.visibleEvents[0]"
           class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
-          :to="{ path: `/themes/${section.visibleEvents[0].themeId}`, query: { section: inferredSectionImpact(section) === 'negative' ? 'analysis' : section.visibleEvents[0].infoType === 'price' ? 'trend' : 'timeline' } }"
+          :to="getThemeDeepLink(section.visibleEvents[0], section)"
         >
-          查看优先主题
+          {{ getThemeDeepLinkLabel(section.visibleEvents[0]) }}
         </RouterLink>
       </div>
     </div>
@@ -88,9 +88,9 @@
           <div class="mt-2 flex flex-wrap gap-3">
             <RouterLink
               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
-              :to="{ path: `/themes/${event.themeId}`, query: { section: eventImpactTone(event) === 'negative' ? 'analysis' : event.infoType === 'price' ? 'trend' : 'timeline' } }"
+              :to="getEventDeepLink(event)"
             >
-              {{ eventImpactTone(event) === "negative" ? "查看主题分析" : event.infoType === "price" ? "查看主题趋势" : "查看主题时间线" }}
+              {{ getEventDeepLinkLabel(event) }}
             </RouterLink>
             <RouterLink
               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -162,5 +162,61 @@ function inferredSectionImpact(section: { events: EventSummary[] }) {
   }
 
   return undefined;
+}
+
+/**
+ * Resolve the most relevant section for a theme based on event type.
+ * Used by both per-event links and digest-level links.
+ */
+function resolveThemeSection(event: EventSummary, options?: { isNegative?: boolean }): string {
+  // For negative impact, always go to analysis
+  if (options?.isNegative) {
+    return "analysis";
+  }
+
+  if (event.infoType === "price") return "trend";
+  if (event.infoType === "financial_event") return "financial-rhythm";
+  if (event.signal === "new_announcement" || event.infoType === "news_announcement") return "timeline";
+  if (event.infoType === "content_update") return "compare";
+  return "timeline";
+}
+
+function resolveDeepLinkLabel(event: EventSummary, options?: { isNegative?: boolean }): string {
+  if (options?.isNegative) return "查看主题分析";
+  if (event.infoType === "price") return "查看价格趋势";
+  if (event.infoType === "financial_event") return "查看方向节奏";
+  if (event.signal === "new_announcement" || event.infoType === "news_announcement") return "查看发布时间线";
+  if (event.infoType === "content_update") return "查看内容对比";
+  return "查看主题详情";
+}
+
+/**
+ * Get the most relevant deep link for a theme based on event type.
+ * - Price themes -> trend or compare view
+ * - Financial event themes -> analysis or financial-rhythm view
+ * - News/content themes -> timeline or analysis view
+ */
+function getThemeDeepLink(event: EventSummary, section: { events: EventSummary[] }): RouteLocationRaw {
+  const sectionImpact = inferredSectionImpact(section);
+  const isNegative = sectionImpact === "negative";
+  return { path: `/themes/${event.themeId}`, query: { section: resolveThemeSection(event, { isNegative }) } };
+}
+
+function getThemeDeepLinkLabel(event: EventSummary): string {
+  return resolveDeepLinkLabel(event);
+}
+
+/**
+ * Get the most relevant deep link for a single event.
+ */
+function getEventDeepLink(event: EventSummary): RouteLocationRaw {
+  const impact = eventImpactTone(event);
+  const isNegative = impact === "negative";
+  return { path: `/themes/${event.themeId}`, query: { section: resolveThemeSection(event, { isNegative }) } };
+}
+
+function getEventDeepLinkLabel(event: EventSummary): string {
+  const impact = eventImpactTone(event);
+  return resolveDeepLinkLabel(event, { isNegative: impact === "negative" });
 }
 </script>

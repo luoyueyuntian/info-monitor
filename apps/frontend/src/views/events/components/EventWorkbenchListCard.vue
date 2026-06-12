@@ -41,6 +41,7 @@
           </span>
         </div>
         <div class="text-ink-body">{{ event.summary }}</div>
+        <EventFeedbackInline :event-id="event.id" />
         <div class="mt-3 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -113,6 +114,7 @@
 
 <script setup lang="ts">
 import type { EventSummary } from "../../../lib/api";
+import EventFeedbackInline from "../../../components/EventFeedbackInline.vue";
 import { eventImpactTone, impactToneLabel } from "../../../lib/impact";
 import {
   eventBookmarkLabel,

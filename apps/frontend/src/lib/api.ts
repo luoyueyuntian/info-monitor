@@ -930,6 +930,54 @@ export async function updateEventStatus(eventId: string, status: string) {
   return updateEvent(eventId, { status });
 }
 
+// Event Feedback API
+export type EventFeedback = "useful" | "noise" | "watch";
+
+export type EventFeedbackRecord = {
+  id: string;
+  eventId: string;
+  feedback: EventFeedback;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchEventFeedback(eventId: string) {
+  try {
+    return await requestJsonStrict<EventFeedbackRecord>(`/events/${eventId}/feedback`);
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertEventFeedback(eventId: string, feedback: EventFeedback, note?: string) {
+  const response = await fetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ feedback, note }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update feedback: ${response.status}`);
+  }
+
+  return (await response.json()) as EventFeedbackRecord;
+}
+
+export async function deleteEventFeedback(eventId: string) {
+  const response = await fetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete feedback: ${response.status}`);
+  }
+
+  return (await response.json()) as { success: boolean };
+}
+
 export async function fetchInboxSectionEvents(sectionId: string) {
   const filteredFallback = fallbackEvents.filter((event) => {
     if (sectionId === "price-signals") {
@@ -1198,6 +1246,32 @@ export async function deleteTheme(themeId: string) {
   };
 }
 
+// Theme Review Notes API
+export type ThemeReviewNote = {
+  content: string;
+  updatedAt: string | null;
+};
+
+export async function fetchThemeReviewNote(themeId: string) {
+  return requestJsonStrict<ThemeReviewNote>(`/themes/${themeId}/review-note`);
+}
+
+export async function updateThemeReviewNote(themeId: string, content: string) {
+  const response = await fetch(`${API_BASE_URL}/themes/${themeId}/review-note`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update review note: ${response.status}`);
+  }
+
+  return (await response.json()) as ThemeReviewNote;
+}
+
 export type PaginatedNotifications = {
   items: NotificationItem[];
   total: number;
@@ -1442,6 +1516,32 @@ export type SourceHealthStats = {
 
 export async function fetchSourceHealthStats() {
   return requestJsonStrict<SourceHealthStats>("/sources/health");
+}
+
+// Source Health Explanation API
+export type SourceHealthExplanation = {
+  sourceId: string;
+  sourceName: string;
+  status: "healthy" | "warning" | "paused";
+  healthScore: number;
+  issue: string | null;
+  impact: string | null;
+  impactLevel: "none" | "low" | "medium" | "high";
+  recommendation: string | null;
+  issues: Array<{
+    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message";
+    label: string;
+    description: string;
+    impact: string;
+  }>;
+};
+
+export async function fetchSourceHealthExplanation(sourceId: string) {
+  return requestJsonStrict<SourceHealthExplanation>(`/sources/${sourceId}/health-explanation`);
+}
+
+export async function fetchAllSourceHealthExplanations() {
+  return requestJsonStrict<SourceHealthExplanation[]>("/sources/health-explanations");
 }
 
 // Notification Preferences API

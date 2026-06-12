@@ -627,3 +627,189 @@ export async function updateEventState(
 export async function updateEventStatus(eventId: string, status: string) {
   return updateEventState(eventId, { status });
 }
+
+// ─── Event Feedback ─────────────────────────────────────────────────────────
+
+export type EventFeedback = "useful" | "noise" | "watch";
+
+export type EventFeedbackRecord = {
+  id: string;
+  eventId: string;
+  feedback: EventFeedback;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getEventFeedback(eventId: string): Promise<EventFeedbackRecord | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - return null (no feedback yet)
+    return null;
+  }
+
+  const row = await db
+    .selectFrom("event_feedback")
+    .select([
+      "id",
+      "event_id as eventId",
+      "feedback",
+      "note",
+      "created_at as createdAt",
+      "updated_at as updatedAt",
+    ])
+    .where("event_id", "=", eventId)
+    .executeTakeFirst();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    feedback: row.feedback as EventFeedback,
+    note: row.note,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+  };
+}
+
+export async function upsertEventFeedback(
+  eventId: string,
+  feedback: EventFeedback,
+  note?: string,
+): Promise<EventFeedbackRecord | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - return a mock record
+    const now = new Date().toISOString();
+    return {
+      id: createId("event_feedback"),
+      eventId,
+      feedback,
+      note: note ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  // Check if event exists
+  const event = await db
+    .selectFrom("events")
+    .select(["id"])
+    .where("id", "=", eventId)
+    .executeTakeFirst();
+
+  if (!event) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const id = createId("event_feedback");
+
+  // Atomic upsert using ON CONFLICT — eliminates TOCTOU race
+  const row = await db
+    .insertInto("event_feedback")
+    .values({
+      id,
+      event_id: eventId,
+      feedback,
+      note: note ?? null,
+      created_at: now,
+      updated_at: now,
+    })
+    .onConflict((oc) =>
+      oc.column("event_id").doUpdateSet({
+        feedback,
+        note: note ?? null,
+        updated_at: now,
+      })
+    )
+    .returning(["id", "event_id as eventId", "feedback", "note", "created_at as createdAt", "updated_at as updatedAt"])
+    .executeTakeFirst();
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    feedback: row.feedback as EventFeedback,
+    note: row.note,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+  };
+}
+
+export async function deleteEventFeedback(eventId: string): Promise<boolean> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - always succeed
+    return true;
+  }
+
+  // Check existence first — execute() result doesn't reliably indicate affected rows
+  const existing = await db
+    .selectFrom("event_feedback")
+    .select(["id"])
+    .where("event_id", "=", eventId)
+    .executeTakeFirst();
+
+  if (!existing) {
+    return false;
+  }
+
+  await db
+    .deleteFrom("event_feedback")
+    .where("event_id", "=", eventId)
+    .execute();
+
+  return true;
+}
+
+export async function getMultipleEventFeedback(
+  eventIds: string[],
+): Promise<Map<string, EventFeedbackRecord>> {
+  const db = getDatabase();
+  const map = new Map<string, EventFeedbackRecord>();
+
+  if (!eventIds.length) {
+    return map;
+  }
+
+  if (!db) {
+    // Mock mode - return empty map
+    return map;
+  }
+
+  const rows = await db
+    .selectFrom("event_feedback")
+    .select([
+      "id",
+      "event_id as eventId",
+      "feedback",
+      "note",
+      "created_at as createdAt",
+      "updated_at as updatedAt",
+    ])
+    .where("event_id", "in", eventIds)
+    .execute();
+
+  for (const row of rows) {
+    map.set(row.eventId, {
+      id: row.id,
+      eventId: row.eventId,
+      feedback: row.feedback as EventFeedback,
+      note: row.note,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+      updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+    });
+  }
+
+  return map;
+}

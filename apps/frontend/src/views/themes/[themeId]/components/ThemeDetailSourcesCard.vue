@@ -28,6 +28,7 @@
           <span class="text-[0.88rem] text-ink-secondary">最近成功: {{ formatDateTimeLabel(source.latestSuccessAt) }}</span>
           <span class="text-[0.88rem] text-ink-secondary">最近失败: {{ formatDateTimeLabel(source.latestFailureAt) }}</span>
         </div>
+        <SourceHealthInline :source-id="source.id" />
         <div class="mt-3 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
@@ -120,6 +121,7 @@
 import { reactive, ref } from "vue";
 
 import type { ThemeDetail } from "../../../../lib/api";
+import SourceHealthInline from "../../../../components/SourceHealthInline.vue";
 import {
   formatDateTimeLabel,
   formatMaybeLabel,

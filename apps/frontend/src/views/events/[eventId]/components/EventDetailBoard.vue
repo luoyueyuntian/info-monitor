@@ -53,6 +53,8 @@
 
     <EventDetailContextCard :rows="detailRows" :record-link="recordLink" />
     <EventDetailEvidenceCard :evidence="detail.evidence" />
+
+    <EventFeedbackCard :event-id="detail.id" />
   </section>
 </template>
 
@@ -64,6 +66,7 @@ import type { RouteLocationRaw } from "vue-router";
 import EventDetailContextCard from "./EventDetailContextCard.vue";
 import EventDetailEvidenceCard from "./EventDetailEvidenceCard.vue";
 import EventDetailExplanationCard from "./EventDetailExplanationCard.vue";
+import EventFeedbackCard from "../../../../components/EventFeedbackCard.vue";
 import EventDetailHeader from "./EventDetailHeader.vue";
 import EventDetailMetaActionsCard from "./EventDetailMetaActionsCard.vue";
 import EventDetailNoticeCard from "./EventDetailNoticeCard.vue";

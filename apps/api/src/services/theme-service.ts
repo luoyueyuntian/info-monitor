@@ -24,6 +24,15 @@ type ThemeUpdateInput = {
   status?: string;
 };
 
+export type ThemeReviewNote = {
+  content: string;
+  updatedAt: string | null;
+};
+
+export type ThemeReviewNoteUpdate = {
+  content: string;
+};
+
 type ThemeCreateResult = {
   id: string;
   sourceIds: string[];
@@ -1160,4 +1169,106 @@ export async function deleteTheme(themeId: string) {
     .execute();
 
   return { id: themeId };
+}
+
+export async function getThemeReviewNote(themeId: string): Promise<ThemeReviewNote | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - check mock themes for review note in metadata
+    const theme = mockThemes.find((t) => t.id === themeId);
+    if (!theme) {
+      return null;
+    }
+
+    // Mock themes don't have metadata, return empty note
+    return {
+      content: "",
+      updatedAt: null,
+    };
+  }
+
+  const theme = await db
+    .selectFrom("themes")
+    .select(["id", "metadata"])
+    .where("id", "=", themeId)
+    .executeTakeFirst();
+
+  if (!theme) {
+    return null;
+  }
+
+  // Guard against metadata being returned as a raw JSON string by the driver
+  const rawMetadata = theme.metadata;
+  const metadata: Record<string, unknown> =
+    typeof rawMetadata === "string"
+      ? JSON.parse(rawMetadata)
+      : (rawMetadata as Record<string, unknown>) ?? {};
+  const reviewNote = metadata.reviewNote as Record<string, unknown> | undefined;
+
+  return {
+    content: typeof reviewNote?.content === "string" ? reviewNote.content : "",
+    updatedAt: typeof reviewNote?.updatedAt === "string" ? reviewNote.updatedAt : null,
+  };
+}
+
+export async function updateThemeReviewNote(
+  themeId: string,
+  input: ThemeReviewNoteUpdate,
+): Promise<ThemeReviewNote | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - just return the updated note
+    const theme = mockThemes.find((t) => t.id === themeId);
+    if (!theme) {
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    return {
+      content: input.content,
+      updatedAt: now,
+    };
+  }
+
+  const existing = await db
+    .selectFrom("themes")
+    .select(["id", "metadata"])
+    .where("id", "=", themeId)
+    .executeTakeFirst();
+
+  if (!existing) {
+    return null;
+  }
+
+  // Guard against metadata being returned as a raw JSON string by the driver
+  const rawMetadata = existing.metadata;
+  const currentMetadata: Record<string, unknown> =
+    typeof rawMetadata === "string"
+      ? JSON.parse(rawMetadata)
+      : (rawMetadata as Record<string, unknown>) ?? {};
+  const now = new Date().toISOString();
+
+  const updatedMetadata = {
+    ...currentMetadata,
+    reviewNote: {
+      content: input.content,
+      updatedAt: now,
+    },
+  };
+
+  await db
+    .updateTable("themes")
+    .set({
+      metadata: JSON.stringify(updatedMetadata),
+      updated_at: now,
+    })
+    .where("id", "=", themeId)
+    .execute();
+
+  return {
+    content: input.content,
+    updatedAt: now,
+  };
 }

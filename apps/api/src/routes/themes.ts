@@ -1,6 +1,14 @@
 import type { FastifyInstance } from "fastify";
 
-import { createTheme, deleteTheme, getThemeDetail, listThemes, updateTheme } from "../services/theme-service.js";
+import {
+  createTheme,
+  deleteTheme,
+  getThemeDetail,
+  getThemeReviewNote,
+  listThemes,
+  updateTheme,
+  updateThemeReviewNote,
+} from "../services/theme-service.js";
 import { enqueueManualSourceRun } from "../services/source-service.js";
 
 export async function registerThemeRoutes(app: FastifyInstance) {
@@ -98,5 +106,40 @@ export async function registerThemeRoutes(app: FastifyInstance) {
     }
 
     return deleted;
+  });
+
+  // Review notes endpoints
+  app.get<{ Params: { themeId: string } }>("/api/themes/:themeId/review-note", async (request, reply) => {
+    const note = await getThemeReviewNote(request.params.themeId);
+
+    if (!note) {
+      reply.code(404);
+      return { message: "Theme not found" };
+    }
+
+    return note;
+  });
+
+  app.put<{
+    Params: { themeId: string };
+    Body: { content?: string };
+  }>("/api/themes/:themeId/review-note", async (request, reply) => {
+    const body = request.body;
+
+    if (body?.content === undefined) {
+      reply.code(400);
+      return { message: "content is required" };
+    }
+
+    const updated = await updateThemeReviewNote(request.params.themeId, {
+      content: body.content,
+    });
+
+    if (!updated) {
+      reply.code(404);
+      return { message: "Theme not found" };
+    }
+
+    return updated;
   });
 }
