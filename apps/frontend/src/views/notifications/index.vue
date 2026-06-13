@@ -104,6 +104,7 @@
 
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <RouterLink
+            v-if="notification.eventId"
             class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
             :to="`/events/${notification.eventId}`"
           >

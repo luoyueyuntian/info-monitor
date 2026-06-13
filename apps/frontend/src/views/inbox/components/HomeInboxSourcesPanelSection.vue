@@ -50,6 +50,7 @@
           <span class="text-[0.88rem] text-ink-secondary" v-if="source.latestRunStatus">最近运行 {{ runStatusLabel(source.latestRunStatus) }}</span>
           <span class="text-[0.88rem] text-ink-secondary" v-if="source.isPaused">已暂停</span>
         </div>
+        <SourceHealthInline :source-id="source.id" />
         <div class="text-ink-body">
           {{
             source.lastErrorMessage
@@ -92,6 +93,7 @@
 import { computed, ref } from "vue";
 
 import type { SourceStatus } from "../../../lib/api";
+import SourceHealthInline from "../../../components/SourceHealthInline.vue";
 import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import { sourcePriorityScore } from "../../../lib/source-ranking";
 import { toTimestamp } from "../../../lib/time";

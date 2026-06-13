@@ -2,12 +2,16 @@ import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
 
+// Mock config store for sources created in mock mode
+const mockSourceConfigs = new Map<string, Record<string, unknown>>();
+
 type SourceInput = {
   themeId: string;
   name: string;
   sourceType: string;
   adapterKey: string;
   config?: Record<string, unknown>;
+  onboardingStatus?: "draft" | "ready_to_test" | "active";
 };
 
 type SourceUpdateInput = {
@@ -16,6 +20,7 @@ type SourceUpdateInput = {
   adapterKey?: string;
   config?: Record<string, unknown>;
   isPaused?: boolean;
+  onboardingStatus?: "draft" | "ready_to_test" | "active";
 };
 
 function toTimestamp(value?: string | Date | null) {
@@ -133,6 +138,7 @@ export async function listSourceStatuses() {
       "s.source_type as sourceType",
       "s.adapter_key as adapterKey",
       "s.is_paused as isPaused",
+      "s.onboarding_status as onboardingStatus",
       "s.latest_success_at as latestSuccessAt",
       "s.latest_failure_at as latestFailureAt",
     ])
@@ -162,6 +168,7 @@ export async function listSourceStatuses() {
         .selectFrom("source_runs")
         .select(["status", "finished_at as finishedAt", "started_at as startedAt", "error_message as errorMessage"])
         .where("source_id", "=", row.id)
+        .where("trigger_type", "!=", "test")
         .orderBy("created_at desc")
         .limit(1)
         .executeTakeFirst();
@@ -212,6 +219,10 @@ export async function getSourceDetail(sourceId: string) {
         startedAt: source.latestRunAt,
         finishedAt: source.latestRunAt,
         errorMessage: source.lastErrorMessage ?? null,
+        snapshotCount: 0,
+        recordCount: 0,
+        changeCount: 0,
+        eventCount: 0,
       },
     ];
     const events = mockEvents
@@ -225,8 +236,16 @@ export async function getSourceDetail(sourceId: string) {
         summary: item.summary,
       }));
 
+    // Update run counts based on events
+    if (runs[0]) {
+      runs[0].eventCount = events.length;
+    }
+
     return {
-      source,
+      source: {
+        ...source,
+        config: mockSourceConfigs.get(sourceId) ?? {},
+      },
       runs,
       events,
       records: [],
@@ -268,6 +287,7 @@ export async function getSourceDetail(sourceId: string) {
       "s.adapter_key as adapterKey",
       "s.config as config",
       "s.is_paused as isPaused",
+      "s.onboarding_status as onboardingStatus",
       "s.latest_success_at as latestSuccessAt",
       "s.latest_failure_at as latestFailureAt",
     ])
@@ -278,6 +298,7 @@ export async function getSourceDetail(sourceId: string) {
     return null;
   }
 
+  // All runs for display (including test)
   const runs = await db
     .selectFrom("source_runs")
     .select([
@@ -292,6 +313,53 @@ export async function getSourceDetail(sourceId: string) {
     .orderBy("created_at desc")
     .limit(10)
     .execute();
+
+  // Latest production run for source-level health fields
+  const latestProdRun = await db
+    .selectFrom("source_runs")
+    .select(["status", "finished_at as finishedAt", "started_at as startedAt", "error_message as errorMessage"])
+    .where("source_id", "=", sourceId)
+    .where("trigger_type", "!=", "test")
+    .orderBy("created_at desc")
+    .limit(1)
+    .executeTakeFirst();
+
+  // Per-run counts for snapshots, records, changes, events
+  const runIds = runs.map((run) => run.id);
+  const snapshotCounts = new Map<string, number>();
+  const recordCounts = new Map<string, number>();
+  const changeCounts = new Map<string, number>();
+  const eventCounts = new Map<string, number>();
+
+  if (runIds.length > 0) {
+    const [snapCounts, recCounts, chgCounts, evtCounts] = await Promise.all([
+      db.selectFrom("raw_snapshots")
+        .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+        .where("source_run_id", "in", runIds)
+        .groupBy("source_run_id")
+        .execute(),
+      db.selectFrom("normalized_records")
+        .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+        .where("source_run_id", "in", runIds)
+        .groupBy("source_run_id")
+        .execute(),
+      db.selectFrom("changes")
+        .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+        .where("source_run_id", "in", runIds)
+        .groupBy("source_run_id")
+        .execute(),
+      db.selectFrom("events")
+        .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+        .where("source_run_id", "in", runIds)
+        .groupBy("source_run_id")
+        .execute(),
+    ]);
+
+    for (const row of snapCounts) snapshotCounts.set(row.runId, Number(row.count));
+    for (const row of recCounts) recordCounts.set(row.runId, Number(row.count));
+    for (const row of chgCounts) changeCounts.set(row.runId, Number(row.count));
+    for (const row of evtCounts) eventCounts.set(row.runId, Number(row.count));
+  }
 
   const latestThemeEvent = await db
     .selectFrom("events")
@@ -335,36 +403,41 @@ export async function getSourceDetail(sourceId: string) {
     .execute();
 
   const snapshots = await db
-    .selectFrom("raw_snapshots")
+    .selectFrom("raw_snapshots as rs")
+    .innerJoin("source_runs as sr", "sr.id", "rs.source_run_id")
     .select([
-      "id",
-      "source_run_id as sourceRunId",
-      "fetched_at as fetchedAt",
-      "storage_path as storagePath",
-      "payload_json as payloadJson",
+      "rs.id as id",
+      "rs.source_run_id as sourceRunId",
+      "rs.fetched_at as fetchedAt",
+      "rs.storage_path as storagePath",
+      "rs.payload_json as payloadJson",
+      "sr.trigger_type as triggerType",
     ])
-    .where("source_id", "=", sourceId)
-    .orderBy("fetched_at desc")
+    .where("rs.source_id", "=", sourceId)
+    .orderBy("rs.fetched_at desc")
     .limit(5)
     .execute();
 
-  const latestRun = runs[0];
   const normalizedSource = {
     ...source,
     latestEventSignal: latestThemeEvent?.signal ?? null,
     latestSuccessAt: source.latestSuccessAt?.toISOString?.() ?? null,
     latestFailureAt: source.latestFailureAt?.toISOString?.() ?? null,
-    latestRunStatus: latestRun?.status ?? null,
+    latestRunStatus: latestProdRun?.status ?? null,
     latestRunAt:
-      latestRun?.finishedAt?.toISOString?.() ??
-      latestRun?.startedAt?.toISOString?.() ??
+      latestProdRun?.finishedAt?.toISOString?.() ??
+      latestProdRun?.startedAt?.toISOString?.() ??
       null,
-    lastErrorMessage: latestRun?.errorMessage ?? null,
+    lastErrorMessage: latestProdRun?.errorMessage ?? null,
   };
   const normalizedRuns = runs.map((run) => ({
     ...run,
     startedAt: run.startedAt?.toISOString?.() ?? null,
     finishedAt: run.finishedAt?.toISOString?.() ?? null,
+    snapshotCount: snapshotCounts.get(run.id) ?? 0,
+    recordCount: recordCounts.get(run.id) ?? 0,
+    changeCount: changeCounts.get(run.id) ?? 0,
+    eventCount: eventCounts.get(run.id) ?? 0,
   }));
   const normalizedEvents = events.map((event) => ({
     ...event,
@@ -384,6 +457,7 @@ export async function getSourceDetail(sourceId: string) {
     fetchedAt: snapshot.fetchedAt.toISOString?.() ?? snapshot.fetchedAt,
     storagePath: snapshot.storagePath,
     payloadPreview: JSON.stringify(snapshot.payloadJson ?? {}, null, 2),
+    triggerType: snapshot.triggerType ?? "manual",
   }));
 
   return {
@@ -401,9 +475,243 @@ export async function getSourceDetail(sourceId: string) {
   };
 }
 
+// ─── Source Preset Registry ─────────────────────────────────────────────────
+
+export type SourcePresetField = {
+  key: string;
+  label: string;
+  type: "text" | "number" | "boolean";
+  placeholder?: string;
+  required?: boolean;
+};
+
+export type SourcePreset = {
+  id: string;
+  label: string;
+  description: string;
+  sourceType: string;
+  adapterKey: string;
+  infoType: string;
+  fields: SourcePresetField[];
+  defaultConfig: Record<string, string | number | boolean>;
+  help?: string;
+};
+
+export const sourcePresets: SourcePreset[] = [
+  {
+    id: "demo-price-feed",
+    label: "Demo Price Feed",
+    description: "Local demo price feed for validating the monitoring pipeline.",
+    sourceType: "page_list",
+    adapterKey: "demo_price_feed",
+    infoType: "price",
+    fields: [
+      { key: "file_path", label: "File Path", type: "text", placeholder: "apps/python-worker/examples/surface-pro-8-price-feed.json", required: true },
+    ],
+    defaultConfig: { file_path: "apps/python-worker/examples/surface-pro-8-price-feed.json" },
+    help: "Use this for smoke tests before connecting a live source.",
+  },
+  {
+    id: "eastmoney-price",
+    label: "Eastmoney Daily Price",
+    description: "Eastmoney historical kline data for stock-like price monitoring.",
+    sourceType: "api",
+    adapterKey: "eastmoney_stock_kline",
+    infoType: "price",
+    fields: [
+      { key: "secid", label: "Security ID", type: "text", placeholder: "1.600519", required: true },
+      { key: "days", label: "Lookback Days", type: "number", placeholder: "45" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "86400" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { secid: "1.600519", days: 45, schedule_interval_seconds: 86400, emit_events_on_latest_only: true },
+    help: "Use `1.600519` for Shanghai-listed Kweichow Moutai.",
+  },
+  {
+    id: "pbc-news",
+    label: "PBOC News Releases",
+    description: "Official news from the People's Bank of China.",
+    sourceType: "page_list",
+    adapterKey: "pbc_news_list",
+    infoType: "news_announcement",
+    fields: [
+      { key: "path", label: "List Path", type: "text", placeholder: "/goutongjiaoliu/113456/113469/index.html", required: true },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { path: "/goutongjiaoliu/113456/113469/index.html", schedule_interval_seconds: 21600, emit_events_on_latest_only: true },
+  },
+  {
+    id: "pbc-open-market",
+    label: "PBOC Open Market",
+    description: "Structured open market operation announcements from the PBOC.",
+    sourceType: "page_list",
+    adapterKey: "pbc_open_market_announcements",
+    infoType: "financial_event",
+    fields: [
+      { key: "path", label: "List Path", type: "text", placeholder: "/zhengcehuobisi/125207/125213/125431/125475/index.html", required: true },
+      { key: "max_items", label: "Max Items", type: "number", placeholder: "5" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { path: "/zhengcehuobisi/125207/125213/125431/125475/index.html", max_items: 5, schedule_interval_seconds: 21600, emit_events_on_latest_only: true },
+  },
+  {
+    id: "content-update-page",
+    label: "Product Update Feed",
+    description: "Track feature releases, changelog entries, or product updates.",
+    sourceType: "page_list",
+    adapterKey: "generic_content_update_list",
+    infoType: "content_update",
+    fields: [
+      { key: "url", label: "Page URL", type: "text", placeholder: "https://example.com/releases", required: true },
+      { key: "item_selector", label: "Item Selector", type: "text", placeholder: ".release-item", required: true },
+      { key: "title_selector", label: "Title Selector", type: "text", placeholder: "h2 a" },
+      { key: "link_selector", label: "Link Selector", type: "text", placeholder: "h2 a" },
+      { key: "time_selector", label: "Time Selector", type: "text", placeholder: "time" },
+      { key: "update_type", label: "Update Type", type: "text", placeholder: "feature_release" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { schedule_interval_seconds: 21600, emit_events_on_latest_only: true },
+    help: "Use CSS selectors to extract update cards from a release-note page.",
+  },
+  {
+    id: "generic-price-list",
+    label: "Second-Hand Price API",
+    description: "Monitor prices from a JSON API endpoint (second-hand marketplaces, price aggregators, etc.).",
+    sourceType: "api",
+    adapterKey: "generic_price_list",
+    infoType: "price",
+    fields: [
+      { key: "url", label: "API URL", type: "text", placeholder: "https://api.example.com/prices", required: true },
+      { key: "items_field", label: "Items Field (dot notation)", type: "text", placeholder: "data.items" },
+      { key: "title_field", label: "Title Field", type: "text", placeholder: "title", required: true },
+      { key: "price_field", label: "Price Field", type: "text", placeholder: "price", required: true },
+      { key: "spec_field", label: "Spec Field", type: "text", placeholder: "spec" },
+      { key: "url_field", label: "URL Field", type: "text", placeholder: "url" },
+      { key: "time_field", label: "Time Field", type: "text", placeholder: "created_at" },
+      { key: "currency", label: "Currency", type: "text", placeholder: "CNY" },
+      { key: "symbol_field", label: "Symbol Field", type: "text", placeholder: "symbol" },
+      { key: "max_items", label: "Max Items", type: "number", placeholder: "20" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { currency: "CNY", max_items: 20, schedule_interval_seconds: 21600, emit_events_on_latest_only: true },
+    help: "Works with any JSON API returning a list of price items. Use dot notation for nested fields (e.g. 'data.items').",
+  },
+  {
+    id: "generic-announcement-list",
+    label: "Product Announcement API",
+    description: "Monitor product updates, changelogs, or announcements from a JSON API.",
+    sourceType: "api",
+    adapterKey: "generic_announcement_list",
+    infoType: "content_update",
+    fields: [
+      { key: "url", label: "API URL", type: "text", placeholder: "https://api.example.com/announcements", required: true },
+      { key: "items_field", label: "Items Field (dot notation)", type: "text", placeholder: "data.items" },
+      { key: "title_field", label: "Title Field", type: "text", placeholder: "title", required: true },
+      { key: "time_field", label: "Time Field", type: "text", placeholder: "published_at" },
+      { key: "url_field", label: "URL Field", type: "text", placeholder: "url" },
+      { key: "summary_field", label: "Summary Field", type: "text", placeholder: "description" },
+      { key: "category_field", label: "Category Field", type: "text", placeholder: "category" },
+      { key: "object_name", label: "Product Name", type: "text", placeholder: "My Product" },
+      { key: "max_items", label: "Max Items", type: "number", placeholder: "20" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
+    ],
+    defaultConfig: { title_field: "title", max_items: 20, schedule_interval_seconds: 21600, emit_events_on_latest_only: true },
+    help: "Works with any JSON API returning announcements. Category field auto-classifies as feature_release, marketing, or announcement.",
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    description: "Manual configuration for a new adapter or custom config shape.",
+    sourceType: "page_list",
+    adapterKey: "",
+    infoType: "price",
+    fields: [],
+    defaultConfig: {},
+    help: "Use this when experimenting beyond the built-in presets.",
+  },
+];
+
+export function getSourcePresetById(presetId: string): SourcePreset | undefined {
+  return sourcePresets.find((p) => p.id === presetId);
+}
+
+export type SourceValidationResult = {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  presetId?: string;
+};
+
+export function validateSourceConfig(input: {
+  presetId?: string;
+  adapterKey?: string;
+  sourceType?: string;
+  config?: Record<string, unknown>;
+  name?: string;
+}): SourceValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Resolve preset
+  let preset: SourcePreset | undefined;
+  if (input.presetId) {
+    preset = getSourcePresetById(input.presetId);
+    if (!preset) {
+      errors.push(`Unknown preset: ${input.presetId}`);
+      return { valid: false, errors, warnings };
+    }
+  }
+
+  const adapterKey = preset?.adapterKey ?? input.adapterKey;
+  const sourceType = preset?.sourceType ?? input.sourceType;
+
+  if (!adapterKey) {
+    errors.push("adapterKey is required.");
+  }
+
+  if (!sourceType) {
+    errors.push("sourceType is required.");
+  }
+
+  if (!input.name?.trim()) {
+    errors.push("Source name is required.");
+  }
+
+  // Validate required fields from preset
+  if (preset && preset.id !== "custom") {
+    const config = input.config ?? {};
+    for (const field of preset.fields) {
+      if (field.required) {
+        const value = config[field.key];
+        if (value === undefined || value === null || value === "") {
+          errors.push(`Missing required field: ${field.label} (${field.key})`);
+        }
+      }
+    }
+  }
+
+  // Validate adapterKey is known (if not custom)
+  if (preset && preset.id !== "custom" && adapterKey !== preset.adapterKey) {
+    warnings.push(`adapterKey "${adapterKey}" does not match preset "${preset.id}" expected value "${preset.adapterKey}".`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    presetId: preset?.id,
+  };
+}
+
 export async function createSource(input: SourceInput) {
   const db = getDatabase();
   const now = new Date().toISOString();
+  const onboardingStatus = input.onboardingStatus ?? "draft";
 
   if (!db) {
     const id = createId("source");
@@ -413,14 +721,21 @@ export async function createSource(input: SourceInput) {
       themeId: input.themeId,
       themeName: theme?.name ?? input.themeId,
       name: input.name,
-      status: "active",
+      status: onboardingStatus === "active" ? "active" : "paused",
+      sourceType: input.sourceType,
+      adapterKey: input.adapterKey,
+      isPaused: onboardingStatus !== "active",
+      onboardingStatus,
       latestSuccessAt: null,
       latestFailureAt: null,
     });
+    if (input.config) {
+      mockSourceConfigs.set(id, input.config);
+    }
     if (theme) {
       theme.sourceCount += 1;
     }
-    return { id };
+    return { id, onboardingStatus };
   }
 
   const id = createId("source");
@@ -433,15 +748,16 @@ export async function createSource(input: SourceInput) {
       name: input.name,
       source_type: input.sourceType,
       adapter_key: input.adapterKey,
-      status: "active",
-      is_paused: false,
+      status: onboardingStatus === "active" ? "active" : "paused",
+      is_paused: onboardingStatus !== "active",
+      onboarding_status: onboardingStatus,
       config: input.config ?? {},
       created_at: now,
       updated_at: now,
     })
     .execute();
 
-  return { id };
+  return { id, onboardingStatus };
 }
 
 export async function enqueueManualSourceRun(sourceId: string) {
@@ -476,6 +792,329 @@ export async function enqueueManualSourceRun(sourceId: string) {
   return { queued: true, mode: "db" };
 }
 
+/**
+ * Retry a source after a failed run. Creates a new manual run using current
+ * source config (not the original run's config). The original run is kept
+ * for audit. Only allowed when the original run actually failed.
+ */
+export async function retrySourceAfterFailure(sourceId: string, failedRunId: string) {
+  const db = getDatabase();
+
+  if (!db) {
+    return { queued: true, mode: "mock", failedRunId };
+  }
+
+  // Verify the original run exists, belongs to this source, and actually failed
+  const failedRun = await db
+    .selectFrom("source_runs")
+    .select(["id", "status", "source_id"])
+    .where("id", "=", failedRunId)
+    .where("source_id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!failedRun) {
+    return null;
+  }
+
+  if (failedRun.status !== "failed") {
+    return { rejected: true, reason: `Run status is '${failedRun.status}', not 'failed'` };
+  }
+
+  // Verify source exists
+  const source = await db
+    .selectFrom("sources")
+    .select(["id", "theme_id"])
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!source) {
+    return null;
+  }
+
+  const newRunId = createId("run");
+
+  await db
+    .insertInto("source_runs")
+    .values({
+      id: newRunId,
+      source_id: source.id,
+      theme_id: source.theme_id,
+      trigger_type: "manual",
+      status: "pending",
+      created_at: new Date().toISOString(),
+    })
+    .execute();
+
+  return { queued: true, mode: "db", runId: newRunId, triggeredBy: failedRunId };
+}
+
+export async function enqueueTestSourceRun(sourceId: string) {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode: simulate a test run with synthetic preview data
+    const source = mockSources.find((item) => item.id === sourceId);
+    if (!source) {
+      return null;
+    }
+
+    return {
+      queued: true,
+      mode: "mock",
+      triggerType: "test",
+      runId: `test-run-${sourceId}-mock`,
+    };
+  }
+
+  const source = await db
+    .selectFrom("sources")
+    .select(["id", "theme_id"])
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!source) {
+    return null;
+  }
+
+  const runId = createId("run");
+
+  await db
+    .insertInto("source_runs")
+    .values({
+      id: runId,
+      source_id: source.id,
+      theme_id: source.theme_id,
+      trigger_type: "test",
+      status: "pending",
+      created_at: new Date().toISOString(),
+    })
+    .execute();
+
+  return { queued: true, mode: "db", triggerType: "test", runId };
+}
+
+export type SourceTestRunPreview = {
+  runId: string;
+  status: string;
+  triggerType: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  fetchSummary: {
+    success: boolean;
+    snapshotCount: number;
+    payloadPreview: string;
+  };
+  parseSummary: {
+    recordCount: number;
+    changeCount: number;
+    eventCount: number;
+  };
+  sampleRecords: Array<{
+    title: string;
+    occurredAt: string;
+    infoType: string;
+    contentPreview: string;
+  }>;
+  issues: string[];
+};
+
+export async function getSourceTestRunPreview(sourceId: string): Promise<SourceTestRunPreview | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode: return synthetic preview
+    const source = mockSources.find((item) => item.id === sourceId);
+    if (!source) {
+      return null;
+    }
+
+    return {
+      runId: `test-run-${sourceId}-mock`,
+      status: "completed",
+      triggerType: "test",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      fetchSummary: {
+        success: true,
+        snapshotCount: 1,
+        payloadPreview: JSON.stringify([{ title: source.name, status: "sample_data" }], null, 2),
+      },
+      parseSummary: {
+        recordCount: 2,
+        changeCount: 1,
+        eventCount: 0,
+      },
+      sampleRecords: [
+        {
+          title: `${source.name} — Sample Record 1`,
+          occurredAt: new Date().toISOString(),
+          infoType: "price",
+          contentPreview: JSON.stringify({ price: 3999, currency: "CNY" }),
+        },
+        {
+          title: `${source.name} — Sample Record 2`,
+          occurredAt: new Date().toISOString(),
+          infoType: "price",
+          contentPreview: JSON.stringify({ price: 4199, currency: "CNY" }),
+        },
+      ],
+      issues: [],
+    };
+  }
+
+  // Find the most recent test run for this source
+  const testRun = await db
+    .selectFrom("source_runs")
+    .select(["id", "status", "trigger_type as triggerType", "started_at as startedAt", "finished_at as finishedAt", "error_message as errorMessage"])
+    .where("source_id", "=", sourceId)
+    .where("trigger_type", "=", "test")
+    .orderBy("created_at", "desc")
+    .limit(1)
+    .executeTakeFirst();
+
+  if (!testRun) {
+    return null;
+  }
+
+  const issues: string[] = [];
+
+  // For pending/running tests, return early with a "still processing" indicator
+  if (testRun.status === "pending" || testRun.status === "running") {
+    return {
+      runId: testRun.id,
+      status: testRun.status,
+      triggerType: testRun.triggerType,
+      startedAt: testRun.startedAt?.toISOString?.() ?? null,
+      finishedAt: testRun.finishedAt?.toISOString?.() ?? null,
+      fetchSummary: {
+        success: false,
+        snapshotCount: 0,
+        payloadPreview: "",
+      },
+      parseSummary: {
+        recordCount: 0,
+        changeCount: 0,
+        eventCount: 0,
+      },
+      sampleRecords: [],
+      issues: [testRun.status === "pending" ? "测试运行正在排队等待中，请稍后刷新。" : "测试运行正在执行中，请稍后刷新。"],
+    };
+  }
+
+  if (testRun.status === "failed") {
+    issues.push(testRun.errorMessage ?? "Run failed with unknown error.");
+  }
+
+  // Get snapshot — test runs store structured results here
+  const snapshot = await db
+    .selectFrom("raw_snapshots")
+    .select(["id", "payload_json as payloadJson", "fetched_at as fetchedAt"])
+    .where("source_run_id", "=", testRun.id)
+    .limit(1)
+    .executeTakeFirst();
+
+  const snapshotCount = snapshot ? 1 : 0;
+
+  if (snapshotCount === 0 && testRun.status === "completed") {
+    issues.push("运行完成但没有抓取到数据快照。请检查来源配置和目标 URL 是否正确。");
+  } else if (snapshotCount === 0 && testRun.status === "failed") {
+    issues.push("没有抓取到任何数据快照。请检查来源配置和目标 URL 是否正确。");
+  }
+
+  // Test runs store results in the snapshot; production runs query normalized_records
+  const payload = snapshot?.payloadJson as Record<string, unknown> | null;
+  const isTestSnapshot = payload && typeof payload === "object" && "is_test_run" in payload;
+
+  let recordCount = 0;
+  let changeCount = 0;
+  let eventCount = 0;
+  let sampleRecords: Array<{ title: string; occurredAt: string; infoType: string; contentPreview: string }> = [];
+  let payloadPreview = "";
+
+  if (isTestSnapshot) {
+    // Test run: read from snapshot
+    const testPayload = payload as {
+      normalized_records?: Array<{ title: string; occurred_at: string; info_type: string; content: Record<string, unknown> }>;
+      total_records?: number;
+      raw_payload?: unknown;
+    };
+    recordCount = testPayload.total_records ?? 0;
+    const records = testPayload.normalized_records ?? [];
+    sampleRecords = records.slice(0, 5).map((r) => ({
+      title: r.title,
+      occurredAt: r.occurred_at,
+      infoType: r.info_type,
+      contentPreview: JSON.stringify(r.content ?? {}, null, 2).slice(0, 500),
+    }));
+    payloadPreview = JSON.stringify(testPayload.raw_payload ?? {}, null, 2).slice(0, 2000);
+  } else {
+    // Production run (or legacy): query database
+    payloadPreview = payload ? JSON.stringify(payload, null, 2).slice(0, 2000) : "";
+
+    const [records, recordCountResult] = await Promise.all([
+      db
+        .selectFrom("normalized_records")
+        .select(["id", "title", "occurred_at as occurredAt", "info_type as infoType", "content"])
+        .where("source_run_id", "=", testRun.id)
+        .orderBy("occurred_at", "desc")
+        .limit(10)
+        .execute(),
+      db
+        .selectFrom("normalized_records")
+        .select(({ fn }) => fn.count("id").as("count"))
+        .where("source_run_id", "=", testRun.id)
+        .executeTakeFirst(),
+    ]);
+
+    const changeCountResult = await db
+      .selectFrom("changes")
+      .select(({ fn }) => fn.count("id").as("count"))
+      .where("source_run_id", "=", testRun.id)
+      .executeTakeFirst();
+
+    const eventCountResult = await db
+      .selectFrom("events")
+      .select(({ fn }) => fn.count("id").as("count"))
+      .where("source_run_id", "=", testRun.id)
+      .executeTakeFirst();
+
+    recordCount = Number(recordCountResult?.count ?? 0);
+    changeCount = Number(changeCountResult?.count ?? 0);
+    eventCount = Number(eventCountResult?.count ?? 0);
+
+    sampleRecords = records.slice(0, 5).map((record) => ({
+      title: record.title,
+      occurredAt: record.occurredAt?.toISOString?.() ?? String(record.occurredAt),
+      infoType: record.infoType,
+      contentPreview: JSON.stringify(record.content ?? {}, null, 2).slice(0, 500),
+    }));
+
+    if (records.length === 0 && testRun.status === "completed") {
+      issues.push("运行完成但没有解析出任何记录。请检查适配器配置和解析规则。");
+    }
+  }
+
+  return {
+    runId: testRun.id,
+    status: testRun.status,
+    triggerType: testRun.triggerType,
+    startedAt: testRun.startedAt?.toISOString?.() ?? null,
+    finishedAt: testRun.finishedAt?.toISOString?.() ?? null,
+    fetchSummary: {
+      success: testRun.status !== "failed" && snapshotCount > 0,
+      snapshotCount,
+      payloadPreview,
+    },
+    parseSummary: {
+      recordCount,
+      changeCount,
+      eventCount,
+    },
+    sampleRecords,
+    issues,
+  };
+}
+
 export async function updateSource(sourceId: string, input: SourceUpdateInput) {
   const db = getDatabase();
 
@@ -502,9 +1141,21 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
       source.isPaused = input.isPaused;
     }
 
+    if (input.config !== undefined) {
+      mockSourceConfigs.set(sourceId, input.config);
+    }
+
+    if (input.onboardingStatus !== undefined) {
+      source.onboardingStatus = input.onboardingStatus;
+      // Sync status and isPaused to match onboardingStatus
+      source.status = input.onboardingStatus === "active" ? "active" : "paused";
+      source.isPaused = input.onboardingStatus !== "active";
+    }
+
     return {
       id: source.id,
       isPaused: source.isPaused ?? false,
+      onboardingStatus: source.onboardingStatus ?? "active",
       mode: "mock",
     };
   }
@@ -543,15 +1194,35 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
     nextValues.is_paused = input.isPaused;
   }
 
+  if (input.onboardingStatus !== undefined) {
+    nextValues.onboarding_status = input.onboardingStatus;
+    // Sync status and is_paused to match onboardingStatus
+    if (input.onboardingStatus === "active") {
+      nextValues.status = "active";
+      nextValues.is_paused = false;
+    } else {
+      nextValues.status = "paused";
+      nextValues.is_paused = true;
+    }
+  }
+
   await db
     .updateTable("sources")
     .set(nextValues)
     .where("id", "=", sourceId)
     .execute();
 
+  // Read back actual values from DB for accurate return
+  const updated = await db
+    .selectFrom("sources")
+    .select(["is_paused as isPaused", "onboarding_status as onboardingStatus"])
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+
   return {
     id: sourceId,
-    isPaused: input.isPaused ?? false,
+    isPaused: updated?.isPaused ?? false,
+    onboardingStatus: (updated?.onboardingStatus as "draft" | "ready_to_test" | "active") ?? "active",
     mode: "db",
   };
 }
@@ -572,6 +1243,7 @@ export async function deleteSource(sourceId: string) {
 
     const themeId = mockSources[index].themeId;
     mockSources.splice(index, 1);
+    mockSourceConfigs.delete(sourceId);
     const theme = mockThemes.find((item) => item.id === themeId);
     if (theme) {
       theme.sourceCount = Math.max(0, theme.sourceCount - 1);

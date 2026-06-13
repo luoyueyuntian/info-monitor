@@ -13,7 +13,7 @@ import {
 } from "./notification-channels.js";
 import { logAuditEvent } from "./notification-audit-service.js";
 import { checkRateLimit, releaseLastSlot } from "./rate-limiter.js";
-import { getEffectivePreference } from "./notification-preference-service.js";
+import { getEffectivePreference, isInQuietHours, checkFrequencyGuard } from "./notification-preference-service.js";
 import { getEffectiveRuleConfig } from "./rule-config-service.js";
 
 // ─── Retry Configuration ─────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ function toNotificationListItem(row: Record<string, unknown>): NotificationListI
 
   return {
     id: row.id as string,
-    eventId: row.eventId as string,
+    eventId: (row.eventId as string) ?? "",
     channel: row.channel as string,
     status: row.status as string,
     title: (payload.title as string) || (row.title as string) || "",
@@ -118,7 +118,8 @@ export async function listNotifications(
       const themeEventIds = new Set(
         mockEvents.filter((event) => event.themeId === options.themeId).map((event) => event.id),
       );
-      items = items.filter((item) => themeEventIds.has(item.eventId));
+      // Include items with no event (empty eventId) or matching theme
+      items = items.filter((item) => !item.eventId || themeEventIds.has(item.eventId));
     }
 
     if (options.onlyUnreadEvents) {
@@ -179,19 +180,35 @@ export async function listNotifications(
     dataQuery = dataQuery.where("n.status", "=", options.status);
   }
 
+  // Event-based filters use OR n.event_id IS NULL to include notifications
+  // without a backing event (e.g., daily summary deliveries).
   if (options.signal) {
-    countQuery = countQuery.where("e.signal", "=", options.signal);
-    dataQuery = dataQuery.where("e.signal", "=", options.signal);
+    const signal = options.signal;
+    countQuery = countQuery.where((eb) =>
+      eb.or([eb("e.signal", "=", signal), eb("n.event_id", "is", null)])
+    );
+    dataQuery = dataQuery.where((eb) =>
+      eb.or([eb("e.signal", "=", signal), eb("n.event_id", "is", null)])
+    );
   }
 
   if (options.themeId) {
-    countQuery = countQuery.where("e.theme_id", "=", options.themeId);
-    dataQuery = dataQuery.where("e.theme_id", "=", options.themeId);
+    const themeId = options.themeId;
+    countQuery = countQuery.where((eb) =>
+      eb.or([eb("e.theme_id", "=", themeId), eb("n.event_id", "is", null)])
+    );
+    dataQuery = dataQuery.where((eb) =>
+      eb.or([eb("e.theme_id", "=", themeId), eb("n.event_id", "is", null)])
+    );
   }
 
   if (options.onlyUnreadEvents) {
-    countQuery = countQuery.where("e.is_read", "=", false);
-    dataQuery = dataQuery.where("e.is_read", "=", false);
+    countQuery = countQuery.where((eb) =>
+      eb.or([eb("e.is_read", "=", false), eb("n.event_id", "is", null)])
+    );
+    dataQuery = dataQuery.where((eb) =>
+      eb.or([eb("e.is_read", "=", false), eb("n.event_id", "is", null)])
+    );
   }
 
   // Apply cursor-based pagination
@@ -391,9 +408,13 @@ export async function batchDeleteNotifications(
       if (filter.status && item.status !== filter.status) return false;
       if (filter.channel && item.channel !== filter.channel) return false;
       if (filter.signal) {
-        if (item.signal !== filter.signal) return false;
+        // Include items with no event (eventId is empty) or matching signal
+        if (item.eventId && item.signal !== filter.signal) return false;
       }
-      if (themeEventIds && !themeEventIds.has(item.eventId)) return false;
+      if (themeEventIds) {
+        // Include items with no event (eventId is empty) or matching theme
+        if (item.eventId && !themeEventIds.has(item.eventId)) return false;
+      }
       return true;
     });
 
@@ -408,7 +429,9 @@ export async function batchDeleteNotifications(
     return { deleted: initialLength - mockNotifications.length };
   }
 
-  // Use a subquery to filter by signal/themeId through events table
+  // Use a subquery to filter by signal/themeId through events table.
+  // OR n.event_id IS NULL includes notifications without a backing event
+  // (e.g., daily summary deliveries).
   let query = db
     .deleteFrom("notifications")
     .where(
@@ -420,8 +443,12 @@ export async function batchDeleteNotifications(
         .select("n.id")
         .$if(!!filter.status, (q) => q.where("n.status", "=", filter.status!))
         .$if(!!filter.channel, (q) => q.where("n.channel", "=", filter.channel!))
-        .$if(!!filter.signal, (q) => q.where("e.signal", "=", filter.signal!))
-        .$if(!!filter.themeId, (q) => q.where("e.theme_id", "=", filter.themeId!)),
+        .$if(!!filter.signal, (q) =>
+          q.where((eb) => eb.or([eb("e.signal", "=", filter.signal!), eb("n.event_id", "is", null)]))
+        )
+        .$if(!!filter.themeId, (q) =>
+          q.where((eb) => eb.or([eb("e.theme_id", "=", filter.themeId!), eb("n.event_id", "is", null)]))
+        ),
     );
 
   const result = await query.executeTakeFirst();
@@ -594,7 +621,7 @@ export async function retryFailedNotification(
       const sendResult = await sendNotification(
         {
           id: notifRow.id,
-          eventId: notifRow.eventId,
+          eventId: notifRow.eventId ?? "",
           channel: notifRow.channel as NotificationChannel,
           title: (payload.title as string) || notifRow.title || "",
           summary: (payload.summary as string) || notifRow.summary || "",
@@ -758,7 +785,9 @@ export async function getNotificationStats(): Promise<{
     failed,
     failureRate: total > 0 ? failed / total : 0,
     recentFailures: recentFailures.map((row) => ({
-      ...row,
+      id: row.id,
+      eventId: row.eventId ?? "",
+      channel: row.channel,
       createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     })),
   };
@@ -868,6 +897,18 @@ export async function checkSendGuards(
     }
     if (preference.isMuted) {
       return { allowed: false, reason: `Notifications muted for ${themeId ? `theme ${themeId}` : signal ? `signal ${signal}` : channel}` };
+    }
+
+    // Check quiet hours
+    if (isInQuietHours(preference.quietHoursStart, preference.quietHoursEnd)) {
+      return { allowed: false, reason: `Quiet hours active (${preference.quietHoursStart} - ${preference.quietHoursEnd})` };
+    }
+
+    // Check frequency guard
+    const freqKey = `${channel}:${themeId ?? "any"}:${signal ?? "any"}`;
+    const freqCheck = checkFrequencyGuard(freqKey, preference.maxPerHour);
+    if (!freqCheck.allowed) {
+      return { allowed: false, reason: freqCheck.reason };
     }
   }
 
@@ -982,7 +1023,7 @@ export async function sendExternalNotification(
   const result = await sendNotification(
     {
       id: row.id,
-      eventId: row.eventId,
+      eventId: row.eventId ?? "",
       channel: row.channel as NotificationChannel,
       title: (payload.title as string) || row.title || "",
       summary: (payload.summary as string) || row.summary || "",

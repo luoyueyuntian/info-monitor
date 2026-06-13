@@ -7,6 +7,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.adapters.time_utils import normalize_pub_date
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 
@@ -106,15 +107,13 @@ class StatsDataReleaseListAdapter(BaseAdapter):
         if not title or not pub_date:
             raise ValueError(f"Missing title or pub date for detail page: {detail_url}")
 
-        normalized_pub_date = pub_date.replace("/", "-").replace(" ", "T")
-        if len(normalized_pub_date) == 10:
-            normalized_pub_date = f"{normalized_pub_date}T00:00"
+        occurred_at = normalize_pub_date(pub_date)
 
         release_topic, release_topic_label = classify_release_topic(title)
 
         return {
             "title": title,
-            "occurred_at": f"{normalized_pub_date}+08:00",
+            "occurred_at": occurred_at,
             "url": detail_url,
             "publisher": "国家统计局",
             "category": "macro_release",

@@ -17,6 +17,7 @@ import type {
   NotificationStatus,
   RunStatus,
   SourceHealth,
+  SourceOnboardingStatus,
   SourceStatus,
   ThemeSummary,
 } from "./index.js";
@@ -115,6 +116,12 @@ export const isRunStatus: Validator<RunStatus> = isOneOf(
   "failed",
 );
 
+export const isSourceOnboardingStatus: Validator<SourceOnboardingStatus> = isOneOf(
+  "draft",
+  "ready_to_test",
+  "active",
+);
+
 export const isNotificationChannel: Validator<NotificationChannel> = isOneOf(
   "in_app",
   "email",
@@ -210,6 +217,7 @@ export function isSourceStatus(value: unknown): value is SourceStatus {
     isOptional(isString)(value.sourceType) &&
     isOptional(isString)(value.adapterKey) &&
     isOptional(isBoolean)(value.isPaused) &&
+    isOptional(isString)(value.onboardingStatus) &&
     isOptionalNullable(isString)(value.latestRunStatus) &&
     isOptionalNullable(isString)(value.latestRunAt) &&
     isNullable(isString)(value.latestSuccessAt) &&

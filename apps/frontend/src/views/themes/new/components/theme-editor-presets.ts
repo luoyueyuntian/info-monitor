@@ -153,6 +153,65 @@ export const themePresetOptions: ThemePreset[] = [
     help: "Use CSS selectors to extract update cards from a release-note or product-update page.",
   },
   {
+    id: "generic-price-list",
+    label: "Second-Hand Price API",
+    description: "Monitor prices from a JSON API endpoint for second-hand marketplaces or price aggregators.",
+    themeType: "price",
+    infoType: "price",
+    sourceType: "api",
+    adapterKey: "generic_price_list",
+    defaultThemeName: "Second-Hand Price Monitor",
+    defaultDescription: "Track second-hand product prices from a JSON API source.",
+    defaultSourceName: "Price API Source",
+    fields: [
+      { key: "url", label: "API URL", type: "text", placeholder: "https://api.example.com/prices" },
+      { key: "items_field", label: "Items Field", type: "text", placeholder: "data.items" },
+      { key: "title_field", label: "Title Field", type: "text", placeholder: "title" },
+      { key: "price_field", label: "Price Field", type: "text", placeholder: "price" },
+      { key: "spec_field", label: "Spec Field", type: "text", placeholder: "spec" },
+      { key: "time_field", label: "Time Field", type: "text", placeholder: "created_at" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval Seconds", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Emit events on latest record only", type: "boolean" },
+    ],
+    defaultConfig: {
+      title_field: "title",
+      price_field: "price",
+      currency: "CNY",
+      schedule_interval_seconds: 21600,
+      emit_events_on_latest_only: true,
+    },
+    help: "Works with any JSON API returning price items. Use dot notation for nested fields (e.g. 'data.items').",
+  },
+  {
+    id: "generic-announcement-list",
+    label: "Product Announcement API",
+    description: "Monitor product updates, changelogs, or announcements from a JSON API endpoint.",
+    themeType: "content_update",
+    infoType: "content_update",
+    sourceType: "api",
+    adapterKey: "generic_announcement_list",
+    defaultThemeName: "Product Updates Monitor",
+    defaultDescription: "Track product announcements and updates from a JSON API source.",
+    defaultSourceName: "Announcement API Source",
+    fields: [
+      { key: "url", label: "API URL", type: "text", placeholder: "https://api.example.com/announcements" },
+      { key: "items_field", label: "Items Field", type: "text", placeholder: "data.items" },
+      { key: "title_field", label: "Title Field", type: "text", placeholder: "title" },
+      { key: "time_field", label: "Time Field", type: "text", placeholder: "published_at" },
+      { key: "summary_field", label: "Summary Field", type: "text", placeholder: "description" },
+      { key: "category_field", label: "Category Field", type: "text", placeholder: "category" },
+      { key: "object_name", label: "Product Name", type: "text", placeholder: "My Product" },
+      { key: "schedule_interval_seconds", label: "Schedule Interval Seconds", type: "number", placeholder: "21600" },
+      { key: "emit_events_on_latest_only", label: "Emit events on latest only", type: "boolean" },
+    ],
+    defaultConfig: {
+      title_field: "title",
+      schedule_interval_seconds: 21600,
+      emit_events_on_latest_only: true,
+    },
+    help: "Works with any JSON API returning announcements. Category field auto-classifies as feature_release, marketing, or announcement.",
+  },
+  {
     id: "custom",
     label: "Custom",
     description: "Manual mode for trying a new adapter or custom config shape.",
@@ -169,12 +228,15 @@ export const themePresetOptions: ThemePreset[] = [
   },
 ];
 
-export function getThemePresetById(presetId: string) {
-  return themePresetOptions.find((preset) => preset.id === presetId) ?? themePresetOptions[0];
+export function getThemePresetById(presetId: string): ThemePreset | undefined {
+  return themePresetOptions.find((preset) => preset.id === presetId);
 }
 
 export function buildThemePresetFormState(presetId: string) {
   const preset = getThemePresetById(presetId);
+  if (!preset) {
+    throw new Error(`Unknown theme preset: ${presetId}`);
+  }
 
   return {
     themeType: preset.themeType,
@@ -203,6 +265,10 @@ export function buildThemeSourceConfig(
     }
 
     throw new Error("Config JSON must be an object.");
+  }
+
+  if (!preset) {
+    throw new Error(`Unknown theme preset: ${presetId}`);
   }
 
   const config: Record<string, string | number | boolean> = {};

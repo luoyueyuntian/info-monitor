@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { getConfig } from "./config.js";
+import { startDailySummaryScheduler } from "./services/daily-summary-scheduler.js";
 
 async function main() {
   const config = getConfig();
@@ -10,6 +11,9 @@ async function main() {
       host: config.host,
       port: config.port,
     });
+
+    // Start background schedulers after server is listening
+    startDailySummaryScheduler();
   } catch (error) {
     app.log.error(error);
     process.exit(1);

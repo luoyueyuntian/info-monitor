@@ -29,6 +29,9 @@
             {{ runStatusLabel(source.latestRunStatus) }}
           </span>
           <span :class="pillToneClass('neutral')" v-if="isIncrementalSource(source)">本次新增</span>
+          <span :class="onboardingPillClass(source.onboardingStatus)" v-if="source.onboardingStatus && source.onboardingStatus !== 'active'">
+            {{ onboardingStatusLabel(source.onboardingStatus) }}
+          </span>
         </div>
         <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="`/sources/${source.id}`">
           {{ source.name }}
@@ -80,6 +83,7 @@
 
 <script setup lang="ts">
 import type { SourceStatus } from "../../../../lib/api";
+import type { SourceOnboardingStatus } from "@info-monitor/shared-contracts";
 import SourceHealthInline from "../../../../components/SourceHealthInline.vue";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
 import {
@@ -91,6 +95,23 @@ import {
   sourceTypeLabel,
   themeTypeLabel,
 } from "../../../../lib/presentation";
+
+function onboardingStatusLabel(status: SourceOnboardingStatus | string): string {
+  switch (status) {
+    case "draft": return "草稿";
+    case "ready_to_test": return "待测试";
+    case "active": return "已启用";
+    default: return String(status);
+  }
+}
+
+function onboardingPillClass(status: SourceOnboardingStatus | string | undefined): string {
+  switch (status) {
+    case "draft": return "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-200/80 text-slate-600";
+    case "ready_to_test": return "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700";
+    default: return pillToneClass("neutral");
+  }
+}
 
 defineProps<{
   sources: SourceStatus[];

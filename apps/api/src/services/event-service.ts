@@ -1,9 +1,14 @@
-import type { EventSummary, InboxSectionId } from "@info-monitor/shared-contracts";
+import type {
+  EventSummary,
+  FeedbackAggregation,
+  FeedbackAggregationItem,
+  InboxSectionId,
+} from "@info-monitor/shared-contracts";
 import { INBOX_SECTION_IDS } from "@info-monitor/shared-contracts";
 
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
-import { mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
+import { mockEventFeedback, mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
 
 export const inboxSectionIds = INBOX_SECTION_IDS;
 
@@ -645,8 +650,20 @@ export async function getEventFeedback(eventId: string): Promise<EventFeedbackRe
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode - return null (no feedback yet)
-    return null;
+    // Mock mode - read from in-memory feedback store
+    const record = mockEventFeedback.find((f) => f.eventId === eventId);
+    if (!record) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      eventId: record.eventId,
+      feedback: record.feedback as EventFeedback,
+      note: record.note,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
   const row = await db
@@ -684,15 +701,36 @@ export async function upsertEventFeedback(
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode - return a mock record
+    // Mock mode - upsert into in-memory feedback store
     const now = new Date().toISOString();
-    return {
+    const existing = mockEventFeedback.find((f) => f.eventId === eventId);
+
+    if (existing) {
+      existing.feedback = feedback;
+      existing.note = note ?? null;
+      existing.updatedAt = now;
+      return {
+        id: existing.id,
+        eventId: existing.eventId,
+        feedback: existing.feedback as EventFeedback,
+        note: existing.note,
+        createdAt: existing.createdAt,
+        updatedAt: existing.updatedAt,
+      };
+    }
+
+    const record = {
       id: createId("event_feedback"),
       eventId,
       feedback,
       note: note ?? null,
       createdAt: now,
       updatedAt: now,
+    };
+    mockEventFeedback.push(record);
+    return {
+      ...record,
+      feedback: record.feedback as EventFeedback,
     };
   }
 
@@ -749,7 +787,11 @@ export async function deleteEventFeedback(eventId: string): Promise<boolean> {
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode - always succeed
+    // Mock mode - remove from in-memory feedback store (idempotent: always succeed)
+    const index = mockEventFeedback.findIndex((f) => f.eventId === eventId);
+    if (index !== -1) {
+      mockEventFeedback.splice(index, 1);
+    }
     return true;
   }
 
@@ -761,7 +803,7 @@ export async function deleteEventFeedback(eventId: string): Promise<boolean> {
     .executeTakeFirst();
 
   if (!existing) {
-    return false;
+    return true; // Idempotent: deleting non-existent feedback is a no-op
   }
 
   await db
@@ -783,7 +825,20 @@ export async function getMultipleEventFeedback(
   }
 
   if (!db) {
-    // Mock mode - return empty map
+    // Mock mode - read from in-memory feedback store
+    for (const eventId of eventIds) {
+      const record = mockEventFeedback.find((f) => f.eventId === eventId);
+      if (record) {
+        map.set(record.eventId, {
+          id: record.id,
+          eventId: record.eventId,
+          feedback: record.feedback as EventFeedback,
+          note: record.note,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+        });
+      }
+    }
     return map;
   }
 
@@ -812,4 +867,100 @@ export async function getMultipleEventFeedback(
   }
 
   return map;
+}
+
+export type { FeedbackAggregation, FeedbackAggregationItem };
+
+type FeedbackRow = {
+  feedback: string;
+  signal: string;
+  eventType: string;
+  themeId: string;
+  themeName: string;
+};
+
+function aggregateFeedbackBy(
+  rows: FeedbackRow[],
+  key: "signal" | "eventType" | "themeId",
+  labelFn: (item: FeedbackRow) => string,
+): FeedbackAggregationItem[] {
+  const map = new Map<string, { label: string; useful: number; noise: number; watch: number }>();
+
+  for (const item of rows) {
+    const k = item[key];
+    const existing = map.get(k) ?? { label: labelFn(item), useful: 0, noise: 0, watch: 0 };
+
+    if (item.feedback === "useful") existing.useful++;
+    else if (item.feedback === "noise") existing.noise++;
+    else if (item.feedback === "watch") existing.watch++;
+
+    map.set(k, existing);
+  }
+
+  return Array.from(map.entries()).map(([k, v]) => ({
+    key: k,
+    label: v.label,
+    useful: v.useful,
+    noise: v.noise,
+    watch: v.watch,
+    total: v.useful + v.noise + v.watch,
+  })).sort((a, b) => b.total - a.total);
+}
+
+export async function getFeedbackAggregation(): Promise<FeedbackAggregation> {
+  const db = getDatabase();
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  if (!db) {
+    // Mock mode - aggregate from in-memory feedback
+    const recentFeedbackRecords = mockEventFeedback.filter(
+      (f) => new Date(f.updatedAt).getTime() >= twentyFourHoursAgo.getTime(),
+    );
+
+    const recentFeedback: FeedbackRow[] = recentFeedbackRecords.map((feedback) => {
+      const event = mockEvents.find((e) => e.id === feedback.eventId);
+      return {
+        feedback: feedback.feedback,
+        signal: event?.signal ?? "unknown",
+        eventType: event?.eventType ?? "unknown",
+        themeId: event?.themeId ?? "unknown",
+        themeName: event?.themeName ?? "Unknown Theme",
+      };
+    });
+
+    return {
+      bySignal: aggregateFeedbackBy(recentFeedback, "signal", (item) => item.signal),
+      byEventType: aggregateFeedbackBy(recentFeedback, "eventType", (item) => item.eventType),
+      byTheme: aggregateFeedbackBy(recentFeedback, "themeId", (item) => item.themeName),
+      totalFeedback: mockEventFeedback.length,
+      recentFeedback: recentFeedback.length,
+    };
+  }
+
+  // Database mode
+  const feedbackRows = await db
+    .selectFrom("event_feedback")
+    .innerJoin("events", "events.id", "event_feedback.event_id")
+    .innerJoin("themes", "themes.id", "events.theme_id")
+    .select([
+      "event_feedback.feedback as feedback",
+      "event_feedback.updated_at as updatedAt",
+      "events.signal as signal",
+      "events.event_type as eventType",
+      "events.theme_id as themeId",
+      "themes.name as themeName",
+    ])
+    .execute();
+
+  const recentFeedback = feedbackRows.filter(
+    (row) => new Date(row.updatedAt).getTime() >= twentyFourHoursAgo.getTime(),
+  );
+
+  return {
+    bySignal: aggregateFeedbackBy(recentFeedback, "signal", (row) => row.signal),
+    byEventType: aggregateFeedbackBy(recentFeedback, "eventType", (row) => row.eventType),
+    byTheme: aggregateFeedbackBy(recentFeedback, "themeId", (row) => row.themeName),
+    totalFeedback: feedbackRows.length,
+    recentFeedback: recentFeedback.length,
+  };
 }

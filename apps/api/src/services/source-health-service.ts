@@ -447,6 +447,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       "error_message as errorMessage",
     ])
     .where("created_at", ">=", twentyFourHoursAgo as any)
+    .where("trigger_type", "!=", "test")
     .orderBy("created_at", "desc")
     .execute();
 
@@ -605,6 +606,7 @@ export async function getOperationalMetrics(): Promise<OperationalMetrics> {
       "created_at as createdAt",
     ])
     .where("created_at", ">=", sevenDaysAgo as any)
+    .where("trigger_type", "!=", "test")
     .execute();
 
   // ── Run Duration Trend (avg per day) ──────────────────────────────────────
@@ -662,18 +664,21 @@ export async function getOperationalMetrics(): Promise<OperationalMetrics> {
     .selectFrom("source_runs")
     .select((eb) => eb.fn.count("id").as("count"))
     .where("status", "=", "pending")
+    .where("trigger_type", "!=", "test")
     .executeTakeFirst();
 
   const runningRuns = await db
     .selectFrom("source_runs")
     .select((eb) => eb.fn.count("id").as("count"))
     .where("status", "=", "running")
+    .where("trigger_type", "!=", "test")
     .executeTakeFirst();
 
   const oldestPending = await db
     .selectFrom("source_runs")
     .select("created_at as createdAt")
     .where("status", "=", "pending")
+    .where("trigger_type", "!=", "test")
     .orderBy("created_at", "asc")
     .executeTakeFirst();
 

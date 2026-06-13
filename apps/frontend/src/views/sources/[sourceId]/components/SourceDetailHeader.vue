@@ -14,11 +14,15 @@
     <p>
       {{ themeName }} · {{ sourceTypeLabel(sourceType) }} ·
       {{ isPaused ? "已暂停" : "运行中" }}
+      <span v-if="onboardingStatus && onboardingStatus !== 'active'" class="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold" :class="onboardingStatus === 'draft' ? 'bg-slate-200/80 text-slate-600' : 'bg-amber-100 text-amber-700'">
+        {{ onboardingStatusLabel(onboardingStatus) }}
+      </span>
     </p>
   </header>
 </template>
 
 <script setup lang="ts">
+import type { SourceOnboardingStatus } from "@info-monitor/shared-contracts";
 import { sourceTypeLabel } from "../../../../lib/presentation";
 
 defineProps<{
@@ -27,6 +31,15 @@ defineProps<{
   themeName: string;
   sourceType?: string;
   isPaused?: boolean;
+  onboardingStatus?: SourceOnboardingStatus;
   handleBack: () => void;
 }>();
+
+function onboardingStatusLabel(status: SourceOnboardingStatus): string {
+  switch (status) {
+    case "draft": return "草稿";
+    case "ready_to_test": return "待测试";
+    default: return "";
+  }
+}
 </script>

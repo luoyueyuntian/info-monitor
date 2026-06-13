@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import {
   createTheme,
   deleteTheme,
+  getThemeDailyActivity,
   getThemeDetail,
   getThemeReviewNote,
   listThemes,
@@ -24,6 +25,21 @@ export async function registerThemeRoutes(app: FastifyInstance) {
 
     return detail;
   });
+
+  app.get<{ Params: { themeId: string }; Querystring: { days?: string } }>(
+    "/api/themes/:themeId/daily-activity",
+    async (request, reply) => {
+      const days = Math.min(30, Math.max(1, Number(request.query.days) || 7));
+      const activity = await getThemeDailyActivity(request.params.themeId, days);
+
+      if (!activity) {
+        reply.code(404);
+        return { message: "Theme not found" };
+      }
+
+      return activity;
+    },
+  );
 
   app.post("/api/themes", async (request, reply) => {
     const body = request.body as {
@@ -120,19 +136,62 @@ export async function registerThemeRoutes(app: FastifyInstance) {
     return note;
   });
 
+  const VALID_REVIEW_STATUSES = ["pending_review", "reviewed", "tracking"];
+
   app.put<{
     Params: { themeId: string };
-    Body: { content?: string };
+    Body: {
+      content?: unknown;
+      status?: unknown;
+      tags?: unknown;
+      nextReviewDate?: unknown;
+    };
   }>("/api/themes/:themeId/review-note", async (request, reply) => {
     const body = request.body;
 
-    if (body?.content === undefined) {
+    if (typeof body?.content !== "string") {
       reply.code(400);
-      return { message: "content is required" };
+      return { message: "content must be a string" };
+    }
+
+    // Validate status
+    let status: "pending_review" | "reviewed" | "tracking" | undefined;
+    if (body.status !== undefined && body.status !== null) {
+      if (typeof body.status !== "string" || !VALID_REVIEW_STATUSES.includes(body.status)) {
+        reply.code(400);
+        return { message: `status must be one of: ${VALID_REVIEW_STATUSES.join(", ")}` };
+      }
+      status = body.status as typeof status;
+    }
+
+    // Validate tags
+    let tags: string[] | undefined;
+    if (body.tags !== undefined && body.tags !== null) {
+      if (!Array.isArray(body.tags) || !body.tags.every((t: unknown) => typeof t === "string")) {
+        reply.code(400);
+        return { message: "tags must be an array of strings" };
+      }
+      tags = body.tags;
+    }
+
+    // Validate nextReviewDate
+    let nextReviewDate: string | null | undefined;
+    if (body.nextReviewDate !== undefined) {
+      if (body.nextReviewDate === null) {
+        nextReviewDate = null;
+      } else if (typeof body.nextReviewDate === "string" && !isNaN(Date.parse(body.nextReviewDate))) {
+        nextReviewDate = body.nextReviewDate;
+      } else {
+        reply.code(400);
+        return { message: "nextReviewDate must be a valid date string or null" };
+      }
     }
 
     const updated = await updateThemeReviewNote(request.params.themeId, {
       content: body.content,
+      status,
+      tags,
+      nextReviewDate,
     });
 
     if (!updated) {

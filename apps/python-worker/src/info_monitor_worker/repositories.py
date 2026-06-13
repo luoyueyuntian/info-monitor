@@ -48,7 +48,7 @@ def mark_run_running(connection: Connection, run_id: str) -> None:
     )
 
 
-def mark_run_completed(connection: Connection, run_id: str, source_id: str) -> None:
+def mark_run_completed(connection: Connection, run_id: str, source_id: str, is_test: bool = False) -> None:
     connection.execute(
         text(
             """
@@ -61,20 +61,23 @@ def mark_run_completed(connection: Connection, run_id: str, source_id: str) -> N
         ),
         {"run_id": run_id},
     )
-    connection.execute(
-        text(
-            """
-            update sources
-            set latest_success_at = now(),
-                updated_at = now()
-            where id = :source_id
-            """
-        ),
-        {"source_id": source_id},
-    )
+    # Test runs should not update source-level health metrics
+    if not is_test:
+        connection.execute(
+            text(
+                """
+                update sources
+                set latest_success_at = now(),
+                    status = case when is_paused then status else 'healthy' end,
+                    updated_at = now()
+                where id = :source_id
+                """
+            ),
+            {"source_id": source_id},
+        )
 
 
-def mark_run_failed(connection: Connection, run_id: str, source_id: str, error_message: str) -> None:
+def mark_run_failed(connection: Connection, run_id: str, source_id: str, error_message: str, is_test: bool = False) -> None:
     connection.execute(
         text(
             """
@@ -87,17 +90,20 @@ def mark_run_failed(connection: Connection, run_id: str, source_id: str, error_m
         ),
         {"run_id": run_id, "error_message": error_message[:1000]},
     )
-    connection.execute(
-        text(
-            """
-            update sources
-            set latest_failure_at = now(),
-                updated_at = now()
-            where id = :source_id
-            """
-        ),
-        {"source_id": source_id},
-    )
+    # Test runs should not update source-level health metrics
+    if not is_test:
+        connection.execute(
+            text(
+                """
+                update sources
+                set latest_failure_at = now(),
+                    status = 'warning',
+                    updated_at = now()
+                where id = :source_id
+                """
+            ),
+            {"source_id": source_id},
+        )
 
 
 def insert_raw_snapshot(

@@ -27,10 +27,16 @@ type ThemeUpdateInput = {
 export type ThemeReviewNote = {
   content: string;
   updatedAt: string | null;
+  status?: "pending_review" | "reviewed" | "tracking";
+  tags?: string[];
+  nextReviewDate?: string | null;
 };
 
 export type ThemeReviewNoteUpdate = {
   content: string;
+  status?: "pending_review" | "reviewed" | "tracking";
+  tags?: string[];
+  nextReviewDate?: string | null;
 };
 
 type ThemeCreateResult = {
@@ -557,13 +563,16 @@ async function listThemesFromDb(db: Kysely<Database>) {
   const rows = await db
     .selectFrom("themes as t")
     .leftJoin("sources as s", "s.theme_id", "t.id")
-    .leftJoin("source_runs as sr", "sr.theme_id", "t.id")
+    .leftJoin("source_runs as sr", (join) =>
+      join.onRef("sr.theme_id", "=", "t.id").on("sr.trigger_type", "!=", "test"),
+    )
     .leftJoin("events as e", "e.theme_id", "t.id")
     .select(({ fn }) => [
       "t.id as id",
       "t.name as name",
       "t.theme_type as theme_type",
       "t.status as status",
+      "t.metadata as metadata",
       fn.max("sr.finished_at").as("latest_run_at"),
       fn.max("e.occurred_at").as("latest_event_at"),
       sql<number>`count(distinct s.id)`.as("source_count"),
@@ -576,11 +585,29 @@ async function listThemesFromDb(db: Kysely<Database>) {
       fn.max("s.latest_success_at").as("latest_success_at"),
       fn.max("s.latest_failure_at").as("latest_failure_at"),
     ])
-    .groupBy(["t.id", "t.name", "t.theme_type", "t.status"])
+    .groupBy(["t.id", "t.name", "t.theme_type", "t.status", "t.metadata"])
     .orderBy("t.created_at desc")
     .execute();
 
-  const summaries = rows.map(mapDatabaseThemeSummary);
+  const summaries = rows.map((row) => {
+    const base = mapDatabaseThemeSummary(row);
+    // Extract review fields from metadata
+    const rawMetadata = (row as Record<string, unknown>).metadata;
+    let metadata: Record<string, unknown> = {};
+    try {
+      metadata = typeof rawMetadata === "string" ? JSON.parse(rawMetadata) : (rawMetadata as Record<string, unknown>) ?? {};
+    } catch {
+      metadata = {};
+    }
+    const reviewNote = metadata.reviewNote as Record<string, unknown> | undefined;
+
+    return {
+      ...base,
+      reviewStatus: typeof reviewNote?.status === "string" ? reviewNote.status : null,
+      reviewTags: Array.isArray(reviewNote?.tags) ? reviewNote.tags : [],
+      nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
+    };
+  });
 
   const latestEvents = await Promise.all(
     summaries.map(async (summary) => {
@@ -670,6 +697,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
           "finished_at as finishedAt",
         ])
         .where("source_id", "=", source.id)
+        .where("trigger_type", "!=", "test")
         .orderBy("created_at desc")
         .limit(1)
         .executeTakeFirst();
@@ -709,6 +737,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
       "status as label",
     ])
     .where("theme_id", "=", themeId)
+    .where("trigger_type", "!=", "test")
     .orderBy("created_at desc")
     .limit(10)
     .execute();
@@ -724,6 +753,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
       "s.name as sourceName",
     ])
     .where("sr.theme_id", "=", themeId)
+    .where("sr.trigger_type", "!=", "test")
     .orderBy("sr.created_at desc")
     .limit(10)
     .execute();
@@ -927,6 +957,7 @@ async function createThemeInDb(db: Kysely<Database>, input: ThemeInput): Promise
         adapter_key: source.adapterKey,
         status: "active",
         is_paused: false,
+        onboarding_status: "active",
         config: source.config ?? {},
         created_at: now,
         updated_at: now,
@@ -951,6 +982,8 @@ export async function listThemes() {
   if (!db) {
     return mockThemes.map((theme) => {
       const themeEvents = mockEvents.filter((event) => event.themeId === theme.id);
+      const metadata = (theme as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+      const reviewNote = metadata?.reviewNote as Record<string, unknown> | undefined;
 
       return {
         ...theme,
@@ -962,6 +995,9 @@ export async function listThemes() {
         latestBookmarkedAt: themeEvents
           .filter((event) => event.isBookmarked && event.bookmarkedAt)
           .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
+        reviewStatus: typeof reviewNote?.status === "string" ? reviewNote.status : null,
+        reviewTags: Array.isArray(reviewNote?.tags) ? reviewNote.tags : [],
+        nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
       };
     });
   }
@@ -979,44 +1015,280 @@ export async function getThemeDetail(themeId: string) {
       return null;
     }
 
+    const themeEvents = mockEvents.filter((item) => item.themeId === themeId);
+    const themeSources = mockSources.filter((item) => item.themeId === themeId);
+
+    // Build mock records based on theme type
+    const mockRecords = buildMockThemeRecords(theme, themeEvents);
+    const mockTimeline = buildMockThemeTimeline(theme, themeEvents, themeSources);
+    const mockHistory = buildMockThemeHistory(theme);
+    const mockBreakdown = buildMockThemeBreakdown(theme, mockRecords);
+
     return {
       theme,
-      sources: mockSources.filter((item) => item.themeId === themeId),
-      events: mockEvents.filter((item) => item.themeId === themeId),
-      history: [
-        { at: "2026-05-30T09:30:00Z", label: "Historical snapshot stored" },
-        { at: "2026-05-31T09:30:00Z", label: "Minor price decline detected" },
-        { at: "2026-06-01T09:31:00Z", label: "30-day low event emitted" },
-      ],
-      breakdown: null,
-      timeline: [],
-      records: [],
+      sources: themeSources,
+      events: themeEvents,
+      history: mockHistory,
+      breakdown: mockBreakdown,
+      timeline: mockTimeline,
+      records: mockRecords,
       analysis: buildThemeAnalysis({
         themeType: theme.type,
         latestInsight: null,
-        events: mockEvents
-          .filter((item) => item.themeId === themeId)
-          .map((item) => ({
-            title: item.title,
-            signal: item.signal,
-            occurredAt: item.occurredAt,
-            summary: item.summary,
-          })),
-        records: [],
-        sources: mockSources
-          .filter((item) => item.themeId === themeId)
-          .map((item) => ({
-            status: item.status,
-            isPaused: item.isPaused,
-            latestRunStatus: item.latestRunStatus,
-            latestSuccessAt: item.latestSuccessAt,
-            latestFailureAt: item.latestFailureAt,
-          })),
+        events: themeEvents.map((item) => ({
+          title: item.title,
+          signal: item.signal,
+          occurredAt: item.occurredAt,
+          summary: item.summary,
+        })),
+        records: mockRecords.map((item) => ({
+          occurredAt: item.occurredAt,
+          content: item.content,
+        })),
+        sources: themeSources.map((item) => ({
+          status: item.status,
+          isPaused: item.isPaused,
+          latestRunStatus: item.latestRunStatus,
+          latestSuccessAt: item.latestSuccessAt,
+          latestFailureAt: item.latestFailureAt,
+        })),
       }),
     };
   }
 
   return getThemeDetailFromDb(db, themeId);
+}
+
+function buildMockThemeRecords(
+  theme: { id: string; type: string },
+  events: Array<{ id: string; themeId: string }>,
+): Array<{
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  title: string;
+  occurredAt: string;
+  infoType: string;
+  content: Record<string, unknown>;
+}> {
+  if (theme.type === "content_update") {
+    return [
+      {
+        id: `${theme.id}-record-3`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
+        title: "Figma release notes item",
+        occurredAt: "2026-06-01T07:35:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "feature_release",
+          url: "https://www.figma.com/release-notes/",
+          summary: "New dev mode improvements announced in the latest release notes.",
+        },
+      },
+      {
+        id: `${theme.id}-record-2`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
+        title: "Figma release notes item",
+        occurredAt: "2026-05-31T07:30:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "marketing_campaign",
+          url: "https://www.figma.com/release-notes/",
+          summary: "Figma highlighted dev mode onboarding improvements in a new release note card.",
+        },
+      },
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-figma-release-notes",
+        sourceName: "Figma Release Notes",
+        title: "Figma release notes item",
+        occurredAt: "2026-05-29T07:30:00Z",
+        infoType: "content_update",
+        content: {
+          object_name: "Figma",
+          update_type: "bug_fix",
+          url: "https://www.figma.com/release-notes/",
+          summary: "A batch of editor bug fixes and performance improvements was published.",
+        },
+      },
+    ];
+  }
+
+  if (theme.type === "news_announcement") {
+    return [
+      {
+        id: `${theme.id}-record-1`,
+        sourceId: "source-stats-cpi-release",
+        sourceName: "NBS CPI Release List",
+        title: "2026年5月份居民消费价格同比下降0.1%",
+        occurredAt: "2026-06-01T08:00:00Z",
+        infoType: "news_announcement",
+        content: {
+          url: "https://www.stats.gov.cn/sj/zxfb/202606/t20260601_1958001.html",
+          publisher: "国家统计局",
+          category: "macro_release",
+          release_topic: "prices",
+          release_topic_label: "价格指标",
+          description: "2026年5月份，全国居民消费价格同比下降0.1%。其中，城市持平，农村下降0.4%。",
+        },
+      },
+      {
+        id: `${theme.id}-record-2`,
+        sourceId: "source-stats-cpi-release",
+        sourceName: "NBS CPI Release List",
+        title: "2026年4月份居民消费价格同比下降0.1%",
+        occurredAt: "2026-05-01T08:00:00Z",
+        infoType: "news_announcement",
+        content: {
+          url: "https://www.stats.gov.cn/sj/zxfb/202605/t20260501_1957001.html",
+          publisher: "国家统计局",
+          category: "macro_release",
+          release_topic: "prices",
+          release_topic_label: "价格指标",
+          description: "2026年4月份，全国居民消费价格同比下降0.1%。",
+        },
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildMockThemeTimeline(
+  theme: { id: string; type: string },
+  events: Array<{ id: string; title: string; signal: string; occurredAt: string; summary: string; eventType?: string }>,
+  sources: Array<{ id: string; name: string }>,
+): Array<{
+  id: string;
+  kind: string;
+  at: string;
+  title: string;
+  summary: string;
+  meta?: Record<string, unknown>;
+}> {
+  const sourceName = sources[0]?.name ?? "Unknown Source";
+
+  if (theme.type === "content_update") {
+    return [
+      {
+        id: `${theme.id}-timeline-run-1`,
+        kind: "run",
+        at: "2026-06-01T07:30:00Z",
+        title: "Latest fetch completed",
+        summary: "Figma release notes page fetched and parsed successfully.",
+        meta: { status: "completed", triggerType: "schedule", sourceName },
+      },
+      {
+        id: `${theme.id}-timeline-event-1`,
+        kind: "event",
+        at: events[0]?.occurredAt ?? "2026-06-01T07:35:00Z",
+        title: events[0]?.title ?? "New content update detected",
+        summary: events[0]?.summary ?? "A new product update was detected on the Figma release notes page.",
+        meta: {
+          signal: events[0]?.signal ?? "content_update",
+          eventType: events[0]?.eventType ?? "content_update",
+          sourceName,
+        },
+      },
+    ];
+  }
+
+  if (theme.type === "news_announcement") {
+    return [
+      {
+        id: `${theme.id}-timeline-run-1`,
+        kind: "run",
+        at: "2026-06-01T08:05:00Z",
+        title: "Latest fetch completed",
+        summary: "NBS release list page fetched, detail pages parsed, and normalized.",
+        meta: { status: "completed", triggerType: "schedule", sourceName },
+      },
+      {
+        id: `${theme.id}-timeline-event-1`,
+        kind: "event",
+        at: events[0]?.occurredAt ?? "2026-06-01T08:02:00Z",
+        title: events[0]?.title ?? "New official release detected",
+        summary: events[0]?.summary ?? "A new official release was published on the NBS site.",
+        meta: {
+          signal: events[0]?.signal ?? "new_announcement",
+          eventType: events[0]?.eventType ?? "new_release",
+          sourceName,
+        },
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildMockThemeHistory(theme: { id: string; type: string }): Array<{ at: string; label: string }> {
+  if (theme.type === "content_update") {
+    return [
+      { at: "2026-05-29T07:30:00Z", label: "Bug fix update detected" },
+      { at: "2026-05-31T07:30:00Z", label: "Marketing campaign update card added" },
+      { at: "2026-06-01T07:35:00Z", label: "New feature release update detected" },
+    ];
+  }
+
+  if (theme.type === "news_announcement") {
+    return [
+      { at: "2026-05-01T08:00:00Z", label: "April CPI release detected" },
+      { at: "2026-06-01T08:02:00Z", label: "May CPI release detected" },
+    ];
+  }
+
+  if (theme.type === "financial_event") {
+    return [
+      { at: "2026-05-30T06:00:00Z", label: "Liquidity withdrawal operation recorded" },
+      { at: "2026-05-31T06:10:00Z", label: "Neutral open market operation detected" },
+      { at: "2026-06-01T06:10:00Z", label: "New liquidity withdrawal signal emitted" },
+    ];
+  }
+
+  return [
+    { at: "2026-05-30T09:30:00Z", label: "Historical snapshot stored" },
+    { at: "2026-05-31T09:30:00Z", label: "Minor price decline detected" },
+    { at: "2026-06-01T09:31:00Z", label: "30-day low event emitted" },
+  ];
+}
+
+function buildMockThemeBreakdown(
+  theme: { id: string; type: string },
+  records: Array<{ content: Record<string, unknown> }>,
+): { title: string; description: string; items: Array<{ label: string; count: number }> } | null {
+  if (theme.type === "content_update") {
+    const counts = new Map<string, number>();
+    for (const record of records) {
+      const label = String(record.content.update_type ?? "unknown");
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    const items = Array.from(counts.entries()).map(([label, count]) => ({ label, count }));
+    return {
+      title: "Update Type Distribution",
+      description: "Aggregate by recent content update types to help you quickly determine if it's feature release, marketing action, or bug fix.",
+      items: items.length > 0 ? items : [{ label: "No data", count: 0 }],
+    };
+  }
+
+  if (theme.type === "news_announcement") {
+    const counts = new Map<string, number>();
+    for (const record of records) {
+      const label = String(record.content.release_topic_label ?? "unknown");
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    const items = Array.from(counts.entries()).map(([label, count]) => ({ label, count }));
+    return {
+      title: "Release Topic Distribution",
+      description: "Aggregate by recent official release topics to help you quickly determine the current macro focus areas.",
+      items: items.length > 0 ? items : [{ label: "No data", count: 0 }],
+    };
+  }
+
+  return null;
 }
 
 export async function createTheme(input: ThemeInput) {
@@ -1171,20 +1443,157 @@ export async function deleteTheme(themeId: string) {
   return { id: themeId };
 }
 
+// ─── Daily Activity ──────────────────────────────────────────────────────────
+
+export type DailyActivityDay = {
+  date: string;
+  eventCount: number;
+  runCount: number;
+  changeCount: number;
+  signals: Record<string, number>;
+};
+
+export type ThemeDailyActivity = {
+  themeId: string;
+  days: DailyActivityDay[];
+  totals: {
+    events: number;
+    runs: number;
+    changes: number;
+  };
+};
+
+export async function getThemeDailyActivity(
+  themeId: string,
+  days: number = 7,
+): Promise<ThemeDailyActivity | null> {
+  const db = getDatabase();
+  const now = new Date();
+
+  // Helper to get date string in Asia/Shanghai timezone
+  function toCstDate(date: Date): string {
+    return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
+  }
+
+  if (!db) {
+    // Mock mode: generate synthetic daily activity
+    const themeEvents = mockEvents.filter((e) => e.themeId === themeId);
+    const dayList: DailyActivityDay[] = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const dayDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = toCstDate(dayDate);
+      const dayEvents = themeEvents.filter((e) => e.occurredAt.startsWith(dateStr));
+      const signals: Record<string, number> = {};
+      for (const e of dayEvents) {
+        signals[e.signal] = (signals[e.signal] ?? 0) + 1;
+      }
+      dayList.push({
+        date: dateStr,
+        eventCount: dayEvents.length,
+        runCount: i === 0 ? 1 : 0,
+        changeCount: dayEvents.length > 0 ? 1 : 0,
+        signals,
+      });
+    }
+
+    return {
+      themeId,
+      days: dayList,
+      totals: {
+        events: themeEvents.length,
+        runs: 1,
+        changes: themeEvents.length > 0 ? 1 : 0,
+      },
+    };
+  }
+
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+  const [events, runs, changes] = await Promise.all([
+    db
+      .selectFrom("events")
+      .select(["occurred_at as occurredAt", "signal"])
+      .where("theme_id", "=", themeId)
+      .where("occurred_at", ">=", startDate as any)
+      .execute(),
+    db
+      .selectFrom("source_runs")
+      .select(["created_at as createdAt"])
+      .where("theme_id", "=", themeId)
+      .where("created_at", ">=", startDate as any)
+      .where("trigger_type", "!=", "test")
+      .execute(),
+    db
+      .selectFrom("changes")
+      .select(["detected_at as detectedAt"])
+      .where("theme_id", "=", themeId)
+      .where("detected_at", ">=", startDate as any)
+      .execute(),
+  ]);
+
+  // Group by day using Asia/Shanghai timezone
+  const dayMap = new Map<string, DailyActivityDay>();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const dayDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = toCstDate(dayDate);
+    dayMap.set(dateStr, { date: dateStr, eventCount: 0, runCount: 0, changeCount: 0, signals: {} });
+  }
+
+  for (const event of events) {
+    const dateStr = toCstDate(event.occurredAt instanceof Date ? event.occurredAt : new Date(String(event.occurredAt)));
+    const day = dayMap.get(dateStr);
+    if (day) {
+      day.eventCount += 1;
+      day.signals[event.signal] = (day.signals[event.signal] ?? 0) + 1;
+    }
+  }
+
+  for (const run of runs) {
+    const dateStr = toCstDate(run.createdAt instanceof Date ? run.createdAt : new Date(String(run.createdAt)));
+    const day = dayMap.get(dateStr);
+    if (day) day.runCount += 1;
+  }
+
+  for (const change of changes) {
+    const dateStr = toCstDate(change.detectedAt instanceof Date ? change.detectedAt : new Date(String(change.detectedAt)));
+    const day = dayMap.get(dateStr);
+    if (day) day.changeCount += 1;
+  }
+
+  const dayList = Array.from(dayMap.values());
+
+  return {
+    themeId,
+    days: dayList,
+    totals: {
+      events: events.length,
+      runs: runs.length,
+      changes: changes.length,
+    },
+  };
+}
+
 export async function getThemeReviewNote(themeId: string): Promise<ThemeReviewNote | null> {
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode - check mock themes for review note in metadata
+    // Mock mode - read review note from in-memory theme metadata
     const theme = mockThemes.find((t) => t.id === themeId);
     if (!theme) {
       return null;
     }
 
-    // Mock themes don't have metadata, return empty note
+    const metadata = (theme as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+    const reviewNote = metadata?.reviewNote as Record<string, unknown> | undefined;
+
     return {
-      content: "",
-      updatedAt: null,
+      content: typeof reviewNote?.content === "string" ? reviewNote.content : "",
+      updatedAt: typeof reviewNote?.updatedAt === "string" ? reviewNote.updatedAt : null,
+      status: typeof reviewNote?.status === "string" ? reviewNote.status as ThemeReviewNote["status"] : undefined,
+      tags: Array.isArray(reviewNote?.tags) ? reviewNote.tags as string[] : undefined,
+      nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
     };
   }
 
@@ -1200,15 +1609,23 @@ export async function getThemeReviewNote(themeId: string): Promise<ThemeReviewNo
 
   // Guard against metadata being returned as a raw JSON string by the driver
   const rawMetadata = theme.metadata;
-  const metadata: Record<string, unknown> =
-    typeof rawMetadata === "string"
-      ? JSON.parse(rawMetadata)
-      : (rawMetadata as Record<string, unknown>) ?? {};
+  let metadata: Record<string, unknown> = {};
+  try {
+    metadata =
+      typeof rawMetadata === "string"
+        ? JSON.parse(rawMetadata)
+        : (rawMetadata as Record<string, unknown>) ?? {};
+  } catch {
+    metadata = {};
+  }
   const reviewNote = metadata.reviewNote as Record<string, unknown> | undefined;
 
   return {
     content: typeof reviewNote?.content === "string" ? reviewNote.content : "",
     updatedAt: typeof reviewNote?.updatedAt === "string" ? reviewNote.updatedAt : null,
+    status: typeof reviewNote?.status === "string" ? reviewNote.status as ThemeReviewNote["status"] : undefined,
+    tags: Array.isArray(reviewNote?.tags) ? reviewNote.tags as string[] : undefined,
+    nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
   };
 }
 
@@ -1219,16 +1636,30 @@ export async function updateThemeReviewNote(
   const db = getDatabase();
 
   if (!db) {
-    // Mock mode - just return the updated note
+    // Mock mode - persist review note to in-memory theme metadata
     const theme = mockThemes.find((t) => t.id === themeId);
     if (!theme) {
       return null;
     }
 
     const now = new Date().toISOString();
+    const themeRecord = theme as Record<string, unknown>;
+    const metadata = (themeRecord.metadata as Record<string, unknown>) ?? {};
+    metadata.reviewNote = {
+      content: input.content,
+      updatedAt: now,
+      status: input.status,
+      tags: input.tags,
+      nextReviewDate: input.nextReviewDate,
+    };
+    themeRecord.metadata = metadata;
+
     return {
       content: input.content,
       updatedAt: now,
+      status: input.status,
+      tags: input.tags,
+      nextReviewDate: input.nextReviewDate,
     };
   }
 
@@ -1244,10 +1675,15 @@ export async function updateThemeReviewNote(
 
   // Guard against metadata being returned as a raw JSON string by the driver
   const rawMetadata = existing.metadata;
-  const currentMetadata: Record<string, unknown> =
-    typeof rawMetadata === "string"
-      ? JSON.parse(rawMetadata)
-      : (rawMetadata as Record<string, unknown>) ?? {};
+  let currentMetadata: Record<string, unknown> = {};
+  try {
+    currentMetadata =
+      typeof rawMetadata === "string"
+        ? JSON.parse(rawMetadata)
+        : (rawMetadata as Record<string, unknown>) ?? {};
+  } catch {
+    currentMetadata = {};
+  }
   const now = new Date().toISOString();
 
   const updatedMetadata = {
@@ -1255,6 +1691,9 @@ export async function updateThemeReviewNote(
     reviewNote: {
       content: input.content,
       updatedAt: now,
+      status: input.status,
+      tags: input.tags,
+      nextReviewDate: input.nextReviewDate,
     },
   };
 
@@ -1270,5 +1709,8 @@ export async function updateThemeReviewNote(
   return {
     content: input.content,
     updatedAt: now,
+    status: input.status,
+    tags: input.tags,
+    nextReviewDate: input.nextReviewDate,
   };
 }

@@ -51,6 +51,13 @@
           <option value="pending">仍待复盘</option>
           <option value="completed">已完成首轮复盘</option>
         </select>
+        <select v-model="reviewStatusFilter" class="rounded-xl border border-slate-400/20 bg-white/95 px-3 py-2.5">
+          <option value="all">全部复盘状态</option>
+          <option value="pending_review">待审核</option>
+          <option value="reviewed">已审核</option>
+          <option value="tracking">跟踪中</option>
+          <option value="none">未设置</option>
+        </select>
         <label class="flex items-center gap-2.5 font-semibold">
           <input v-model="unreadOnly" type="checkbox" />
           只看仍有未读内容
@@ -246,6 +253,28 @@
         <span class="text-[1.2rem] font-bold text-ink-heading">{{ filteredThemes.length }}</span>
         <span class="text-[0.88rem] leading-[1.45] text-slate-500">回到当前筛选范围内的全部长期观察主题</span>
       </RouterLink>
+    </section>
+
+    <section v-if="dueForReviewThemes.length" class="card" :ref="setSectionRef('due-for-review')">
+      <div class="card-topline">
+        <h3>待复盘主题（按日期）</h3>
+        <span class="text-[0.88rem] text-ink-secondary">按下次复盘日期排序，优先处理已到期的主题</span>
+      </div>
+      <div class="flex flex-col gap-3">
+        <article v-for="theme in dueForReviewThemes" :key="`due-${theme.id}`" class="grid gap-2 rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span :class="pillToneClass()">{{ themeTypeLabel(theme.type) }}</span>
+            <span v-if="theme.reviewStatus" :class="pillToneClass(theme.reviewStatus === 'tracking' ? '30d_low' : theme.reviewStatus === 'reviewed' ? 'active' : 'pending')">
+              {{ theme.reviewStatus === 'pending_review' ? '待审核' : theme.reviewStatus === 'reviewed' ? '已审核' : '跟踪中' }}
+            </span>
+            <span v-if="theme.nextReviewDate" class="text-xs text-gray-500">下次复盘: {{ theme.nextReviewDate }}</span>
+          </div>
+          <strong>{{ theme.name }}</strong>
+          <RouterLink class="text-sm font-semibold text-ink-link" :to="{ path: `/themes/${theme.id}`, query: { section: 'analysis' } }">
+            查看主题 ›
+          </RouterLink>
+        </article>
+      </div>
     </section>
 
     <HomeInboxDiagnosisCard
@@ -615,6 +644,7 @@ const stageFilter = ref<"all" | "recent" | "steady">("all");
 const typeFilter = ref<"all" | "price" | "content_update" | "news_announcement" | "financial_event">("all");
 const impactFilter = ref<"all" | "positive" | "negative" | "neutral">("all");
 const completionFilter = ref<"all" | "pending" | "completed">("all");
+const reviewStatusFilter = ref<"all" | "pending_review" | "reviewed" | "tracking" | "none">("all");
 const unreadOnly = ref(false);
 const recentThreshold = 7 * 24 * 60 * 60 * 1000;
 const route = useRoute();
@@ -722,6 +752,7 @@ const steadyCompletedThemeCount = computed(() => {
 });
 const watchlistSections = computed(() =>
   [
+    dueForReviewThemes.value.length ? { id: "due-for-review", label: "待复盘主题（按日期）" } : null,
     reviewThemes.value.length ? { id: "review-themes", label: "待复盘主题" } : null,
     reviewEvents.value.length ? { id: "review-events", label: "待复盘事件" } : null,
     completedThemes.value.length ? { id: "completed-themes", label: "低频回看主题" } : null,
@@ -790,8 +821,11 @@ const filteredThemes = computed(() => {
       (completionFilter.value === "pending" && (theme.unreadEventCount ?? 0) > 0) ||
       (completionFilter.value === "completed" && (theme.unreadEventCount ?? 0) === 0);
     const matchesUnread = !unreadOnly.value || (theme.unreadEventCount ?? 0) > 0;
+    const matchesReviewStatus = reviewStatusFilter.value === "all" ||
+      (reviewStatusFilter.value === "none" && !theme.reviewStatus) ||
+      theme.reviewStatus === reviewStatusFilter.value;
 
-    return matchesStage && matchesType && matchesImpact && matchesCompletion && matchesUnread;
+    return matchesStage && matchesType && matchesImpact && matchesCompletion && matchesUnread && matchesReviewStatus;
   });
 });
 
@@ -852,6 +886,12 @@ const completedThemes = computed(() =>
 const completedEvents = computed(() =>
   filteredEvents.value.filter((event) => Boolean(event.isRead)),
 );
+
+const dueForReviewThemes = computed(() => {
+  return bookmarkedThemes.value
+    .filter((theme) => theme.nextReviewDate)
+    .sort((a, b) => (a.nextReviewDate ?? "").localeCompare(b.nextReviewDate ?? ""));
+});
 
 const watchDiagnostic = computed(() =>
   buildLongTermWatch(filteredThemes.value, filteredEvents.value, (theme) => ({

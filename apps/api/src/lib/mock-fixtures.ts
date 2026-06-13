@@ -17,6 +17,7 @@ import type {
 // Extend shared types with fixture-specific fields
 type ThemeSummary = SharedThemeSummary & {
   latestRunAt: string; // Override to be required in fixtures
+  metadata?: Record<string, unknown>;
 };
 
 type EventSummary = SharedEventSummary & {
@@ -44,6 +45,7 @@ const surfaceTheme: DemoThemeFixture = {
     latestRunAt: "2026-06-01T09:30:00Z",
     latestEventAt: "2026-06-01T09:31:00Z",
     sourceCount: 2,
+    metadata: {},
   },
   events: [
     {
@@ -84,6 +86,7 @@ const surfaceTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "demo_price_feed",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T09:30:00Z",
       latestSuccessAt: "2026-06-01T09:30:00Z",
@@ -101,6 +104,7 @@ const surfaceTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "demo_price_feed",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T09:24:00Z",
       latestSuccessAt: "2026-06-01T09:24:00Z",
@@ -119,6 +123,7 @@ const pbcTheme: DemoThemeFixture = {
     latestRunAt: "2026-06-01T06:12:00Z",
     latestEventAt: "2026-06-01T06:10:00Z",
     sourceCount: 2,
+    metadata: {},
   },
   events: [
     {
@@ -190,6 +195,7 @@ const pbcTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "pbc_open_market_announcements",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "failed",
       latestRunAt: "2026-06-01T06:00:00Z",
       latestSuccessAt: "2026-05-31T23:00:00Z",
@@ -207,6 +213,7 @@ const pbcTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "pbc_open_market_announcements",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T06:12:00Z",
       latestSuccessAt: "2026-06-01T06:12:00Z",
@@ -225,6 +232,7 @@ const cpiTheme: DemoThemeFixture = {
     latestRunAt: "2026-06-01T08:05:00Z",
     latestEventAt: "2026-06-01T08:02:00Z",
     sourceCount: 1,
+    metadata: {},
   },
   events: [
     {
@@ -266,6 +274,7 @@ const cpiTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "stats_data_release_list",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T08:05:00Z",
       latestSuccessAt: "2026-06-01T08:05:00Z",
@@ -284,6 +293,7 @@ const figmaTheme: DemoThemeFixture = {
     latestRunAt: "2026-06-01T07:30:00Z",
     latestEventAt: "2026-06-01T07:35:00Z",
     sourceCount: 1,
+    metadata: {},
   },
   events: [
     {
@@ -325,6 +335,7 @@ const figmaTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "generic_content_update_list",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T07:30:00Z",
       latestSuccessAt: "2026-06-01T07:30:00Z",
@@ -343,6 +354,7 @@ const eastmoneyTheme: DemoThemeFixture = {
     latestRunAt: "2026-05-31T15:00:00Z",
     latestEventAt: null,
     sourceCount: 1,
+    metadata: {},
   },
   events: [],
   sources: [
@@ -357,6 +369,7 @@ const eastmoneyTheme: DemoThemeFixture = {
       sourceType: "api",
       adapterKey: "eastmoney_stock_kline",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-05-31T15:00:00Z",
       latestSuccessAt: "2026-05-31T15:00:00Z",
@@ -375,6 +388,7 @@ const pbcNewsTheme: DemoThemeFixture = {
     latestRunAt: "2026-06-01T07:40:00Z",
     latestEventAt: "2026-06-01T07:38:00Z",
     sourceCount: 1,
+    metadata: {},
   },
   events: [
     {
@@ -416,6 +430,7 @@ const pbcNewsTheme: DemoThemeFixture = {
       sourceType: "page_list",
       adapterKey: "pbc_news_list",
       isPaused: false,
+      onboardingStatus: "active",
       latestRunStatus: "completed",
       latestRunAt: "2026-06-01T07:40:00Z",
       latestSuccessAt: "2026-06-01T07:40:00Z",
@@ -486,3 +501,14 @@ export const mockNotifications: NotificationItem[] = [
     createdAt: "2026-06-01T06:10:00Z",
   },
 ];
+
+export type MockEventFeedbackRecord = {
+  id: string;
+  eventId: string;
+  feedback: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const mockEventFeedback: MockEventFeedbackRecord[] = [];

@@ -210,7 +210,7 @@ const form = reactive({
   customConfigJson: "{}",
 });
 
-const activePreset = computed(() => getThemePresetById(form.presetId));
+const activePreset = computed(() => getThemePresetById(form.presetId) ?? themePresetOptions[0]);
 
 function applyPreset(presetId: string) {
   const presetState = buildThemePresetFormState(presetId);

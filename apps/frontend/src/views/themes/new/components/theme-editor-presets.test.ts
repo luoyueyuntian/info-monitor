@@ -41,8 +41,8 @@ describe("theme-editor-presets", () => {
     });
   });
 
-  it("returns custom preset fallback and parses custom config", () => {
-    expect(getThemePresetById("missing").id).toBe("demo-price-feed");
+  it("returns undefined for unknown preset and parses custom config", () => {
+    expect(getThemePresetById("missing")).toBeUndefined();
 
     expect(
       buildThemeSourceConfig("custom", '{"path":"/demo","schedule_interval_seconds":3600}', {}),

@@ -300,6 +300,7 @@ class WorkerService:
             config=run["source_config"] or {},
         )
         run_id = run["run_id"]
+        is_test = run.get("trigger_type") == "test"
 
         try:
             with self.engine.begin() as connection:
@@ -308,131 +309,158 @@ class WorkerService:
                 adapter = get_adapter(source.adapter_key)
                 raw_result = adapter.fetch(theme, source)
                 raw_payload = adapter.map_to_normalizer_input(raw_result)
-                insert_raw_snapshot(
-                    connection=connection,
-                    snapshot_id=create_id("snapshot"),
-                    run_id=run_id,
-                    theme_id=theme.theme_id,
-                    source_id=source.source_id,
-                    payload_json=to_json(raw_payload),
-                )
 
                 normalizer = get_normalizer(theme.info_type)
                 normalized_records = normalizer.normalize(raw_payload)
-                latest_occurred_at = None
 
-                if source.config.get("emit_events_on_latest_only") and normalized_records:
-                    latest_occurred_at = max(
-                        datetime.fromisoformat(record.occurred_at.replace("Z", "+00:00"))
-                        for record in normalized_records
-                    )
+                if is_test:
+                    # Test run: write snapshot with results, skip production writes
+                    sample_records = []
+                    for record in normalized_records[:20]:
+                        sample_records.append({
+                            "title": record.title,
+                            "occurred_at": record.occurred_at,
+                            "info_type": theme.info_type,
+                            "content": record.content,
+                        })
 
-                detector = get_detector(theme.info_type)
-
-                for normalized_record in normalized_records:
-                    logical_key = normalized_record.logical_key
-                    fingerprint = fingerprint_for_value(
-                        {
-                            "title": normalized_record.title,
-                            "occurred_at": normalized_record.occurred_at,
-                            "content": normalized_record.content,
-                        }
-                    )
-
-                    # Look up existing record
-                    existing_record = None
-                    if logical_key:
-                        existing_record = find_normalized_record_by_logical_key(
-                            connection=connection,
-                            theme_id=theme.theme_id,
-                            source_id=source.source_id,
-                            logical_key=logical_key,
-                        )
-
-                    if not existing_record:
-                        existing_record = find_normalized_record_by_fingerprint(
-                            connection=connection,
-                            theme_id=theme.theme_id,
-                            source_id=source.source_id,
-                            fingerprint=fingerprint,
-                        )
-
-                    # Use detector to determine change type
-                    change_result = detector.detect_change(
-                        normalized_record,
-                        existing_record,
-                        fingerprint=fingerprint,
-                    )
-
-                    # Skip unchanged records
-                    if change_result.is_unchanged:
-                        continue
-
-                    # Persist the normalized record
-                    if change_result.is_new:
-                        insert_normalized_record(
-                            connection=connection,
-                            record_id=change_result.record_id,
-                            run_id=run_id,
-                            theme_id=theme.theme_id,
-                            source_id=source.source_id,
-                            info_type=theme.info_type,
-                            occurred_at=normalized_record.occurred_at,
-                            title=normalized_record.title,
-                            logical_key=logical_key,
-                            fingerprint=fingerprint,
-                            content_json=to_json(normalized_record.content),
-                        )
-                    else:
-                        update_normalized_record(
-                            connection=connection,
-                            record_id=change_result.record_id,
-                            run_id=run_id,
-                            occurred_at=normalized_record.occurred_at,
-                            title=normalized_record.title,
-                            fingerprint=fingerprint,
-                            content_json=to_json(normalized_record.content),
-                        )
-
-                    # Record the change
-                    record_identity = logical_key or fingerprint
-                    change_key = f"{source.source_id}:{change_result.change_type}:{record_identity}:{fingerprint}"
-
-                    change_id = insert_change(
+                    insert_raw_snapshot(
                         connection=connection,
-                        change_id=create_id("change"),
+                        snapshot_id=create_id("snapshot"),
                         run_id=run_id,
                         theme_id=theme.theme_id,
                         source_id=source.source_id,
-                        normalized_record_id=change_result.record_id,
-                        change_key=change_key,
-                        change_type=change_result.change_type,
-                        summary=change_result.change_summary,
-                        details_json=to_json(
-                            {
-                                **change_result.details,
-                                "source_name": source.source_name,
-                                "source_type": source.source_type,
-                                "adapter_key": source.adapter_key,
-                                "info_type": theme.info_type,
-                            }
-                        ),
+                        payload_json=to_json({
+                            "raw_payload": raw_payload,
+                            "normalized_records": sample_records,
+                            "total_records": len(normalized_records),
+                            "is_test_run": True,
+                        }),
                     )
-
-                    # Evaluate event rules
-                    self._evaluate_events(
-                        connection,
-                        theme=theme,
-                        source=source,
+                else:
+                    # Production run: full pipeline
+                    insert_raw_snapshot(
+                        connection=connection,
+                        snapshot_id=create_id("snapshot"),
                         run_id=run_id,
-                        change_id=change_id,
-                        normalized_record=normalized_record,
-                        record_identity=record_identity,
-                        latest_occurred_at=latest_occurred_at,
+                        theme_id=theme.theme_id,
+                        source_id=source.source_id,
+                        payload_json=to_json(raw_payload),
                     )
 
-                mark_run_completed(connection, run_id, source.source_id)
+                    latest_occurred_at = None
+                    if source.config.get("emit_events_on_latest_only") and normalized_records:
+                        latest_occurred_at = max(
+                            datetime.fromisoformat(record.occurred_at.replace("Z", "+00:00"))
+                            for record in normalized_records
+                        )
+
+                    detector = get_detector(theme.info_type)
+
+                    for normalized_record in normalized_records:
+                        logical_key = normalized_record.logical_key
+                        fingerprint = fingerprint_for_value(
+                            {
+                                "title": normalized_record.title,
+                                "occurred_at": normalized_record.occurred_at,
+                                "content": normalized_record.content,
+                            }
+                        )
+
+                        # Look up existing record
+                        existing_record = None
+                        if logical_key:
+                            existing_record = find_normalized_record_by_logical_key(
+                                connection=connection,
+                                theme_id=theme.theme_id,
+                                source_id=source.source_id,
+                                logical_key=logical_key,
+                            )
+
+                        if not existing_record:
+                            existing_record = find_normalized_record_by_fingerprint(
+                                connection=connection,
+                                theme_id=theme.theme_id,
+                                source_id=source.source_id,
+                                fingerprint=fingerprint,
+                            )
+
+                        # Use detector to determine change type
+                        change_result = detector.detect_change(
+                            normalized_record,
+                            existing_record,
+                            fingerprint=fingerprint,
+                        )
+
+                        # Skip unchanged records
+                        if change_result.is_unchanged:
+                            continue
+
+                        # Persist the normalized record
+                        if change_result.is_new:
+                            insert_normalized_record(
+                                connection=connection,
+                                record_id=change_result.record_id,
+                                run_id=run_id,
+                                theme_id=theme.theme_id,
+                                source_id=source.source_id,
+                                info_type=theme.info_type,
+                                occurred_at=normalized_record.occurred_at,
+                                title=normalized_record.title,
+                                logical_key=logical_key,
+                                fingerprint=fingerprint,
+                                content_json=to_json(normalized_record.content),
+                            )
+                        else:
+                            update_normalized_record(
+                                connection=connection,
+                                record_id=change_result.record_id,
+                                run_id=run_id,
+                                occurred_at=normalized_record.occurred_at,
+                                title=normalized_record.title,
+                                fingerprint=fingerprint,
+                                content_json=to_json(normalized_record.content),
+                            )
+
+                        # Record the change
+                        record_identity = logical_key or fingerprint
+                        change_key = f"{source.source_id}:{change_result.change_type}:{record_identity}:{fingerprint}"
+
+                        change_id = insert_change(
+                            connection=connection,
+                            change_id=create_id("change"),
+                            run_id=run_id,
+                            theme_id=theme.theme_id,
+                            source_id=source.source_id,
+                            normalized_record_id=change_result.record_id,
+                            change_key=change_key,
+                            change_type=change_result.change_type,
+                            summary=change_result.change_summary,
+                            details_json=to_json(
+                                {
+                                    **change_result.details,
+                                    "source_name": source.source_name,
+                                    "source_type": source.source_type,
+                                    "adapter_key": source.adapter_key,
+                                    "info_type": theme.info_type,
+                                }
+                            ),
+                        )
+
+                        # Evaluate event rules
+                        self._evaluate_events(
+                            connection,
+                            theme=theme,
+                            source=source,
+                            run_id=run_id,
+                            change_id=change_id,
+                            normalized_record=normalized_record,
+                            record_identity=record_identity,
+                            latest_occurred_at=latest_occurred_at,
+                        )
+
+                mark_run_completed(connection, run_id, source.source_id, is_test=is_test)
         except Exception as error:
             with self.engine.begin() as connection:
-                mark_run_failed(connection, run_id, source.source_id, str(error))
+                mark_run_failed(connection, run_id, source.source_id, str(error), is_test=is_test)
             raise

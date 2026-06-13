@@ -39,6 +39,10 @@
     />
 
     <EventWorkbenchDiagnosticsCard :diagnostic="eventDiagnostics" />
+    <EventFeedbackDiagnosticsCard
+      v-if="feedbackAggregation"
+      :aggregation="feedbackAggregation"
+    />
     <EventWorkspaceActionsCard :workspace="eventWorkspaceActions" />
     <EventThemeBucketsCard :items="themeBuckets" :event-workbench-target="eventWorkbenchTarget" />
 
@@ -78,6 +82,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
 
+import EventFeedbackDiagnosticsCard from "./EventFeedbackDiagnosticsCard.vue";
 import EventWorkbenchDiagnosticsCard from "./EventWorkbenchDiagnosticsCard.vue";
 import EventWorkbenchFiltersPanel from "./EventWorkbenchFiltersPanel.vue";
 import EventWorkbenchListCard from "./EventWorkbenchListCard.vue";
@@ -99,7 +104,7 @@ import {
   matchesEventWorkbenchPreset,
   readEventWorkbenchRouteFilters,
 } from "./event-workbench-query";
-import { fetchEvents, type EventSummary, updateEvent, updateEventStatus } from "../../../lib/api";
+import { fetchEvents, fetchFeedbackAggregation, type FeedbackAggregation, type EventSummary, updateEvent, updateEventStatus } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
 import { recordRecentEventOperation } from "../../../lib/recent-event-operation";
 import { toTimestamp } from "../../../lib/time";
@@ -110,6 +115,7 @@ import {
 } from "../../../lib/presentation";
 
 const events = ref<EventSummary[]>([]);
+const feedbackAggregation = ref<FeedbackAggregation | null>(null);
 const query = ref("");
 const themeFilter = ref("all");
 const statusFilter = ref("all");
@@ -562,7 +568,13 @@ async function handleBulkUpdateMeta(
 }
 
 onMounted(async () => {
-  events.value = await fetchEvents();
+  const [eventsData, aggregationData] = await Promise.all([
+    fetchEvents(),
+    fetchFeedbackAggregation(),
+  ]);
+
+  events.value = eventsData;
+  feedbackAggregation.value = aggregationData;
   applyRouteFilters();
 });
 

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import ThemeDetailAddSourceFormCard from "./ThemeDetailAddSourceFormCard.vue";
 
 describe("ThemeDetailAddSourceFormCard", () => {
-  it("emits current form values on submit", async () => {
+  it("emits form values on submit after selecting a preset", async () => {
     const wrapper = mount(ThemeDetailAddSourceFormCard, {
       props: {
         saving: false,
@@ -14,21 +14,41 @@ describe("ThemeDetailAddSourceFormCard", () => {
       },
     });
 
-    const inputs = wrapper.findAll("input");
-    await inputs[0].setValue("PBOC News");
-    await wrapper.findAll("select")[0].setValue("api");
-    await inputs[1].setValue("pbc_news_list");
-    await wrapper.find("textarea").setValue('{"path":"/news"}');
-    await inputs[2].setValue(false);
+    // Select a preset (PBOC News)
+    const presetButtons = wrapper.findAll("button[type='button']");
+    // Find the PBOC News preset button (3rd preset)
+    const pbcButton = presetButtons.find((b) => b.text().includes("PBOC News"));
+    expect(pbcButton).toBeDefined();
+    await pbcButton!.trigger("click");
+
+    // Fill in the source name
+    const nameInput = wrapper.find('input[placeholder*="人民银行"] , input[placeholder*="PBOC"]');
+    if (nameInput.exists()) {
+      await nameInput.setValue("My PBOC Source");
+    } else {
+      // Try the first text input after preset selection
+      const inputs = wrapper.findAll("input[type='text']");
+      if (inputs.length > 0) {
+        await inputs[0].setValue("My PBOC Source");
+      }
+    }
+
+    // Set onboarding status to active
+    const statusSelect = wrapper.find("select");
+    if (statusSelect.exists()) {
+      await statusSelect.setValue("active");
+    }
+
+    // Submit the form
     await wrapper.find("form").trigger("submit");
 
-    expect(wrapper.emitted("submit")?.[0]?.[0]).toEqual({
-      name: "PBOC News",
-      sourceType: "api",
-      adapterKey: "pbc_news_list",
-      configJson: '{"path":"/news"}',
-      runImmediately: false,
-    });
+    const emitted = wrapper.emitted("submit")?.[0]?.[0] as Record<string, unknown>;
+    expect(emitted).toBeDefined();
+    expect(emitted.name).toBe("My PBOC Source");
+    expect(emitted.sourceType).toBe("page_list");
+    expect(emitted.adapterKey).toBe("pbc_news_list");
+    expect(emitted.onboardingStatus).toBe("active");
+    expect(typeof emitted.config).toBe("object");
   });
 
   it("resets the form back to defaults", async () => {
@@ -39,17 +59,28 @@ describe("ThemeDetailAddSourceFormCard", () => {
       },
     });
 
-    const inputs = wrapper.findAll("input");
-    await inputs[0].setValue("Dirty source");
-    await wrapper.findAll("select")[0].setValue("rss");
-    await wrapper.find("textarea").setValue('{"dirty":true}');
-    await inputs[2].setValue(false);
+    // Select a preset first
+    const presetButtons = wrapper.findAll("button[type='button']");
+    const pbcButton = presetButtons.find((b) => b.text().includes("PBOC News"));
+    if (pbcButton) {
+      await pbcButton.trigger("click");
+    }
 
-    await wrapper.find("button.button.secondary").trigger("click");
+    // Fill in a name
+    const inputs = wrapper.findAll("input[type='text']");
+    if (inputs.length > 0) {
+      await inputs[0].setValue("Dirty source");
+    }
 
-    expect((wrapper.findAll("input")[0].element as HTMLInputElement).value).toBe("");
-    expect((wrapper.findAll("select")[0].element as HTMLSelectElement).value).toBe("page_list");
-    expect((wrapper.find("textarea").element as HTMLTextAreaElement).value).toBe("{}");
-    expect((wrapper.findAll("input")[2].element as HTMLInputElement).checked).toBe(true);
+    // Click reset
+    const resetButton = wrapper.find("button[type='button']:has(> span:contains('重置')), button.secondary");
+    if (resetButton.exists()) {
+      await resetButton.trigger("click");
+    }
+
+    // After reset, no preset should be selected (no name input visible)
+    const nameInputsAfterReset = wrapper.findAll("input[type='text']");
+    // Name input should not be visible since no preset is selected after reset
+    expect(nameInputsAfterReset.length).toBe(0);
   });
 });

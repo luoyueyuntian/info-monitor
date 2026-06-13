@@ -118,6 +118,10 @@
       <ThemeDetailFinancialRhythmCard :data="financialRhythmData" />
     </div>
 
+    <div :ref="setSectionRef('weekly-review')">
+      <ThemeDetailWeeklyReviewCard :theme-id="detail.theme.id" />
+    </div>
+
     <div class="grid two">
       <div :ref="setSectionRef('events')">
         <ThemeDetailRecentEventsCard :theme-id="detail.theme.id" :events="detail.events" />
@@ -181,6 +185,7 @@ import ThemeDetailStatsGrid from "./ThemeDetailStatsGrid.vue";
 import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
+import ThemeDetailWeeklyReviewCard from "./ThemeDetailWeeklyReviewCard.vue";
 import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
 import { buildThemeSourceCompareData, buildContinuousSnapshotCompareData } from "./theme-detail-source-compare";
@@ -876,8 +881,9 @@ async function handleAddSource(input: {
   name: string;
   sourceType: string;
   adapterKey: string;
-  configJson: string;
+  config: Record<string, unknown>;
   runImmediately: boolean;
+  onboardingStatus: "draft" | "ready_to_test" | "active";
 }) {
   if (!detail.value) {
     return;
@@ -893,15 +899,17 @@ async function handleAddSource(input: {
       name: input.name,
       sourceType: input.sourceType,
       adapterKey: input.adapterKey,
-      config: parseSourceConfig(input.configJson),
+      config: input.config,
+      onboardingStatus: input.onboardingStatus,
     });
 
-    if (input.runImmediately) {
+    if (input.runImmediately && input.onboardingStatus === "active") {
       await triggerSourceRun(created.id);
     }
 
     await loadThemeDetail();
-    setOperationMessage(input.runImmediately ? "来源已保存，并已入队运行。" : "来源已保存。", [
+    const statusLabel = input.onboardingStatus === "draft" ? "草稿已保存。" : input.onboardingStatus === "ready_to_test" ? "来源已保存，可在详情页手动触发测试。" : input.runImmediately ? "来源已保存，并已入队运行。" : "来源已保存，已启用。";
+    setOperationMessage(statusLabel, [
       { label: "查看本主题来源状态", to: { path: "/sources/status", query: { themeId: String(route.params.themeId), recent: input.runImmediately ? "24h" : undefined } } },
       { label: "查看主题来源区", to: { path: `/themes/${route.params.themeId}`, query: { section: "sources" } } },
     ]);

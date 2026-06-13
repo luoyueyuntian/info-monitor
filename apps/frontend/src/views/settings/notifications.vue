@@ -5,6 +5,93 @@
       <p class="m-0 leading-7 text-[#675d4f]">配置通知的触发条件和显示方式，按主题、信号类型或渠道进行精细控制。</p>
     </header>
 
+    <!-- Daily Summary Subscription -->
+    <article class="rounded-[18px] border border-blue-200 bg-blue-50/50 p-[18px]">
+      <div class="mb-3 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-900">日报订阅</h3>
+          <p class="text-xs text-gray-500">每日自动推送工作台摘要</p>
+        </div>
+        <label class="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            :checked="dailySummary.enabled"
+            class="peer sr-only"
+            @change="toggleDailySummary"
+          />
+          <div class="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+        </label>
+      </div>
+      <div v-if="dailySummary.enabled" class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">接收渠道</label>
+          <select
+            v-model="dailySummary.channel"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveDailySummaryConfig"
+          >
+            <option value="in_app">应用内</option>
+            <option value="email">邮件</option>
+            <option value="webhook">Webhook</option>
+            <option value="telegram">Telegram</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">推送时间</label>
+          <input
+            v-model="dailySummary.deliveryTime"
+            type="time"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveDailySummaryConfig"
+          />
+        </div>
+      </div>
+
+      <!-- Channel-specific config for external channels -->
+      <div v-if="dailySummary.enabled && dailySummary.channel === 'webhook'" class="mt-3 grid grid-cols-1 gap-3">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Webhook URL</label>
+          <input
+            v-model="channelConfig.webhook!.url"
+            type="url"
+            placeholder="https://example.com/webhook"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveChannelConfig"
+          />
+        </div>
+      </div>
+
+      <div v-if="dailySummary.enabled && dailySummary.channel === 'telegram'" class="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Bot Token</label>
+          <input
+            v-model="channelConfig.telegram!.botToken"
+            type="password"
+            placeholder="123456:ABC-DEF..."
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveChannelConfig"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Chat ID</label>
+          <input
+            v-model="channelConfig.telegram!.chatId"
+            type="text"
+            placeholder="-1001234567890"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveChannelConfig"
+          />
+        </div>
+      </div>
+
+      <div v-if="dailySummary.enabled && dailySummary.channel === 'email'" class="mt-3 text-xs text-gray-500">
+        邮件渠道暂未实现，请选择其他渠道。
+      </div>
+      <div v-if="dailySummaryStatus" class="mt-2 text-xs" :class="dailySummaryStatus === 'saved' ? 'text-green-600' : 'text-red-500'">
+        {{ dailySummaryStatus === 'saved' ? '✓ 已保存' : '保存失败' }}
+      </div>
+    </article>
+
     <div v-if="loading" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       加载中...
     </div>
@@ -61,6 +148,33 @@
             />
             仅高优先级
           </label>
+          <div class="flex items-center gap-1.5">
+            <span>免打扰:</span>
+            <input
+              type="time"
+              :value="pref.quietHoursStart || ''"
+              class="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs"
+              @change="updateQuietHours(pref, 'start', ($event.target as HTMLInputElement).value)"
+            />
+            <span>-</span>
+            <input
+              type="time"
+              :value="pref.quietHoursEnd || ''"
+              class="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs"
+              @change="updateQuietHours(pref, 'end', ($event.target as HTMLInputElement).value)"
+            />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span>每小时上限:</span>
+            <input
+              type="number"
+              :value="pref.maxPerHour || ''"
+              min="0"
+              placeholder="不限"
+              class="w-16 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs"
+              @change="updateMaxPerHour(pref, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
         </div>
       </article>
     </div>
@@ -130,6 +244,20 @@
             <span class="text-[0.82rem] text-ink-label">仅高优先级</span>
           </label>
         </div>
+        <div class="flex items-end gap-3">
+          <div>
+            <label class="mb-1 block text-[0.78rem] text-ink-label">免打扰开始</label>
+            <input v-model="newPref.quietHoursStart" type="time" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs" />
+          </div>
+          <div>
+            <label class="mb-1 block text-[0.78rem] text-ink-label">免打扰结束</label>
+            <input v-model="newPref.quietHoursEnd" type="time" class="rounded border border-slate-300 bg-white px-2 py-1 text-xs" />
+          </div>
+          <div>
+            <label class="mb-1 block text-[0.78rem] text-ink-label">每小时上限</label>
+            <input v-model.number="newPref.maxPerHour" type="number" min="0" placeholder="不限" class="w-20 rounded border border-slate-300 bg-white px-2 py-1 text-xs" />
+          </div>
+        </div>
       </div>
       <div class="mt-4">
         <button
@@ -149,14 +277,34 @@ import { onMounted, ref } from "vue";
 import {
   createNotificationPreference,
   deleteNotificationPreference,
+  fetchDailySummaryConfig,
   fetchNotificationPreferences,
+  loadChannelConfigFromBackend,
+  saveChannelConfigToBackend,
+  updateDailySummaryConfig,
   updateNotificationPreference,
+  type ChannelConfig,
+  type DailySummaryConfig,
   type NotificationPreference,
 } from "../../lib/api";
 
 const preferences = ref<NotificationPreference[]>([]);
 const loading = ref(false);
 const showAddForm = ref(false);
+
+// Daily summary subscription config
+const dailySummary = ref({
+  enabled: false,
+  channel: "in_app",
+  deliveryTime: "09:00",
+});
+const dailySummaryStatus = ref<"saved" | "failed" | "">("");
+
+// Channel-specific config for external delivery
+const channelConfig = ref<ChannelConfig>({
+  webhook: { url: "" },
+  telegram: { botToken: "", chatId: "" },
+});
 
 const newPref = ref({
   channel: "in_app",
@@ -165,6 +313,9 @@ const newPref = ref({
   isEnabled: true,
   isMuted: false,
   priorityOnly: false,
+  quietHoursStart: "",
+  quietHoursEnd: "",
+  maxPerHour: null as number | null,
 });
 
 async function loadPreferences() {
@@ -203,6 +354,26 @@ async function togglePriorityOnly(pref: NotificationPreference) {
   }
 }
 
+async function updateQuietHours(pref: NotificationPreference, which: "start" | "end", value: string) {
+  const patch = which === "start"
+    ? { quietHoursStart: value || null }
+    : { quietHoursEnd: value || null };
+  const updated = await updateNotificationPreference(pref.id, patch);
+  if (updated) {
+    Object.assign(pref, updated);
+  }
+}
+
+async function updateMaxPerHour(pref: NotificationPreference, value: string) {
+  const num = value ? parseInt(value, 10) : null;
+  const updated = await updateNotificationPreference(pref.id, {
+    maxPerHour: num && num > 0 ? num : null,
+  });
+  if (updated) {
+    Object.assign(pref, updated);
+  }
+}
+
 async function handleDelete(id: string) {
   const success = await deleteNotificationPreference(id);
   if (success) {
@@ -218,6 +389,9 @@ async function handleCreate() {
     isEnabled: newPref.value.isEnabled,
     isMuted: newPref.value.isMuted,
     priorityOnly: newPref.value.priorityOnly,
+    quietHoursStart: newPref.value.quietHoursStart || undefined,
+    quietHoursEnd: newPref.value.quietHoursEnd || undefined,
+    maxPerHour: newPref.value.maxPerHour,
   });
 
   preferences.value.unshift(created);
@@ -229,8 +403,88 @@ async function handleCreate() {
     isEnabled: true,
     isMuted: false,
     priorityOnly: false,
+    quietHoursStart: "",
+    quietHoursEnd: "",
+    maxPerHour: null,
   };
 }
 
-onMounted(loadPreferences);
+function toggleDailySummary() {
+  dailySummary.value.enabled = !dailySummary.value.enabled;
+  saveDailySummaryConfig();
+}
+
+async function saveDailySummaryConfig() {
+  dailySummaryStatus.value = "";
+  try {
+    await updateDailySummaryConfig(dailySummary.value);
+    dailySummaryStatus.value = "saved";
+  } catch {
+    dailySummaryStatus.value = "failed";
+  }
+  setTimeout(() => {
+    dailySummaryStatus.value = "";
+  }, 2000);
+}
+
+async function loadDailySummaryConfig() {
+  try {
+    const config = await fetchDailySummaryConfig();
+    dailySummary.value = {
+      enabled: config.enabled,
+      channel: config.channel,
+      deliveryTime: config.deliveryTime,
+    };
+  } catch {
+    // Use defaults
+  }
+
+  // Load channel config from backend (with localStorage fallback)
+  const channel = dailySummary.value.channel;
+  if (channel !== "in_app") {
+    try {
+      const backendConfig = await loadChannelConfigFromBackend(channel);
+      if (backendConfig) {
+        if (backendConfig.webhook) channelConfig.value.webhook = backendConfig.webhook;
+        if (backendConfig.telegram) channelConfig.value.telegram = backendConfig.telegram;
+      }
+    } catch {
+      // Backend unavailable, try localStorage
+      try {
+        const stored = localStorage.getItem("dailySummaryChannelConfig");
+        if (stored) {
+          channelConfig.value = JSON.parse(stored);
+        }
+      } catch {
+        // Use defaults
+      }
+    }
+  }
+}
+
+async function saveChannelConfig() {
+  const channel = dailySummary.value.channel;
+  try {
+    // Save to backend
+    if (channel !== "in_app") {
+      const configToSave: Record<string, unknown> = {};
+      if (channel === "webhook") configToSave.webhook = channelConfig.value.webhook;
+      if (channel === "telegram") configToSave.telegram = channelConfig.value.telegram;
+      await saveChannelConfigToBackend(channel, configToSave as ChannelConfig);
+    }
+    // Also save to localStorage as fallback
+    localStorage.setItem("dailySummaryChannelConfig", JSON.stringify(channelConfig.value));
+    dailySummaryStatus.value = "saved";
+  } catch {
+    dailySummaryStatus.value = "failed";
+  }
+  setTimeout(() => {
+    dailySummaryStatus.value = "";
+  }, 2000);
+}
+
+onMounted(() => {
+  loadPreferences();
+  loadDailySummaryConfig();
+});
 </script>

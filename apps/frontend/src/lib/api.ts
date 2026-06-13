@@ -1,7 +1,11 @@
 import type {
+  DailySummary,
+  DailySummaryItem,
   DashboardSummary,
   EventDetail,
   EventSummary,
+  FeedbackAggregation,
+  FeedbackAggregationItem,
   InboxSectionCounts,
   NotificationItem,
   NotificationPreference,
@@ -837,7 +841,12 @@ export async function fetchDashboard() {
         recent: fallbackEvents.filter((event) => event.infoType === "financial_event" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
       },
     },
-    themes: fallbackThemes,
+    themes: fallbackThemes.map((theme) => ({
+      ...theme,
+      reviewStatus: null as string | null,
+      reviewTags: [] as string[],
+      nextReviewDate: null as string | null,
+    })),
     sources: fallbackSources,
   });
 }
@@ -856,6 +865,9 @@ export async function fetchThemes() {
       latestBookmarkedAt: themeEvents
         .filter((event) => event.isBookmarked && event.bookmarkedAt)
         .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
+      reviewStatus: null as string | null,
+      reviewTags: [] as string[],
+      nextReviewDate: null as string | null,
     };
   });
 
@@ -884,6 +896,33 @@ export async function fetchThemeDetail(themeId: string) {
       records: artifacts.records,
     }),
   });
+}
+
+export type DailyActivityDay = {
+  date: string;
+  eventCount: number;
+  runCount: number;
+  changeCount: number;
+  signals: Record<string, number>;
+};
+
+export type ThemeDailyActivity = {
+  themeId: string;
+  days: DailyActivityDay[];
+  totals: {
+    events: number;
+    runs: number;
+    changes: number;
+  };
+};
+
+export async function fetchThemeDailyActivity(themeId: string, days: number = 7) {
+  const fallback: ThemeDailyActivity = {
+    themeId,
+    days: [],
+    totals: { events: 0, runs: 0, changes: 0 },
+  };
+  return requestJson<ThemeDailyActivity>(`/themes/${themeId}/daily-activity?days=${days}`, fallback);
 }
 
 export async function fetchEventDetail(eventId: string) {
@@ -978,6 +1017,21 @@ export async function deleteEventFeedback(eventId: string) {
   return (await response.json()) as { success: boolean };
 }
 
+// Feedback Aggregation API
+export type { FeedbackAggregation, FeedbackAggregationItem };
+
+export async function fetchFeedbackAggregation(): Promise<FeedbackAggregation> {
+  const fallbackAggregation: FeedbackAggregation = {
+    bySignal: [],
+    byEventType: [],
+    byTheme: [],
+    totalFeedback: 0,
+    recentFeedback: 0,
+  };
+
+  return requestJson<FeedbackAggregation>("/events/feedback/stats", fallbackAggregation);
+}
+
 export async function fetchInboxSectionEvents(sectionId: string) {
   const filteredFallback = fallbackEvents.filter((event) => {
     if (sectionId === "price-signals") {
@@ -1038,6 +1092,10 @@ export async function fetchSourceDetail(sourceId: string) {
         startedAt: source.latestRunAt,
         finishedAt: source.latestRunAt,
         errorMessage: source.lastErrorMessage ?? null,
+        snapshotCount: 0,
+        recordCount: 0,
+        changeCount: 0,
+        eventCount: events.length,
       },
     ],
     events,
@@ -1086,12 +1144,53 @@ export async function fetchSourceDetail(sourceId: string) {
   });
 }
 
+export async function fetchSourcePresets() {
+  const fallback: Array<{
+    id: string;
+    label: string;
+    description: string;
+    sourceType: string;
+    adapterKey: string;
+    infoType: string;
+    fields: Array<{ key: string; label: string; type: string; placeholder?: string; required?: boolean }>;
+    defaultConfig: Record<string, string | number | boolean>;
+    help?: string;
+  }> = [];
+  return requestJson("/sources/presets", fallback);
+}
+
+export async function validateSourceConfig(input: {
+  presetId?: string;
+  adapterKey?: string;
+  sourceType?: string;
+  config?: Record<string, unknown>;
+  name?: string;
+}) {
+  const response = await fetch(`${API_BASE_URL}/sources/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Validation request failed: ${response.status}`);
+  }
+
+  return (await response.json()) as {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    presetId?: string;
+  };
+}
+
 export async function createSource(input: {
   themeId: string;
   name: string;
   sourceType: string;
   adapterKey: string;
   config?: Record<string, unknown>;
+  onboardingStatus?: "draft" | "ready_to_test" | "active";
 }) {
   const response = await fetch(`${API_BASE_URL}/sources`, {
     method: "POST",
@@ -1107,6 +1206,7 @@ export async function createSource(input: {
 
   return (await response.json()) as {
     id: string;
+    onboardingStatus?: string;
   };
 }
 
@@ -1122,6 +1222,65 @@ export async function triggerSourceRun(sourceId: string) {
   return (await response.json()) as { queued: boolean; mode: string };
 }
 
+export async function retrySourceAfterFailure(sourceId: string, failedRunId: string) {
+  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/runs/${failedRunId}/retry`, {
+    method: "POST",
+  });
+
+  if (response.status === 409) {
+    const body = await response.json() as { rejected?: boolean; reason?: string };
+    throw new Error(body.reason ?? "Run is not in failed state");
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to retry: ${response.status}`);
+  }
+
+  return (await response.json()) as { queued: boolean; mode: string; runId: string; triggeredBy: string };
+}
+
+export async function triggerTestSourceRun(sourceId: string) {
+  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/test-run`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to trigger test run: ${response.status}`);
+  }
+
+  return (await response.json()) as { queued: boolean; mode: string; triggerType: string; runId: string };
+}
+
+export type SourceTestRunPreview = {
+  runId: string;
+  status: string;
+  triggerType: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  fetchSummary: {
+    success: boolean;
+    snapshotCount: number;
+    payloadPreview: string;
+  };
+  parseSummary: {
+    recordCount: number;
+    changeCount: number;
+    eventCount: number;
+  };
+  sampleRecords: Array<{
+    title: string;
+    occurredAt: string;
+    infoType: string;
+    contentPreview: string;
+  }>;
+  issues: string[];
+};
+
+export async function fetchSourceTestPreview(sourceId: string) {
+  const fallback: SourceTestRunPreview | null = null;
+  return requestJson<SourceTestRunPreview | null>(`/sources/${sourceId}/test-preview`, fallback);
+}
+
 export async function updateSourcePaused(sourceId: string, isPaused: boolean) {
   return updateSource({ sourceId, isPaused });
 }
@@ -1133,6 +1292,7 @@ export async function updateSource(input: {
   adapterKey?: string;
   config?: Record<string, unknown>;
   isPaused?: boolean;
+  onboardingStatus?: "draft" | "ready_to_test" | "active";
 }) {
   const response = await fetch(`${API_BASE_URL}/sources/${input.sourceId}`, {
     method: "PATCH",
@@ -1145,6 +1305,7 @@ export async function updateSource(input: {
       adapterKey: input.adapterKey,
       config: input.config,
       isPaused: input.isPaused,
+      onboardingStatus: input.onboardingStatus,
     }),
   });
 
@@ -1155,6 +1316,7 @@ export async function updateSource(input: {
   return (await response.json()) as {
     id: string;
     isPaused: boolean;
+    onboardingStatus?: string;
     mode: string;
   };
 }
@@ -1250,19 +1412,28 @@ export async function deleteTheme(themeId: string) {
 export type ThemeReviewNote = {
   content: string;
   updatedAt: string | null;
+  status?: "pending_review" | "reviewed" | "tracking";
+  tags?: string[];
+  nextReviewDate?: string | null;
 };
 
 export async function fetchThemeReviewNote(themeId: string) {
   return requestJsonStrict<ThemeReviewNote>(`/themes/${themeId}/review-note`);
 }
 
-export async function updateThemeReviewNote(themeId: string, content: string) {
+export async function updateThemeReviewNote(
+  themeId: string,
+  content: string,
+  status?: "pending_review" | "reviewed" | "tracking",
+  tags?: string[],
+  nextReviewDate?: string | null,
+) {
   const response = await fetch(`${API_BASE_URL}/themes/${themeId}/review-note`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, status, tags, nextReviewDate }),
   });
 
   if (!response.ok) {
@@ -1477,6 +1648,32 @@ export async function fetchNotificationTimeline(notificationId: string) {
   return requestJsonStrict<AuditLogEntry[]>(`/notification-audit/${notificationId}/timeline`);
 }
 
+// Channel Config API
+export async function saveChannelConfigToBackend(channel: string, config: ChannelConfig) {
+  const response = await fetch(`${API_BASE_URL}/channels/${channel}/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save channel config: ${response.status}`);
+  }
+
+  return (await response.json()) as { channel: string; saved: boolean };
+}
+
+export async function loadChannelConfigFromBackend(channel: string): Promise<ChannelConfig | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/channels/${channel}/config`);
+    if (!response.ok) return null;
+    const data = await response.json() as { channel: string; config: ChannelConfig };
+    return data.config;
+  } catch {
+    return null;
+  }
+}
+
 // Source Health API
 export type SourceHealthStats = {
   totalSources: number;
@@ -1662,4 +1859,171 @@ export async function deleteRuleConfiguration(configId: string) {
   }
 
   return (await response.json()) as { success: boolean };
+}
+
+// Daily Summary API
+export type { DailySummary, DailySummaryItem };
+
+export async function fetchDailySummary(): Promise<DailySummary> {
+  const fallbackSummary: DailySummary = {
+    generatedAt: new Date().toISOString(),
+    date: new Date().toISOString().slice(0, 10),
+    items: [
+      {
+        category: "price-signals",
+        label: "Price Signals",
+        count: fallbackEvents.filter((e) => e.infoType === "price").length,
+        recentCount: fallbackEvents.filter((e) => e.infoType === "price" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
+        latestEvent: fallbackEvents.find((e) => e.infoType === "price")
+          ? {
+              id: fallbackEvents.find((e) => e.infoType === "price")!.id,
+              title: fallbackEvents.find((e) => e.infoType === "price")!.title,
+              signal: fallbackEvents.find((e) => e.infoType === "price")!.signal,
+              occurredAt: fallbackEvents.find((e) => e.infoType === "price")!.occurredAt,
+              themeId: fallbackEvents.find((e) => e.infoType === "price")!.themeId,
+              themeName: fallbackEvents.find((e) => e.infoType === "price")!.themeName,
+            }
+          : null,
+      },
+      {
+        category: "financial-events",
+        label: "Financial Events",
+        count: fallbackEvents.filter((e) => e.infoType === "financial_event").length,
+        recentCount: fallbackEvents.filter((e) => e.infoType === "financial_event" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
+        latestEvent: fallbackEvents.find((e) => e.infoType === "financial_event")
+          ? {
+              id: fallbackEvents.find((e) => e.infoType === "financial_event")!.id,
+              title: fallbackEvents.find((e) => e.infoType === "financial_event")!.title,
+              signal: fallbackEvents.find((e) => e.infoType === "financial_event")!.signal,
+              occurredAt: fallbackEvents.find((e) => e.infoType === "financial_event")!.occurredAt,
+              themeId: fallbackEvents.find((e) => e.infoType === "financial_event")!.themeId,
+              themeName: fallbackEvents.find((e) => e.infoType === "financial_event")!.themeName,
+            }
+          : null,
+      },
+      {
+        category: "official-releases",
+        label: "Official Releases",
+        count: fallbackEvents.filter((e) => e.signal === "new_announcement").length,
+        recentCount: fallbackEvents.filter((e) => e.signal === "new_announcement" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
+        latestEvent: fallbackEvents.find((e) => e.signal === "new_announcement")
+          ? {
+              id: fallbackEvents.find((e) => e.signal === "new_announcement")!.id,
+              title: fallbackEvents.find((e) => e.signal === "new_announcement")!.title,
+              signal: fallbackEvents.find((e) => e.signal === "new_announcement")!.signal,
+              occurredAt: fallbackEvents.find((e) => e.signal === "new_announcement")!.occurredAt,
+              themeId: fallbackEvents.find((e) => e.signal === "new_announcement")!.themeId,
+              themeName: fallbackEvents.find((e) => e.signal === "new_announcement")!.themeName,
+            }
+          : null,
+      },
+      {
+        category: "content-updates",
+        label: "Content Updates",
+        count: fallbackEvents.filter((e) => e.infoType === "content_update").length,
+        recentCount: fallbackEvents.filter((e) => e.infoType === "content_update" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
+        latestEvent: fallbackEvents.find((e) => e.infoType === "content_update")
+          ? {
+              id: fallbackEvents.find((e) => e.infoType === "content_update")!.id,
+              title: fallbackEvents.find((e) => e.infoType === "content_update")!.title,
+              signal: fallbackEvents.find((e) => e.infoType === "content_update")!.signal,
+              occurredAt: fallbackEvents.find((e) => e.infoType === "content_update")!.occurredAt,
+              themeId: fallbackEvents.find((e) => e.infoType === "content_update")!.themeId,
+              themeName: fallbackEvents.find((e) => e.infoType === "content_update")!.themeName,
+            }
+          : null,
+      },
+    ],
+    warningSources: fallbackSources
+      .filter((s) => s.status === "warning")
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        themeName: s.themeName,
+        status: s.status,
+        lastErrorMessage: s.lastErrorMessage ?? null,
+      })),
+    totalEvents: fallbackEvents.length,
+    recentEvents: fallbackEvents.filter((e) => new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
+  };
+
+  return requestJson<DailySummary>("/daily-summary", fallbackSummary);
+}
+
+export type ChannelConfig = {
+  webhook?: { url: string; headers?: Record<string, string> };
+  telegram?: { botToken: string; chatId: string };
+};
+
+export async function deliverDailySummary(
+  channel: string = "in_app",
+  channelConfig?: ChannelConfig,
+): Promise<{ delivered: boolean; notificationId?: string }> {
+  const response = await fetch(`${API_BASE_URL}/daily-summary/deliver`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channel, channelConfig }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }));
+    throw new Error(error.message ?? `Failed to deliver daily summary: ${response.status}`);
+  }
+
+  return (await response.json()) as { delivered: boolean; notificationId?: string };
+}
+
+// Daily Summary History API
+export type DailySummarySnapshot = {
+  id: string;
+  date: string;
+  summary: DailySummary;
+  createdAt: string;
+};
+
+export async function fetchDailySummaryHistory(limit: number = 7): Promise<DailySummarySnapshot[]> {
+  const fallback: DailySummarySnapshot[] = [];
+  return requestJson(`/daily-summary/history?limit=${limit}`, fallback);
+}
+
+export type DailySummaryCompare = {
+  today: DailySummary;
+  yesterday: DailySummary | null;
+  delta: {
+    totalEvents: number;
+    recentEvents: number;
+    newWarningSources: number;
+  } | null;
+};
+
+export async function fetchDailySummaryCompare(): Promise<DailySummaryCompare> {
+  const today = await fetchDailySummary();
+  const fallback: DailySummaryCompare = { today, yesterday: null, delta: null };
+  return requestJson("/daily-summary/compare", fallback);
+}
+
+// Daily Summary Subscription Config API
+export type DailySummaryConfig = {
+  enabled: boolean;
+  channel: string;
+  deliveryTime: string;
+};
+
+export async function fetchDailySummaryConfig(): Promise<DailySummaryConfig> {
+  const fallback: DailySummaryConfig = { enabled: false, channel: "in_app", deliveryTime: "09:00" };
+  return requestJson("/daily-summary/config", fallback);
+}
+
+export async function updateDailySummaryConfig(config: DailySummaryConfig): Promise<DailySummaryConfig> {
+  const response = await fetch(`${API_BASE_URL}/daily-summary/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update daily summary config: ${response.status}`);
+  }
+
+  return (await response.json()) as DailySummaryConfig;
 }

@@ -6,6 +6,7 @@
       :theme-name="detail.source.themeName"
       :source-type="detail.source.sourceType"
       :is-paused="detail.source.isPaused"
+      :onboarding-status="detail.source.onboardingStatus"
       :handle-back="handleBack"
     />
 
@@ -50,7 +51,7 @@
     />
 
     <SourceDetailRunTrendCard
-      :run-count="detail.runs.length"
+      :run-count="productionRuns.length"
       :success-rate-label="runSuccessRateLabel"
       :completed-count="runCompletedCount"
       :failed-count="runFailedCount"
@@ -67,10 +68,20 @@
       :config="detail.source.config"
     />
 
+    <SourceDetailTestRunCard
+      :source-id="detail.source.id"
+      :onboarding-status="detail.source.onboardingStatus"
+      @test-completed="handleTestCompleted"
+    />
+
     <SourceDetailSnapshotsCard :snapshots="detail.snapshots" />
 
     <div class="grid two">
-      <SourceDetailRunsCard :runs="detail.runs" />
+      <SourceDetailRunsCard
+        :runs="detail.runs"
+        :rerunning-run-id="rerunningRunId"
+        @retry="handleRetry"
+      />
       <SourceDetailEventsCard :theme-id="detail.source.themeId" :events="detail.events" />
     </div>
 
@@ -96,8 +107,9 @@ import SourceDetailRunTrendCard from "./SourceDetailRunTrendCard.vue";
 import SourceDetailRunsCard from "./SourceDetailRunsCard.vue";
 import SourceDetailSnapshotsCard from "./SourceDetailSnapshotsCard.vue";
 import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
+import SourceDetailTestRunCard from "./SourceDetailTestRunCard.vue";
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
-import { fetchSourceDetail, fetchSourceHealthExplanation, type SourceDetail, type SourceHealthExplanation } from "../../../../lib/api";
+import { fetchSourceDetail, fetchSourceHealthExplanation, retrySourceAfterFailure, triggerSourceRun, type SourceDetail, type SourceHealthExplanation } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
 import {
   eventSignalLabel,
@@ -111,6 +123,7 @@ const route = useRoute();
 const router = useRouter();
 const detail = ref<SourceDetail | null>(null);
 const healthExplanation = ref<SourceHealthExplanation | null>(null);
+const rerunningRunId = ref<string | null>(null);
 
 function handleBack() {
   if (window.history.length > 1) {
@@ -126,6 +139,30 @@ function handleBack() {
   void router.push("/sources/status");
 }
 
+function handleTestCompleted(result: { success: boolean; runId: string }) {
+  // Refresh the detail view to pick up any new runs/records
+  if (detail.value) {
+    void loadSourceDetail(detail.value.source.id);
+  }
+}
+
+async function handleRetry(runId: string) {
+  if (!detail.value) return;
+  rerunningRunId.value = runId;
+  try {
+    await retrySourceAfterFailure(detail.value.source.id, runId);
+    // Wait a moment then refresh
+    setTimeout(async () => {
+      if (detail.value) {
+        await loadSourceDetail(detail.value.source.id);
+      }
+      rerunningRunId.value = null;
+    }, 2000);
+  } catch {
+    rerunningRunId.value = null;
+  }
+}
+
 function toTimestamp(value?: string | null) {
   if (!value) {
     return 0;
@@ -135,18 +172,23 @@ function toTimestamp(value?: string | null) {
   return Number.isNaN(time) ? 0 : time;
 }
 
+// Production runs only (exclude test runs) for health metrics
+const productionRuns = computed(
+  () => detail.value?.runs.filter((run) => run.triggerType !== "test") ?? [],
+);
+
 const runCompletedCount = computed(
-  () => detail.value?.runs.filter((run) => run.status === "completed").length ?? 0,
+  () => productionRuns.value.filter((run) => run.status === "completed").length,
 );
 const runFailedCount = computed(
-  () => detail.value?.runs.filter((run) => run.status === "failed").length ?? 0,
+  () => productionRuns.value.filter((run) => run.status === "failed").length,
 );
 const runOpenCount = computed(
-  () => detail.value?.runs.filter((run) => run.status === "pending" || run.status === "running").length ?? 0,
+  () => productionRuns.value.filter((run) => run.status === "pending" || run.status === "running").length,
 );
 
 const runSuccessRateLabel = computed(() => {
-  const runs = detail.value?.runs ?? [];
+  const runs = productionRuns.value;
 
   if (!runs.length) {
     return "--";
@@ -163,7 +205,7 @@ const runSuccessRateLabel = computed(() => {
 });
 
 const runSequenceItems = computed(() => {
-  const runs = [...(detail.value?.runs ?? [])]
+  const runs = [...productionRuns.value]
     .sort((left, right) => toTimestamp(left.startedAt ?? left.finishedAt) - toTimestamp(right.startedAt ?? right.finishedAt))
     .slice(-8);
 
@@ -247,15 +289,17 @@ function changeDetails(change: SourceDetail["changes"][number]) {
     }));
 }
 
-onMounted(async () => {
-  const sourceId = String(route.params.sourceId);
+async function loadSourceDetail(sourceId: string) {
   detail.value = await fetchSourceDetail(sourceId);
 
-  // Fetch health explanation (don't fail if it errors)
   try {
     healthExplanation.value = await fetchSourceHealthExplanation(sourceId);
   } catch {
-    // Health explanation is optional, don't break the page
+    // Health explanation is optional
   }
+}
+
+onMounted(async () => {
+  await loadSourceDetail(String(route.params.sourceId));
 });
 </script>

@@ -14,6 +14,11 @@ import {
   getChannelRateLimit,
   type RateLimitConfig,
 } from "../services/rate-limiter.js";
+import {
+  saveChannelConfig,
+  loadChannelConfig,
+  loadAllChannelConfigs,
+} from "../services/channel-config-store.js";
 
 export async function registerChannelConfigRoutes(app: FastifyInstance) {
   // ─── Validate channel configuration ──────────────────────────────────────
@@ -88,6 +93,50 @@ export async function registerChannelConfigRoutes(app: FastifyInstance) {
       config,
       message: "Rate limit updated",
     };
+  });
+
+  // ─── Save channel configuration ─────────────────────────────────────────
+  app.put<{
+    Params: { channel: string };
+    Body: { config: ChannelConfig };
+  }>("/api/channels/:channel/config", async (request, reply) => {
+    const { channel } = request.params;
+    const body = request.body as { config?: ChannelConfig };
+
+    if (!body?.config) {
+      reply.code(400);
+      return { message: "config is required" };
+    }
+
+    const validation = validateChannelConfig(channel as any, body.config);
+    if (!validation.valid) {
+      reply.code(400);
+      return { message: "Invalid config", error: validation.error };
+    }
+
+    await saveChannelConfig(channel, body.config);
+    return { channel, saved: true };
+  });
+
+  // ─── Load channel configuration ──────────────────────────────────────────
+  app.get<{
+    Params: { channel: string };
+  }>("/api/channels/:channel/config", async (request, reply) => {
+    const { channel } = request.params;
+    const config = await loadChannelConfig(channel);
+
+    if (!config) {
+      reply.code(404);
+      return { message: "No config saved for this channel" };
+    }
+
+    return { channel, config };
+  });
+
+  // ─── Load all channel configurations ─────────────────────────────────────
+  app.get("/api/channels/config", async () => {
+    const configs = await loadAllChannelConfigs();
+    return { configs };
   });
 
   // ─── List supported channels ─────────────────────────────────────────────

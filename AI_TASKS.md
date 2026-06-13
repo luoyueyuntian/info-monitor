@@ -1,24 +1,44 @@
 # AI Development Tasks
 
-Updated: 2026-06-12
+Updated: 2026-06-13
 
-This file is a direct execution backlog for coding agents working in this
-repository.
+This file is the current next-stage execution backlog for coding agents
+working in this repository.
 
-Use it when the goal is to continue development without re-planning the
-product from scratch.
+Use it when the goal is to continue product development from the current
+information workbench baseline without reopening broad product planning.
+
+The current product is no longer in pure scaffolding mode. A working vertical
+slice already exists across:
+
+1. scheduler
+2. worker
+3. API
+4. frontend workbench
+5. notifications
+6. daily summary
+
+The next stage should focus on making the system more reusable for real
+personal monitoring work, especially around source onboarding, real-source
+coverage, analysis assistance, and operational reliability.
 
 ## Global Instructions
 
 - Read the related files before editing.
-- Make code changes directly; do not only provide a proposal.
-- Reuse existing shared contracts, demo scene definitions, fallback data, and
-  mock data patterns when possible.
+- Implement directly in code; do not only provide a proposal.
+- Reuse existing shared contracts, demo scene definitions, fallback data,
+  mock data, and route-oriented frontend structure.
 - Keep frontend page entry files thin; extract page-private components under
-  the route directory's `components/` folder when needed.
+  the route directory's `components/` folder when appropriate.
 - If API response shapes change, update
   `apps/frontend/src/lib/api.ts` accordingly.
-- Run the minimum verification commands listed for the task.
+- Preserve the current end-to-end path:
+  - scheduler enqueues runs
+  - worker fetches and stores raw payloads
+  - worker normalizes records and emits changes/events
+  - API exposes the resulting state
+  - frontend renders the result
+- Prefer the smallest verification that proves the task is working.
 - In the final report, always include:
   - what changed
   - what was verified
@@ -35,173 +55,237 @@ product from scratch.
 7. Task 7
 8. Task 8
 
-## Task 1: Price Theme Continuous Snapshot Compare Panel
+## Task 1: Productize the New-Source Onboarding Flow
 
-- Goal: Add a dedicated compare panel in the price theme detail page that
-  shows how multiple sources changed over the most recent 3-5 snapshots.
+- Goal: Turn "adding a source" from a code-only workflow into a guided product
+  workflow that still allows source-specific adapter code.
 - Inputs:
   - `apps/frontend/src/views/themes/[themeId]/components/`
+  - `apps/frontend/src/views/sources/`
   - `apps/frontend/src/lib/api.ts`
-  - existing price compare / trend components and tests
+  - `apps/api/src/routes/sources.ts`
+  - `apps/api/src/services/source-service.ts`
+  - `packages/shared-contracts/src/`
 - Required output:
-  - a new panel or card for multi-source recent price comparison
-  - clear emphasis for lowest source
-  - clear emphasis for spread widening vs narrowing
-  - no removal of the existing compare card; this is a deeper view
+  - an "add source" entry that supports choosing a source type
+  - source-type-aware configuration fields
+  - a pre-save validation result in the UI
+  - a clear source setup status after creation:
+    - draft
+    - ready to test
+    - active
+  - backend support for storing onboarding metadata if needed
 - Acceptance:
-  - user can quickly tell which source stays lowest
-  - user can see whether a source is rebounding
-  - user can tell whether the spread is expanding or converging
+  - a user can create a new source without manually editing seed data or SQL
+  - the system makes clear what still needs to be configured before the source
+    can run
 - Minimum verification:
   - `npm run typecheck`
   - `npm run build`
 
-## Task 2: Financial Event Direction Rhythm Board
+## Task 2: Add Source Test-Run and Parse Preview
 
-- Goal: Add a compact rhythm board for the latest 3-5 financial-event rounds,
-  so the user can see whether liquidity direction is strengthening, switching,
-  or staying neutral.
+- Goal: Let the user verify a source configuration before enabling it in the
+  scheduler.
 - Inputs:
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - `apps/frontend/src/lib/api.ts`
-  - existing financial-event compare / analysis UI
+  - `apps/frontend/src/views/sources/[sourceId]/components/`
+  - `apps/api/src/routes/sources.ts`
+  - `apps/api/src/services/source-service.ts`
+  - `apps/python-worker/src/info_monitor_worker/adapters/`
+  - `apps/python-worker/src/info_monitor_worker/service.py`
 - Required output:
-  - a board that shows recent direction, amount, and term
-  - a current interpretation: strengthening / switching / neutral
-  - wording must stay as decision support, not investment advice
+  - a manual "test source" action on source detail
+  - a preview result that shows at minimum:
+    - fetch result summary
+    - parse result summary
+    - sample normalized records
+    - detected issues or warnings
+  - a clear difference between:
+    - test run
+    - scheduled production run
+  - if a test run cannot be fully executed in the current architecture,
+    provide the nearest safe implementation that still previews the adapter
+    result through API + worker integration
 - Acceptance:
-  - user does not need to read each raw record to understand recent direction
+  - before activating a source, the user can confirm whether the source can be
+    fetched and parsed correctly
 - Minimum verification:
   - `npm run typecheck`
   - `npm run build`
+  - `npm run test:python-worker`
 
-## Task 3: Inbox Entry to Theme Change Chain
+## Task 3: Add the First Real Second-Hand Price Monitoring Source
 
-- Goal: Let inbox sections jump more directly into the most relevant theme
-  change view instead of only linking to generic event lists.
+- Goal: Move the price-monitoring scenario from demo-oriented infrastructure to
+  a first real consumer use case.
 - Inputs:
+  - `apps/python-worker/src/info_monitor_worker/adapters/`
+  - `apps/python-worker/src/info_monitor_worker/normalizers/price.py`
+  - `apps/python-worker/src/info_monitor_worker/event_rules/`
+  - `apps/api/src/services/theme-service.ts`
+  - `apps/frontend/src/views/themes/[themeId]/components/`
+  - `docs/`
+- Required output:
+  - one real list-style second-hand price source integration
+  - support for "same configuration across platforms" comparison if the chosen
+    source shape allows it
+  - at minimum preserve or improve these price signals:
+    - recent 30-day low
+    - notable drop versus recent median or average
+  - demo seed or setup documentation for this source
+  - clear theme-side presentation of cross-source price context
+- Acceptance:
+  - the platform can monitor a real second-hand product price scenario instead
+    of only stock/demo price data
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test:python-worker`
+
+## Task 4: Add Product Update and Announcement Monitoring as a Reusable Path
+
+- Goal: Make "content update / product release / official announcement"
+  monitoring a first-class reusable capability.
+- Inputs:
+  - `apps/python-worker/src/info_monitor_worker/adapters/generic_content_update_list.py`
+  - `apps/python-worker/src/info_monitor_worker/normalizers/content_update.py`
+  - `apps/python-worker/src/info_monitor_worker/event_rules/keyword_match.py`
+  - `apps/frontend/src/views/themes/[themeId]/components/`
+  - `apps/frontend/src/views/inbox/components/`
+  - `docs/new-source-integration.md`
+- Required output:
+  - one concrete real-source integration for product updates or announcements
+  - reusable source config conventions for this source family
+  - topic extraction improvements where needed
+  - event presentation that distinguishes:
+    - new function / capability update
+    - marketing / campaign update
+    - official announcement / notice
+- Acceptance:
+  - the platform can monitor a real "what changed recently" product or
+    announcement source and surface it clearly in the workbench
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test:python-worker`
+
+## Task 5: Add Analysis Assist for Bullish / Bearish / Neutral Financial Events
+
+- Goal: Upgrade financial-event monitoring from "new data arrived" to "what is
+  the likely direction and why".
+- Inputs:
+  - `apps/python-worker/src/info_monitor_worker/normalizers/financial_event.py`
+  - `apps/python-worker/src/info_monitor_worker/event_rules/financial_direction.py`
+  - `apps/api/src/services/event-service.ts`
+  - `apps/api/src/services/daily-summary-service.ts`
+  - `apps/frontend/src/views/events/[eventId]/components/`
+  - `apps/frontend/src/views/inbox/components/`
+- Required output:
+  - explicit direction tagging for relevant financial events:
+    - bullish
+    - bearish
+    - neutral
+  - direction rationale or evidence summary in event detail
+  - summary-level aggregation that shows recent directional balance for a theme
+    or section when possible
+  - keep this as decision support, not auto-action
+- Acceptance:
+  - macro / policy / financial event items are easier to interpret without
+    manually reading each raw item from scratch
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm --workspace @info-monitor/api test`
+  - `npm run test:python-worker`
+
+## Task 6: Formalize Theme-Level Notification Rules and Channel Persistence
+
+- Goal: Make notifications durable and useful once real sources increase.
+- Inputs:
+  - `apps/frontend/src/views/settings/notifications.vue`
+  - `apps/frontend/src/views/themes/[themeId]/components/`
+  - `apps/api/src/routes/notification-preferences.ts`
+  - `apps/api/src/routes/channel-config.ts`
+  - `apps/api/src/services/notification-preference-service.ts`
+  - `apps/api/src/services/notification-channels.ts`
+- Required output:
+  - backend-persisted channel configuration for supported channels
+  - theme-level notification preferences
+  - signal-type-level notification preferences where practical
+  - basic delivery noise controls at minimum:
+    - mute
+    - frequency guard or dedupe
+    - quiet hours placeholder or initial implementation
+  - UI that clearly explains what will be sent and why
+- Acceptance:
+  - the user can control which themes and signal types actually notify them
+    without editing local storage or code
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm --workspace @info-monitor/api test`
+  - `npm --workspace @info-monitor/frontend test`
+
+## Task 7: Add Review Timeline and Multi-Day Workbench Replay
+
+- Goal: Strengthen the platform's value as an information workbench instead of
+  only an alert list.
+- Inputs:
+  - `apps/api/src/services/daily-summary-history.ts`
+  - `apps/api/src/services/theme-service.ts`
   - `apps/frontend/src/views/inbox/components/`
   - `apps/frontend/src/views/themes/[themeId]/components/`
+  - DB migration if needed
 - Required output:
-  - price themes should prefer `trend` or compare-related views
-  - financial-event themes should prefer `analysis` or the new rhythm board
-  - official-release themes should prefer `timeline` or `analysis`
+  - a theme-level timeline or review stream
+  - ability to review recent days of events, summaries, and notable changes
+  - stronger comparison views such as:
+    - today vs yesterday
+    - this week vs last week
+  - a lightweight weekly review surface if it fits cleanly into the existing UI
 - Acceptance:
-  - inbox becomes a faster entry into "what changed" rather than just "what
-    event exists"
+  - the user can use the platform for daily review and weekly replay, not only
+    for immediate alert consumption
 - Minimum verification:
   - `npm run typecheck`
   - `npm run build`
 
-## Task 4: Unified Source Health Explanation Layer
+## Task 8: Improve Run Reliability, Failure Diagnosis, and Replay Controls
 
-- Goal: Explain why a source is abnormal and what the impact is on theme
-  judgment.
+- Goal: Make real-source operation maintainable as the number of adapters grows.
 - Inputs:
+  - `apps/frontend/src/views/sources/status/components/`
+  - `apps/frontend/src/views/sources/[sourceId]/components/`
+  - `apps/api/src/routes/source-health.ts`
   - `apps/api/src/services/source-health-service.ts`
-  - source status page and source detail page components
-  - inbox source-related sections
-  - theme detail source-related sections
+  - `apps/api/src/services/source-service.ts`
+  - `apps/python-worker/src/info_monitor_worker/`
 - Required output:
-  - unified explanation for recent failure
-  - unified explanation for long time without updates
-  - unified explanation for manual pause
-  - unified explanation for pending backlog
-  - a lightweight "impact on current judgment" indicator
+  - clearer source health states and failure classification
+  - replay or rerun controls for failed or suspicious runs
+  - source-level issue notes or operator hints
+  - better diagnostics for "no event generated" cases
+  - if feasible, lightweight adapter drift signals such as:
+    - parsed count dropped sharply
+    - required field missing
+    - page structure likely changed
 - Acceptance:
-  - user can tell whether an issue affects conclusion quality or only affects
-    timeliness
+  - when a real source breaks or silently degrades, the user can locate the
+    issue and retry with less manual investigation
 - Minimum verification:
   - `npm run typecheck`
   - `npm run build`
   - `npm --workspace @info-monitor/api test`
-
-## Task 5: Theme Review Notes
-
-- Goal: Allow user-authored review notes on a theme detail page.
-- Inputs:
-  - theme detail frontend files
-  - API theme-related files
-  - DB migrations if needed
-- Required output:
-  - save a review note text
-  - show last updated time
-  - keep structure simple so labels / stage can be added later
-- Acceptance:
-  - user can create, update, and read review notes for a theme
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-  - if DB changes are added, include migration verification
-
-## Task 6: Event Usefulness Feedback
-
-- Goal: Capture whether an event was useful, noisy, or still needs observation.
-- Inputs:
-  - event detail page
-  - event workbench
-  - API event-related files
-  - DB migrations if needed
-- Required output:
-  - three feedback states: useful / noise / watch
-  - store feedback for later rule tuning
-  - no need to build an auto-learning loop yet
-- Acceptance:
-  - user can submit feedback from event detail
-  - user can submit feedback from the workbench
-  - stored feedback can be read back
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-
-## Task 7: Notification Page Interaction Tests
-
-- Goal: Add frontend tests that lock down notification preset, status filter,
-  and sorting interactions.
-- Inputs:
-  - `apps/frontend/src/views/notifications/index.vue`
-  - related test files to add
-- Required output:
-  - tests for preset switching
-  - tests for status filter switching
-  - tests for sort switching
-  - tests that ensure signal-subset state is preserved or cleared correctly
-- Acceptance:
-  - the recent notification-page state bugs cannot silently regress
-- Minimum verification:
-  - `npm --workspace @info-monitor/frontend test`
-  - `npm run typecheck`
-
-## Task 8: Shared Notification Theme / Template Tests
-
-- Goal: Add tests for shared notification label, color, priority, and template
-  behavior.
-- Inputs:
-  - `packages/shared-contracts/src/notification-theme.ts`
-  - API notification tests if shared behavior is asserted there
-- Required output:
-  - tests for `getSignalLabel`
-  - tests for `getSignalColors`
-  - tests for `getSignalPriority`
-  - tests for `renderNotification`
-- Acceptance:
-  - terminology or signal-mapping regressions are caught automatically
-- Minimum verification:
-  - `npm --workspace @info-monitor/api test`
-  - `npm run typecheck`
 
 ## Not Recommended Right Now
 
-Do not prioritize these until the core workbench becomes more stable in real
-use:
+Do not prioritize these until the real-source loop becomes stable in
+day-to-day use:
 
 - multi-user support
 - permission system
-- generic rule DSL
-- large chart platform
-- fully productized notification center
-- no-code configuration system
-- complex public-opinion analysis
+- public sharing or SaaS packaging
+- generic no-code source builder
+- large chart analysis platform
+- advanced public-opinion NLP stack
 - auto-trading or auto-execution
 
 ## Suggested Agent Prompt

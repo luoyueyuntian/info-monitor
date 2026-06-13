@@ -23,6 +23,7 @@ export interface SourcesTable {
   adapter_key: string;
   status: string;
   is_paused: boolean;
+  onboarding_status: string;
   config: JsonColumn<Record<string, unknown>>;
   latest_success_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
   latest_failure_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
@@ -98,7 +99,7 @@ export interface EventsTable {
 
 export interface NotificationsTable {
   id: string;
-  event_id: string;
+  event_id: string | null;
   channel: string;
   status: string;
   payload: JsonColumn<Record<string, unknown>>;
@@ -128,6 +129,9 @@ export interface NotificationPreferencesTable {
   is_enabled: boolean;
   is_muted: boolean;
   priority_only: boolean;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  max_per_hour: number | null;
   created_at: TimestampColumn;
   updated_at: TimestampColumn;
 }
@@ -163,6 +167,13 @@ export interface EventFeedbackTable {
   updated_at: TimestampColumn;
 }
 
+export interface DailySummariesTable {
+  id: string;
+  date: string;
+  summary: JsonColumn<Record<string, unknown>>;
+  created_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -177,4 +188,5 @@ export interface Database {
   rule_configurations: RuleConfigurationsTable;
   notification_audit_log: NotificationAuditLogTable;
   event_feedback: EventFeedbackTable;
+  daily_summaries: DailySummariesTable;
 }

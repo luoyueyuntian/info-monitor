@@ -17,6 +17,7 @@ import { registerSourceHealthRoutes } from "./routes/source-health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerThemeRoutes } from "./routes/themes.js";
 import { registerChannelConfigRoutes } from "./routes/channel-config.js";
+import { registerDailySummaryRoutes } from "./routes/daily-summary.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,7 @@ export async function buildApp() {
   await registerSourceRoutes(app);
   await registerSourceHealthRoutes(app);
   await registerChannelConfigRoutes(app);
+  await registerDailySummaryRoutes(app);
 
   // Serve frontend static files
   // __dirname is /app/apps/api/src

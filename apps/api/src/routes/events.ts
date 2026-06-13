@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import {
   getEventDetail,
   getEventFeedback,
+  getFeedbackAggregation,
   inboxSectionIds,
   listInboxSectionEvents,
   upsertEventFeedback,
@@ -78,19 +79,29 @@ export async function registerEventRoutes(app: FastifyInstance) {
 
   app.put<{
     Params: { eventId: string };
-    Body: { feedback?: string; note?: string };
+    Body: { feedback?: unknown; note?: unknown };
   }>("/api/events/:eventId/feedback", async (request, reply) => {
     const body = request.body;
 
-    if (!body?.feedback || !["useful", "noise", "watch"].includes(body.feedback)) {
+    if (!body?.feedback || !["useful", "noise", "watch"].includes(body.feedback as string)) {
       reply.code(400);
       return { message: "feedback must be one of: useful, noise, watch" };
+    }
+
+    // Validate note: must be string, null, or undefined
+    let note: string | undefined;
+    if (body.note !== undefined && body.note !== null) {
+      if (typeof body.note !== "string") {
+        reply.code(400);
+        return { message: "note must be a string or null" };
+      }
+      note = body.note;
     }
 
     const result = await upsertEventFeedback(
       request.params.eventId,
       body.feedback as EventFeedback,
-      body.note,
+      note,
     );
 
     if (!result) {
@@ -101,14 +112,11 @@ export async function registerEventRoutes(app: FastifyInstance) {
     return result;
   });
 
-  app.delete<{ Params: { eventId: string } }>("/api/events/:eventId/feedback", async (request, reply) => {
-    const deleted = await deleteEventFeedback(request.params.eventId);
-
-    if (!deleted) {
-      reply.code(404);
-      return { message: "No feedback found for this event" };
-    }
-
+  app.delete<{ Params: { eventId: string } }>("/api/events/:eventId/feedback", async (request) => {
+    await deleteEventFeedback(request.params.eventId);
     return { success: true };
   });
+
+  // Feedback aggregation endpoint
+  app.get("/api/events/feedback/stats", async () => getFeedbackAggregation());
 }

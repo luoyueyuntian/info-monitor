@@ -37,6 +37,9 @@ export type SourceHealth = "healthy" | "warning" | "paused";
 /** Run status of a source execution. */
 export type RunStatus = "pending" | "running" | "completed" | "failed";
 
+/** Onboarding status of a source — tracks setup lifecycle. */
+export type SourceOnboardingStatus = "draft" | "ready_to_test" | "active";
+
 // ─── Notification ─────────────────────────────────────────────────────────────
 
 /** Notification delivery channel. */
@@ -67,6 +70,9 @@ export type ThemeSummary = {
   latestEventSignal?: EventSignal | null;
   latestInsight?: string | null;
   latestBookmarkedAt?: string | null;
+  reviewStatus?: string | null;
+  reviewTags?: string[];
+  nextReviewDate?: string | null;
   openEventCount?: number;
   trackingEventCount?: number;
   ignoredEventCount?: number;
@@ -138,6 +144,7 @@ export type SourceStatus = {
   sourceType?: string;
   adapterKey?: string;
   isPaused?: boolean;
+  onboardingStatus?: SourceOnboardingStatus;
   latestRunStatus?: RunStatus | null;
   latestRunAt?: string | null;
   latestSuccessAt: string | null;
@@ -284,6 +291,10 @@ export type SourceDetailRun = {
   startedAt?: string | null;
   finishedAt?: string | null;
   errorMessage?: string | null;
+  snapshotCount?: number;
+  recordCount?: number;
+  changeCount?: number;
+  eventCount?: number;
 };
 
 export type SourceDetailEvent = {
@@ -319,6 +330,7 @@ export type SourceDetailSnapshot = {
   fetchedAt: string | null;
   storagePath?: string | null;
   payloadPreview: string;
+  triggerType?: string;
 };
 
 export type SourceAnalysis = {
@@ -362,6 +374,9 @@ export type NotificationPreference = {
   isEnabled: boolean;
   isMuted: boolean;
   priorityOnly: boolean;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  maxPerHour?: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -374,6 +389,9 @@ export type NotificationPreferenceInput = {
   isEnabled?: boolean;
   isMuted?: boolean;
   priorityOnly?: boolean;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  maxPerHour?: number | null;
 };
 
 // ─── Rule Configuration ───────────────────────────────────────────────────────
@@ -439,6 +457,7 @@ export {
   isEventStatus,
   isSourceHealth,
   isRunStatus,
+  isSourceOnboardingStatus,
   isNotificationChannel,
   isNotificationStatus,
   isNotificationLevel,
@@ -495,3 +514,62 @@ export type {
   DemoThemeDefinition,
   DemoSourceDefinition,
 } from "./demo-scene-definitions.js";
+
+// ─── Feedback Aggregation ───────────────────────────────────────────────────
+
+export type FeedbackAggregationItem = {
+  key: string;
+  label: string;
+  useful: number;
+  noise: number;
+  watch: number;
+  total: number;
+};
+
+export type FeedbackAggregation = {
+  bySignal: FeedbackAggregationItem[];
+  byEventType: FeedbackAggregationItem[];
+  byTheme: FeedbackAggregationItem[];
+  totalFeedback: number;
+  recentFeedback: number;
+};
+
+// ─── Daily Summary ──────────────────────────────────────────────────────────
+
+export type DailySummaryItem = {
+  category: string;
+  label: string;
+  count: number;
+  recentCount: number;
+  latestEvent: {
+    id: string;
+    title: string;
+    signal: string;
+    occurredAt: string;
+    themeId: string;
+    themeName: string;
+  } | null;
+  directionBreakdown?: {
+    bullish: number;
+    bearish: number;
+    neutral: number;
+    recentBullish: number;
+    recentBearish: number;
+    recentNeutral: number;
+  };
+};
+
+export type DailySummary = {
+  generatedAt: string;
+  date: string;
+  items: DailySummaryItem[];
+  warningSources: Array<{
+    id: string;
+    name: string;
+    themeName: string;
+    status: string;
+    lastErrorMessage: string | null;
+  }>;
+  totalEvents: number;
+  recentEvents: number;
+};

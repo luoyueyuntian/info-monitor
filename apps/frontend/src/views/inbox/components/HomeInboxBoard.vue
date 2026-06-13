@@ -7,6 +7,12 @@
       :open-summary-delta="openSummaryDelta"
     />
 
+    <HomeInboxDailySummaryCard
+      v-if="dailySummary"
+      :summary="dailySummary"
+      class="mb-4"
+    />
+
     <HomeInboxDiagnosisCard
       title="今日诊断"
       priority-label="优先处理"
@@ -62,6 +68,7 @@
 import { computed, nextTick, onMounted, reactive, ref, type ComponentPublicInstance, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import HomeInboxDailySummaryCard from "./HomeInboxDailySummaryCard.vue";
 import HomeInboxDiagnosisCard from "./HomeInboxDiagnosisCard.vue";
 import HomeInboxBookmarkedEventsCard from "./HomeInboxBookmarkedEventsCard.vue";
 import HomeInboxEventSectionsList from "./HomeInboxEventSectionsList.vue";
@@ -82,6 +89,8 @@ import {
 } from "./home-inbox-model";
 import {
   fetchDashboard,
+  fetchDailySummary,
+  type DailySummary,
   type DashboardSummary,
   type EventSummary,
   type InboxSectionCounts,
@@ -97,6 +106,8 @@ import {
 
 const route = useRoute();
 const router = useRouter();
+
+const dailySummary = ref<DailySummary | null>(null);
 
 const dashboard = reactive<{
   summary: DashboardSummary;
@@ -475,7 +486,13 @@ const inboxWorkspaceActions = computed(() =>
 onMounted(async () => {
   previousSnapshot.value = loadPreviousDashboardSummary();
   recentEventOperation.value = loadRecentEventOperation();
-  const data = await fetchDashboard();
+
+  const [data, summaryData] = await Promise.all([
+    fetchDashboard(),
+    fetchDailySummary(),
+  ]);
+
+  dailySummary.value = summaryData;
 
   dashboard.summary = data.summary;
   dashboard.events = data.events;

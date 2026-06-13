@@ -6,6 +6,15 @@ import type {
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 
+/**
+ * Check if a signal string belongs to a system-internal preference
+ * that should not be exposed in the user-facing preferences list.
+ */
+function isSystemPreference(signal: string | null | undefined): boolean {
+  if (!signal) return false;
+  return signal.startsWith("channel_config:") || signal.startsWith("daily_summary:");
+}
+
 // Mock preferences for demo mode
 const mockPreferences: NotificationPreference[] = [
   {
@@ -55,7 +64,7 @@ export async function listNotificationPreferences(
   const db = getDatabase();
 
   if (!db) {
-    return mockPreferences.filter((p) => p.userId === userId);
+    return mockPreferences.filter((p) => p.userId === userId && !isSystemPreference(p.signal));
   }
 
   const rows = await db
@@ -70,10 +79,22 @@ export async function listNotificationPreferences(
       "is_enabled as isEnabled",
       "is_muted as isMuted",
       "priority_only as priorityOnly",
+      "quiet_hours_start as quietHoursStart",
+      "quiet_hours_end as quietHoursEnd",
+      "max_per_hour as maxPerHour",
       "created_at as createdAt",
       "updated_at as updatedAt",
     ])
     .where("user_id", "=", userId)
+    .where((eb) =>
+      eb.or([
+        eb("signal", "is", null),
+        eb.and([
+          eb("signal", "not like", "channel_config:%"),
+          eb("signal", "not like", "daily_summary:%"),
+        ]),
+      ]),
+    )
     .orderBy("created_at", "desc")
     .execute();
 
@@ -105,6 +126,9 @@ export async function getNotificationPreference(
       "is_enabled as isEnabled",
       "is_muted as isMuted",
       "priority_only as priorityOnly",
+      "quiet_hours_start as quietHoursStart",
+      "quiet_hours_end as quietHoursEnd",
+      "max_per_hour as maxPerHour",
       "created_at as createdAt",
       "updated_at as updatedAt",
     ])
@@ -140,6 +164,9 @@ export async function createNotificationPreference(
     isEnabled: input.isEnabled ?? true,
     isMuted: input.isMuted ?? false,
     priorityOnly: input.priorityOnly ?? false,
+    quietHoursStart: input.quietHoursStart ?? null,
+    quietHoursEnd: input.quietHoursEnd ?? null,
+    maxPerHour: input.maxPerHour ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -161,6 +188,9 @@ export async function createNotificationPreference(
       is_enabled: input.isEnabled ?? true,
       is_muted: input.isMuted ?? false,
       priority_only: input.priorityOnly ?? false,
+      quiet_hours_start: input.quietHoursStart ?? null,
+      quiet_hours_end: input.quietHoursEnd ?? null,
+      max_per_hour: input.maxPerHour ?? null,
     })
     .execute();
 
@@ -187,6 +217,9 @@ export async function updateNotificationPreference(
       isEnabled: input.isEnabled ?? existing.isEnabled,
       isMuted: input.isMuted ?? existing.isMuted,
       priorityOnly: input.priorityOnly ?? existing.priorityOnly,
+      quietHoursStart: input.quietHoursStart !== undefined ? input.quietHoursStart : existing.quietHoursStart,
+      quietHoursEnd: input.quietHoursEnd !== undefined ? input.quietHoursEnd : existing.quietHoursEnd,
+      maxPerHour: input.maxPerHour !== undefined ? input.maxPerHour : existing.maxPerHour,
       updatedAt: new Date().toISOString(),
     };
 
@@ -203,11 +236,15 @@ export async function updateNotificationPreference(
   if (input.isEnabled !== undefined) updatePatch.is_enabled = input.isEnabled;
   if (input.isMuted !== undefined) updatePatch.is_muted = input.isMuted;
   if (input.priorityOnly !== undefined) updatePatch.priority_only = input.priorityOnly;
-  updatePatch.updated_at = new Date();
+  if (input.quietHoursStart !== undefined) updatePatch.quiet_hours_start = input.quietHoursStart;
+  if (input.quietHoursEnd !== undefined) updatePatch.quiet_hours_end = input.quietHoursEnd;
+  if (input.maxPerHour !== undefined) updatePatch.max_per_hour = input.maxPerHour;
 
   if (Object.keys(updatePatch).length === 0) {
     return getNotificationPreference(preferenceId);
   }
+
+  updatePatch.updated_at = new Date();
 
   await db
     .updateTable("notification_preferences")
@@ -249,6 +286,9 @@ export async function getEffectivePreference(
   isEnabled: boolean;
   isMuted: boolean;
   priorityOnly: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  maxPerHour: number | null;
 } | null> {
   const db = getDatabase();
 
@@ -275,6 +315,9 @@ export async function getEffectivePreference(
       isEnabled: matched.isEnabled,
       isMuted: matched.isMuted,
       priorityOnly: matched.priorityOnly,
+      quietHoursStart: matched.quietHoursStart ?? null,
+      quietHoursEnd: matched.quietHoursEnd ?? null,
+      maxPerHour: matched.maxPerHour ?? null,
     };
   }
 
@@ -285,21 +328,15 @@ export async function getEffectivePreference(
       "is_enabled as isEnabled",
       "is_muted as isMuted",
       "priority_only as priorityOnly",
+      "quiet_hours_start as quietHoursStart",
+      "quiet_hours_end as quietHoursEnd",
+      "max_per_hour as maxPerHour",
       "theme_id as themeId",
       "source_id as sourceId",
       "signal",
     ])
     .where("user_id", "=", userId)
     .where("channel", "=", channel);
-
-  // Build specificity score for ordering
-  const specificity = db
-    .selectFrom("notification_preferences")
-    .select(({ eb, val }) => [
-      eb("theme_id", "is not", null).as("has_theme"),
-      eb("source_id", "is not", null).as("has_source"),
-      eb("signal", "is not", null).as("has_signal"),
-    ]);
 
   const rows = await query.execute();
 
@@ -325,5 +362,94 @@ export async function getEffectivePreference(
     isEnabled: matched.isEnabled,
     isMuted: matched.isMuted,
     priorityOnly: matched.priorityOnly,
+    quietHoursStart: matched.quietHoursStart ?? null,
+    quietHoursEnd: matched.quietHoursEnd ?? null,
+    maxPerHour: matched.maxPerHour ?? null,
   };
+}
+
+/**
+ * Check if the current time is within a quiet hours window.
+ * quietHoursStart/End are in "HH:MM" format (24h, Asia/Shanghai timezone).
+ */
+export function isInQuietHours(
+  quietHoursStart: string | null | undefined,
+  quietHoursEnd: string | null | undefined,
+): boolean {
+  if (!quietHoursStart || !quietHoursEnd) return false;
+
+  const now = new Date();
+  const cstTime = now.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Shanghai",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const [currentH, currentM] = cstTime.split(":").map(Number);
+  const [startH, startM] = quietHoursStart.split(":").map(Number);
+  const [endH, endM] = quietHoursEnd.split(":").map(Number);
+
+  const currentMinutes = currentH * 60 + currentM;
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  // Handle overnight quiet hours (e.g., 22:00 - 08:00)
+  if (startMinutes <= endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  } else {
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  }
+}
+
+// In-memory frequency tracking
+const frequencyCounters = new Map<string, { count: number; windowStart: number }>();
+const WINDOW_MS = 60 * 60 * 1000; // 1 hour
+let lastEviction = Date.now();
+
+/**
+ * Evict expired entries from the frequency counter map.
+ * Runs at most once per minute to avoid overhead.
+ */
+function evictExpiredCounters(): void {
+  const now = Date.now();
+  if (now - lastEviction < 60_000) return;
+  lastEviction = now;
+
+  for (const [key, entry] of frequencyCounters) {
+    if (now - entry.windowStart > WINDOW_MS) {
+      frequencyCounters.delete(key);
+    }
+  }
+}
+
+/**
+ * Check if a notification exceeds the frequency limit.
+ * Returns { allowed: true } or { allowed: false, reason: "..." }.
+ */
+export function checkFrequencyGuard(
+  key: string,
+  maxPerHour: number | null | undefined,
+): { allowed: boolean; reason?: string } {
+  if (!maxPerHour || maxPerHour <= 0) return { allowed: true };
+
+  evictExpiredCounters();
+
+  const now = Date.now();
+  const entry = frequencyCounters.get(key);
+
+  if (!entry || now - entry.windowStart > WINDOW_MS) {
+    frequencyCounters.set(key, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  if (entry.count >= maxPerHour) {
+    return {
+      allowed: false,
+      reason: `Frequency limit reached: max ${maxPerHour} per hour for ${key}`,
+    };
+  }
+
+  entry.count += 1;
+  return { allowed: true };
 }
