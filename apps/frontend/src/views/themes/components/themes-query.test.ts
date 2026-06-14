@@ -18,6 +18,7 @@ describe("themes-query", () => {
         impactFilter: "negative",
         sortBy: "latestBookmarked",
         recentOnly24h: true,
+        favoritesOnly: false,
       }),
     ).toEqual({
       q: "pbc",
@@ -52,6 +53,7 @@ describe("themes-query", () => {
       impactFilter: "positive",
       sortBy: "attention",
       recentOnly24h: true,
+        favoritesOnly: false,
     });
 
     expect(
@@ -73,6 +75,7 @@ describe("themes-query", () => {
       impactFilter: "all",
       sortBy: "priority",
       recentOnly24h: false,
+      favoritesOnly: false,
     });
   });
 
@@ -103,6 +106,7 @@ describe("themes-query", () => {
         impactFilter: "negative",
         sortBy: "attention",
         recentOnly24h: false,
+      favoritesOnly: false,
       }),
     ).toBe(true);
 
@@ -116,6 +120,7 @@ describe("themes-query", () => {
         impactFilter: "negative",
         sortBy: "attention",
         recentOnly24h: false,
+      favoritesOnly: false,
       }),
     ).toBe(false);
   });

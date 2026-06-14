@@ -56,11 +56,22 @@
           >
             {{ filter.label }}
           </button>
+          <select
+            v-model="activeLevelFilter"
+            class="rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink"
+            @change="activePreset = null; void loadNotifications()"
+          >
+            <option value="all">全部优先级</option>
+            <option value="high">高优先级</option>
+            <option value="medium">中优先级</option>
+            <option value="low">低优先级</option>
+          </select>
         </div>
         <div class="flex items-center gap-3">
           <select
             v-model="sortBy"
             class="rounded-xl border border-border bg-white px-3 py-2 text-[0.82rem] text-ink"
+            @change="activePreset = null; void loadNotifications()"
           >
             <option value="createdAt">按创建时间</option>
             <option value="sentAt">按发送时间</option>
@@ -71,8 +82,16 @@
           >
             {{ sortOrder === "desc" ? "↓ 降序" : "↑ 升序" }}
           </button>
+          <button
+            v-if="pendingCount > 0"
+            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="markingAllRead"
+            @click="handleMarkAllRead"
+          >
+            {{ markingAllRead ? "标记中..." : `全部已读 (${pendingCount})` }}
+          </button>
           <span class="text-[0.88rem] text-ink-secondary">
-            共 {{ filteredNotifications.length }} 条
+            共 {{ totalCount }} 条
           </span>
         </div>
       </section>
@@ -81,46 +100,61 @@
         当前筛选条件下没有通知。
       </div>
 
-      <article
-        v-for="notification in filteredNotifications"
-        :key="notification.id"
-        class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-colors"
-        :class="cardClass(notification.status)"
-      >
-        <div class="mb-3 flex flex-wrap items-center gap-2">
-          <span :class="signalPillClass(notification.signal)">
-            {{ signalLabel(notification.signal) }}
-          </span>
-          <span :class="statusPillClass(notification.status)">
-            {{ statusLabel(notification.status) }}
-          </span>
-          <span class="text-[0.82rem] text-ink-muted">
-            {{ formatTime(notification.createdAt) }}
-          </span>
-        </div>
+      <!-- Grouped by date -->
+      <template v-for="group in dateGroups" :key="group.label">
+        <div class="mt-2 mb-1 text-[0.88rem] font-semibold text-ink-label">{{ group.label }}</div>
+        <article
+          v-for="notification in group.items"
+          :key="notification.id"
+          class="rounded-[18px] border border-slate-400/15 bg-white/78 p-[18px] shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-colors"
+          :class="cardClass(notification.status)"
+        >
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <span :class="signalPillClass(notification.signal)">
+              {{ signalLabel(notification.signal) }}
+            </span>
+            <span :class="statusPillClass(notification.status)">
+              {{ statusLabel(notification.status) }}
+            </span>
+            <span class="text-[0.82rem] text-ink-muted">
+              {{ formatTime(sortBy === "sentAt" ? (notification.sentAt || notification.createdAt) : notification.createdAt) }}
+            </span>
+          </div>
 
-        <strong class="block text-base font-semibold text-ink-heading">{{ notification.title }}</strong>
-        <p class="mt-2 text-[0.92rem] leading-7 text-ink-body">{{ notification.summary }}</p>
+          <strong class="block text-base font-semibold text-ink-heading">{{ notification.title }}</strong>
+          <p class="mt-2 text-[0.92rem] leading-7 text-ink-body">{{ notification.summary }}</p>
 
-        <div class="mt-3 flex flex-wrap items-center gap-3">
-          <RouterLink
-            v-if="notification.eventId"
-            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
-            :to="`/events/${notification.eventId}`"
-          >
-            查看关联事件
-            <span aria-hidden="true" class="text-base leading-none">›</span>
-          </RouterLink>
-          <button
-            v-if="notification.status === 'pending'"
-            class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="markingId === notification.id"
-            @click="handleMarkRead(notification.id)"
-          >
-            {{ markingId === notification.id ? "标记中..." : "标记已读" }}
-          </button>
-        </div>
-      </article>
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <RouterLink
+              v-if="notification.eventId"
+              class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
+              :to="`/events/${notification.eventId}`"
+            >
+              查看关联事件
+              <span aria-hidden="true" class="text-base leading-none">›</span>
+            </RouterLink>
+            <button
+              v-if="notification.status === 'pending'"
+              class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-4 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="markingId === notification.id"
+              @click="handleMarkRead(notification.id)"
+            >
+              {{ markingId === notification.id ? "标记中..." : "标记已读" }}
+            </button>
+          </div>
+        </article>
+      </template>
+
+      <!-- Load More -->
+      <div v-if="hasMore" class="mt-4 text-center">
+        <button
+          class="inline-flex items-center justify-center rounded-xl bg-btn-primary px-6 py-2.5 text-ink-emphasis transition-colors hover:bg-btn-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loadingMore"
+          @click="loadMore"
+        >
+          {{ loadingMore ? "加载中..." : "加载更多" }}
+        </button>
+      </div>
     </template>
   </section>
 </template>
@@ -128,8 +162,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 
-import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../lib/api";
-import { getSignalColors, getSignalLabel } from "@info-monitor/shared-contracts";
+import {
+  fetchNotifications,
+  markNotificationRead,
+  batchMarkNotificationsRead,
+  type NotificationItem,
+} from "../../lib/api";
+import { getSignalColors, getSignalLabel, getSignalPriority } from "@info-monitor/shared-contracts";
+import type { NotificationLevel } from "@info-monitor/shared-contracts";
 
 interface PresetView {
   id: string;
@@ -143,13 +183,17 @@ interface PresetView {
 const notifications = ref<NotificationItem[]>([]);
 const totalCount = ref(0);
 const hasMore = ref(false);
+const nextCursor = ref<string | undefined>(undefined);
 const activeStatusFilter = ref<"all" | "pending" | "sent" | "failed">("all");
 const activeSignalFilter = ref<string | undefined>(undefined);
+const activeLevelFilter = ref<"all" | NotificationLevel>("all");
 const activePreset = ref<string | null>(null);
 const sortBy = ref<"createdAt" | "sentAt">("createdAt");
 const sortOrder = ref<"asc" | "desc">("desc");
 const markingId = ref("");
+const markingAllRead = ref(false);
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref<string | null>(null);
 
 const presetViews: PresetView[] = [
@@ -170,11 +214,8 @@ const statusFilters = [
 const filteredNotifications = computed(() => {
   let items = notifications.value;
 
-  if (activeStatusFilter.value !== "all") {
-    items = items.filter((item) => item.status === activeStatusFilter.value);
-  }
-
-  // Sort
+  // Status and level filters are now handled by the backend
+  // Only keep local sorting as a fallback
   items = [...items].sort((left, right) => {
     const leftVal = sortBy.value === "sentAt" ? left.sentAt || left.createdAt : left.createdAt;
     const rightVal = sortBy.value === "sentAt" ? right.sentAt || right.createdAt : right.createdAt;
@@ -186,10 +227,55 @@ const filteredNotifications = computed(() => {
   return items;
 });
 
+const pendingCount = computed(() =>
+  filteredNotifications.value.filter((n) => n.status === "pending").length,
+);
+
+/** Group notifications by date for display.
+ *  Uses the same date field as the current sort to keep grouping consistent with ordering. */
+const dateGroups = computed(() => {
+  const now = new Date();
+  const todayStr = formatDateKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = formatDateKey(yesterday);
+
+  const groups: { label: string; items: NotificationItem[] }[] = [];
+  const groupMap = new Map<string, NotificationItem[]>();
+
+  for (const item of filteredNotifications.value) {
+    // Match the sort field: when sorting by sentAt, group by sentAt (falling back to createdAt)
+    const dateField = sortBy.value === "sentAt" ? (item.sentAt || item.createdAt) : item.createdAt;
+    const dateKey = formatDateKey(new Date(dateField));
+    let label: string;
+    if (dateKey === todayStr) label = "今天";
+    else if (dateKey === yesterdayStr) label = "昨天";
+    else label = dateKey;
+
+    if (!groupMap.has(label)) {
+      groupMap.set(label, []);
+    }
+    groupMap.get(label)!.push(item);
+  }
+
+  for (const [label, items] of groupMap) {
+    groups.push({ label, items });
+  }
+
+  return groups;
+});
+
+function formatDateKey(date: Date): string {
+  // Use Asia/Shanghai timezone as required by the product spec
+  const parts = date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
+  return parts; // Returns YYYY-MM-DD format
+}
+
 function applyPreset(preset: PresetView) {
   activePreset.value = preset.id;
   activeStatusFilter.value = (preset.status as typeof activeStatusFilter.value) || "all";
   activeSignalFilter.value = preset.signal;
+  activeLevelFilter.value = "all";
 
   if (preset.sortBy) {
     sortBy.value = preset.sortBy;
@@ -205,6 +291,7 @@ function applyPreset(preset: PresetView) {
 
 function toggleSortOrder() {
   sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
+  activePreset.value = null;
   void loadNotifications();
 }
 
@@ -297,8 +384,39 @@ async function handleMarkRead(notificationId: string) {
       item.status = "sent";
       item.sentAt = new Date().toISOString();
     }
+
+    // Re-fetch when filtering by "unread" so marked items disappear immediately
+    if (activeStatusFilter.value === "pending") {
+      await loadNotifications();
+    }
   } finally {
     markingId.value = "";
+  }
+}
+
+async function handleMarkAllRead() {
+  const pendingIds = filteredNotifications.value
+    .filter((n) => n.status === "pending")
+    .map((n) => n.id);
+
+  if (!pendingIds.length) return;
+
+  markingAllRead.value = true;
+  try {
+    await batchMarkNotificationsRead(pendingIds);
+    for (const item of notifications.value) {
+      if (pendingIds.includes(item.id)) {
+        item.status = "sent";
+        item.sentAt = new Date().toISOString();
+      }
+    }
+
+    // Re-fetch when filtering by "unread" so marked items disappear immediately
+    if (activeStatusFilter.value === "pending") {
+      await loadNotifications();
+    }
+  } finally {
+    markingAllRead.value = false;
   }
 }
 
@@ -310,17 +428,41 @@ async function loadNotifications() {
     const result = await fetchNotifications({
       status: activeStatusFilter.value !== "all" ? activeStatusFilter.value : undefined,
       signal: activeSignalFilter.value,
+      level: activeLevelFilter.value !== "all" ? activeLevelFilter.value : undefined,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
     });
     notifications.value = result.items;
     totalCount.value = result.total;
     hasMore.value = result.hasMore;
+    nextCursor.value = result.nextCursor;
   } catch (e) {
     error.value = e instanceof Error ? e.message : "未知错误，请稍后重试";
     console.error("Failed to load notifications:", e);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMore() {
+  if (!hasMore.value || !nextCursor.value) return;
+  loadingMore.value = true;
+  try {
+    const result = await fetchNotifications({
+      status: activeStatusFilter.value !== "all" ? activeStatusFilter.value : undefined,
+      signal: activeSignalFilter.value,
+      level: activeLevelFilter.value !== "all" ? activeLevelFilter.value : undefined,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
+      cursor: nextCursor.value,
+    });
+    notifications.value = [...notifications.value, ...result.items];
+    hasMore.value = result.hasMore;
+    nextCursor.value = result.nextCursor;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "加载更多失败";
+  } finally {
+    loadingMore.value = false;
   }
 }
 

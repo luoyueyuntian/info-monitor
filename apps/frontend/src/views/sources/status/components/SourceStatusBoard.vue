@@ -20,6 +20,7 @@
       :set-impact-filter="setImpactFilter"
       :set-recent-only24h="setRecentOnly24h"
       :clear-since-filter="clearSinceFilter"
+      @load-view="handleLoadView"
     />
     <SourceStatusDiagnosticsCard :diagnostic="sourceDiagnostics" />
 
@@ -273,6 +274,14 @@ function setRecentOnly24h(value: boolean) {
 
 function clearSinceFilter() {
   sinceFilter.value = "";
+}
+
+function handleLoadView(filters: Record<string, string>) {
+  focusFilter.value = filters.focus ?? "all";
+  themeFilter.value = filters.theme ?? "all";
+  impactFilter.value = filters.impact ?? "all";
+  recentOnly24h.value = filters.recent === "24h";
+  sinceFilter.value = ""; // Clear incremental view when loading a saved view
 }
 
 function applySourcePreset(presetId: string) {

@@ -80,8 +80,8 @@ class KeywordMatchRule(BaseEventRule):
 
         # Determine signal based on content
         # This is a simple heuristic - could be enhanced with NLP
-        bullish_keywords = ["利好", "上涨", "增长", "突破", "新高", "bullish", "positive"]
-        bearish_keywords = ["利空", "下跌", "下降", "破位", "新低", "bearish", "negative"]
+        bullish_keywords = ["利好", "上涨", "增长", "突破", "新高", "bullish", "positive", "发布", "上线", "新增", "升级"]
+        bearish_keywords = ["利空", "下跌", "下降", "破位", "新低", "bearish", "negative", "下线", "移除", "废弃", "停止"]
 
         bullish_count = sum(1 for k in matched_keywords if any(bk in k for bk in bullish_keywords))
         bearish_count = sum(1 for k in matched_keywords if any(bk in k for bk in bearish_keywords))

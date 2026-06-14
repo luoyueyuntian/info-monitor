@@ -49,6 +49,7 @@ export type ThemesBoardFilters = {
   impactFilter: string;
   sortBy: string;
   recentOnly24h: boolean;
+  favoritesOnly: boolean;
 };
 
 export type ThemeWorkspaceActions = {
@@ -71,7 +72,7 @@ export type ThemeDiagnostics = {
   }>;
 };
 
-export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters) {
+export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters, favoriteIds?: Set<string>) {
   return [...themes]
     .filter((theme) => {
       const matchesQuery =
@@ -96,8 +97,9 @@ export function filterThemes(themes: ThemeSummary[], filters: ThemesBoardFilters
         filters.healthFilter === "all" || (theme.sourceHealth ?? "healthy") === filters.healthFilter;
       const matchesImpact = filters.impactFilter === "all" || themeImpactTone(theme) === filters.impactFilter;
       const matchesRecent = !filters.recentOnly24h || hasRecentThemeActivity(theme);
+      const matchesFavorites = !filters.favoritesOnly || (favoriteIds?.has(theme.id) ?? false);
 
-      return matchesQuery && matchesType && matchesStatus && matchesQueue && matchesHealth && matchesImpact && matchesRecent;
+      return matchesQuery && matchesType && matchesStatus && matchesQueue && matchesHealth && matchesImpact && matchesRecent && matchesFavorites;
     })
     .sort((left, right) => {
       if (filters.sortBy === "latestEvent") {
@@ -144,6 +146,7 @@ export function buildThemeFilterSummary(
     filters.impactFilter === "negative" ? "影响 偏利空" : "",
     filters.impactFilter === "neutral" ? "影响 中性" : "",
     filters.recentOnly24h ? "最近24小时更新" : "",
+    filters.favoritesOnly ? "仅收藏主题" : "",
     filters.sortBy === "attention" ? "按优先处理排序" : "",
     filters.sortBy === "latestEvent" ? "按最近事件排序" : "",
     filters.sortBy === "latestRun" ? "按最近运行排序" : "",

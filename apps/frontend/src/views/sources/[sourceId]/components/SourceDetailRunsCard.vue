@@ -19,8 +19,11 @@
       <div v-for="run in runs" :key="run.id" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span :class="pillToneClass(run.status)">{{ runStatusLabel(run.status) }}</span>
-          <span :class="run.triggerType === 'test' ? 'inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700' : pillToneClass()">
+          <span :class="triggerTypeBadgeClass(run.triggerType)">
             {{ triggerTypeLabel(run.triggerType) }}
+          </span>
+          <span v-if="run.configVersion" class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+            v{{ run.configVersion }}
           </span>
         </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
@@ -206,7 +209,14 @@ function triggerTypeLabel(triggerType: string): string {
     case "test": return "测试运行";
     case "manual": return "手动运行";
     case "scheduled": return "定时运行";
+    case "replay": return "回放运行";
     default: return triggerType;
   }
+}
+
+function triggerTypeBadgeClass(triggerType: string): string {
+  if (triggerType === "test") return "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700";
+  if (triggerType === "replay") return "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-cyan-100 text-cyan-700";
+  return pillToneClass();
 }
 </script>

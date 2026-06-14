@@ -111,24 +111,68 @@ function buildEventExplanation(input: {
   signal?: string | null;
   title: string;
   summary: string;
+  sourceHealthScore?: number;
+  recentSimilarCount?: number;
+  impactLevel?: string;
 }) {
+  // Compute confidence score (0-100)
+  // Based on: source health (40%), signal clarity (30%), event freshness (30%)
+  let confidence = 70; // baseline
+
+  // Source health contribution (0-40)
+  if (input.sourceHealthScore !== undefined) {
+    confidence = Math.round(30 + (input.sourceHealthScore / 100) * 40);
+  }
+
+  // Signal clarity: strong signals get higher confidence
+  const strongSignals = ["30d_low", "bullish", "bearish", "liquidity_injection", "liquidity_withdrawal"];
+  if (input.signal && strongSignals.includes(input.signal)) {
+    confidence = Math.min(100, confidence + 15);
+  }
+
+  // Recency: similar recent events reinforce confidence
+  if (input.recentSimilarCount && input.recentSimilarCount >= 2) {
+    confidence = Math.min(100, confidence + 10);
+  }
+
+  // Impact level: high-impact events get confidence boost
+  if (input.impactLevel === "high") {
+    confidence = Math.min(100, confidence + 10);
+  }
+
+  // Confidence label for display
+  const confidenceLabel =
+    confidence >= 85 ? "高" : confidence >= 60 ? "中" : "低";
+
   if (input.infoType === "price") {
     return {
+      confidence,
+      confidenceLabel,
       headline: "这是一个直接影响买入判断的价格信号",
       impact: "它意味着当前监控对象出现了值得优先复核的价格变化，通常会直接影响你是否继续跟进。",
       whyItMatters: [
-        "价格事件通常离最终决策最近，会直接改变你对“是否值得买”的判断。",
+        "价格事件通常离最终决策最近，会直接改变你对「是否值得买」的判断。",
         "如果同配置出现新低，往往意味着当前观察价值上升，但仍需确认是否真实可成交。",
       ],
       actions: [
         "优先核对规格、成色、附件和成交条件，确认是否真的是同配置低价。",
         "如需更高把握，补跑其他来源，再判断这次价格变化是否仍然成立。",
       ],
+      reliabilityHints: [
+        input.sourceHealthScore && input.sourceHealthScore >= 80
+          ? "来源健康度较高，数据可信度好"
+          : input.sourceHealthScore && input.sourceHealthScore < 50
+            ? "来源健康度较低，建议交叉验证"
+            : null,
+        input.signal === "30d_low" ? "30天新低信号需要确认是同配置对比" : null,
+      ].filter(Boolean) as string[],
     };
   }
 
   if (input.infoType === "financial_event") {
     return {
+      confidence,
+      confidenceLabel,
       headline: "这是一个会改变短期市场判断的金融事件",
       impact: "它通常对应流动性、政策操作或市场预期变化，需要结合结构化字段进一步解读。",
       whyItMatters: [
@@ -139,11 +183,21 @@ function buildEventExplanation(input: {
         "优先查看方向、金额、期限和操作类型，确认这条事件的核心含义。",
         "再结合后续公告和市场反应，判断是否需要调整自己的观察或交易计划。",
       ],
+      reliabilityHints: [
+        input.impactLevel === "high" ? "高影响力操作，建议重点关注" : null,
+        input.sourceHealthScore && input.sourceHealthScore >= 80
+          ? "来源健康度较高，数据可信度好"
+          : input.sourceHealthScore && input.sourceHealthScore < 50
+            ? "来源健康度较低，建议交叉验证"
+            : null,
+      ].filter(Boolean) as string[],
     };
   }
 
   if (input.infoType === "content_update") {
     return {
+      confidence,
+      confidenceLabel,
       headline: "这是一个需要快速判断影响范围的内容更新",
       impact: "它说明监控对象刚刚发生了新的功能、版本或页面内容变化，重点是先判断这次变化会影响哪些主题和后续动作。",
       whyItMatters: [
@@ -154,10 +208,17 @@ function buildEventExplanation(input: {
         "优先查看更新类型、原文链接和摘要，确认这次具体改了什么。",
         "再结合历史更新和你的关注主题，判断是否需要跟进分析、记录竞品动作或转成新的任务。",
       ],
+      reliabilityHints: [
+        input.recentSimilarCount && input.recentSimilarCount >= 3
+          ? "近期同类更新频繁，说明产品迭代节奏加快"
+          : null,
+      ].filter(Boolean) as string[],
     };
   }
 
   return {
+    confidence,
+    confidenceLabel,
     headline: "这是一个值得继续跟踪的官方发布信号",
     impact: "它说明官方渠道有了新的发布，可能改变你对主题的后续判断，但通常需要先读正文确认含义。",
     whyItMatters: [
@@ -168,6 +229,13 @@ function buildEventExplanation(input: {
       "先打开原始来源，确认发布正文到底说了什么。",
       "如果影响较大，再把它转成更明确的判断或后续行动。",
     ],
+    reliabilityHints: [
+      input.sourceHealthScore && input.sourceHealthScore >= 80
+        ? "来源健康度较高，数据可信度好"
+        : input.sourceHealthScore && input.sourceHealthScore < 50
+          ? "来源健康度较低，建议交叉验证"
+          : null,
+    ].filter(Boolean) as string[],
   };
 }
 
@@ -414,6 +482,7 @@ export async function getEventDetail(eventId: string) {
         signal: event.signal,
         title: event.title,
         summary: event.summary,
+        sourceHealthScore: 70, // Mock mode: default baseline
       }),
       triggerReason: buildTriggerReason(event),
       statusHistory: mockEventStatusHistory
@@ -446,6 +515,7 @@ export async function getEventDetail(eventId: string) {
       "nr.info_type as infoType",
       "nr.content as context",
       "s.name as sourceName",
+      "s.status as sourceStatus",
     ])
     .where("e.id", "=", eventId)
     .executeTakeFirst();
@@ -483,6 +553,11 @@ export async function getEventDetail(eventId: string) {
     }
   }
 
+  // Derive source health score from source status
+  let sourceHealthScore = 70; // baseline
+  if (row.sourceStatus === "healthy") sourceHealthScore = 100;
+  else if (row.sourceStatus === "warning") sourceHealthScore = 40;
+
   return {
     ...row,
     bookmarkedAt: toIsoTimestamp(row.bookmarkedAt),
@@ -492,6 +567,7 @@ export async function getEventDetail(eventId: string) {
       signal: row.signal,
       title: row.title,
       summary: row.summary,
+      sourceHealthScore,
     }),
     triggerReason: {
       ruleKey: row.eventType || "unknown",

@@ -37,6 +37,8 @@ export interface SourceRunsTable {
   source_id: string;
   trigger_type: string;
   status: string;
+  replay_snapshot_id: string | null;
+  config_version: number | null;
   started_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
   finished_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
   error_message: string | null;
@@ -167,6 +169,20 @@ export interface EventFeedbackTable {
   updated_at: TimestampColumn;
 }
 
+export interface ThemeFavoritesTable {
+  id: string;
+  theme_id: string;
+  created_at: TimestampColumn;
+}
+
+export interface SavedFilterViewsTable {
+  id: string;
+  name: string;
+  view_type: string;
+  filters: JsonColumn<Record<string, string>>;
+  created_at: TimestampColumn;
+}
+
 export interface DailySummariesTable {
   id: string;
   date: string;
@@ -188,5 +204,7 @@ export interface Database {
   rule_configurations: RuleConfigurationsTable;
   notification_audit_log: NotificationAuditLogTable;
   event_feedback: EventFeedbackTable;
+  theme_favorites: ThemeFavoritesTable;
+  saved_filter_views: SavedFilterViewsTable;
   daily_summaries: DailySummariesTable;
 }

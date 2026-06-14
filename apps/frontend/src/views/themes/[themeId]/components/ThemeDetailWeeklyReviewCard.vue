@@ -88,6 +88,38 @@
         </div>
       </div>
 
+      <!-- Signal Distribution Summary -->
+      <div v-if="activity.signalDistribution && Object.keys(activity.signalDistribution).length > 0" class="grid gap-2">
+        <h4 class="m-0 text-sm font-semibold">信号分布汇总</h4>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="(count, signal) in activity.signalDistribution"
+            :key="signal"
+            class="inline-flex items-center rounded-full px-3 py-1 text-[0.82rem]"
+            :class="signalDistributionClass(String(signal))"
+          >
+            {{ signalLabel(String(signal)) }}: {{ count }}
+          </span>
+        </div>
+        <!-- Signal interpretation -->
+        <div class="rounded-lg bg-slate-50 px-3 py-2 text-[0.82rem] text-slate-600">
+          {{ signalInterpretation }}
+        </div>
+      </div>
+
+      <!-- Day-over-day Trend (Task 10) -->
+      <div v-if="activity.dayOverDay" class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+        <strong class="text-[0.86rem]">日环比趋势</strong>
+        <div class="mt-1 flex items-center gap-2 text-[0.86rem]">
+          <span :class="activity.dayOverDay.trend === 'up' ? 'text-emerald-600' : activity.dayOverDay.trend === 'down' ? 'text-rose-600' : 'text-slate-500'">
+            {{ activity.dayOverDay.trend === 'up' ? '↑' : activity.dayOverDay.trend === 'down' ? '↓' : '→' }}
+          </span>
+          <span :class="activity.dayOverDay.eventsDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            事件 {{ formatDelta(activity.dayOverDay.eventsDelta) }}
+          </span>
+        </div>
+      </div>
+
       <!-- Signal breakdown per day -->
       <div v-if="hasSignals" class="grid gap-2">
         <h4 class="m-0 text-sm font-semibold">信号分布</h4>
@@ -111,6 +143,19 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- Link to global weekly review -->
+    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+      <div class="flex items-center justify-between">
+        <span class="text-[0.84rem] text-slate-600">查看全局周度回顾</span>
+        <RouterLink
+          to="/weekly-review"
+          class="text-[0.84rem] font-semibold text-ink-link hover:underline"
+        >
+          打开 →
+        </RouterLink>
       </div>
     </div>
   </article>
@@ -157,6 +202,24 @@ const allSignals = computed(() => {
 
 const hasSignals = computed(() => allSignals.value.length > 0);
 
+const signalInterpretation = computed(() => {
+  if (!activity.value?.signalDistribution) return "";
+  const dist = activity.value.signalDistribution;
+  const bullish = (dist["bullish"] ?? 0) + (dist["30d_low"] ?? 0) + (dist["liquidity_injection"] ?? 0);
+  const bearish = (dist["bearish"] ?? 0) + (dist["liquidity_withdrawal"] ?? 0);
+  const total = bullish + bearish + (dist["neutral"] ?? 0) + (dist["new_announcement"] ?? 0) + (dist["content_update"] ?? 0);
+
+  if (total === 0) return "暂无信号数据";
+
+  const bullishRatio = bullish / total;
+  const bearishRatio = bearish / total;
+
+  if (bullishRatio > 0.6) return "近期信号明显偏多，主题处于上升趋势";
+  if (bearishRatio > 0.6) return "近期信号明显偏空，主题处于下行趋势";
+  if (bullishRatio > 0.3 && bearishRatio > 0.3) return "近期多空信号交织，主题方向不明朗";
+  return "近期信号以中性为主，主题处于观察期";
+});
+
 function barHeight(count: number): number {
   if (count === 0) return 2;
   return Math.max(4, Math.round((count / maxEvents.value) * 96));
@@ -176,6 +239,13 @@ function deltaClass(value: number): string {
 
 function signalLabel(signal: string): string {
   return eventSignalLabel(signal);
+}
+
+function signalDistributionClass(signal: string): string {
+  if (signal.includes("bullish") || signal.includes("injection")) return "bg-emerald-50 text-emerald-700";
+  if (signal.includes("bearish") || signal.includes("withdrawal")) return "bg-rose-50 text-rose-700";
+  if (signal.includes("30d_low")) return "bg-blue-50 text-blue-700";
+  return "bg-slate-100 text-slate-600";
 }
 
 async function loadActivity() {

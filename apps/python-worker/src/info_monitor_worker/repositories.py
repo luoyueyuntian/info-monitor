@@ -15,6 +15,7 @@ def fetch_pending_runs(connection: Connection, limit: int = 5) -> List[Dict[str,
               sr.theme_id as theme_id,
               sr.source_id as source_id,
               sr.trigger_type as trigger_type,
+              sr.replay_snapshot_id as replay_snapshot_id,
               t.name as theme_name,
               t.info_type as info_type,
               s.name as source_name,
@@ -104,6 +105,30 @@ def mark_run_failed(connection: Connection, run_id: str, source_id: str, error_m
             ),
             {"source_id": source_id},
         )
+
+
+def fetch_snapshot_payload(
+    connection: Connection,
+    snapshot_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Fetch a stored raw snapshot payload by ID for replay."""
+    row = connection.execute(
+        text(
+            """
+            select
+              id,
+              source_run_id,
+              theme_id,
+              source_id,
+              payload_json
+            from raw_snapshots
+            where id = :snapshot_id
+            """
+        ),
+        {"snapshot_id": snapshot_id},
+    ).first()
+
+    return dict(row._mapping) if row else None
 
 
 def insert_raw_snapshot(

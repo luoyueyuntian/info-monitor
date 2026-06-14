@@ -1,6 +1,6 @@
 # AI Development Tasks
 
-Updated: 2026-06-13
+Updated: 2026-06-14
 
 This file is the current next-stage execution backlog for coding agents
 working in this repository.
@@ -8,19 +8,26 @@ working in this repository.
 Use it when the goal is to continue product development from the current
 information workbench baseline without reopening broad product planning.
 
-The current product is no longer in pure scaffolding mode. A working vertical
-slice already exists across:
+The current product already includes:
 
-1. scheduler
-2. worker
-3. API
-4. frontend workbench
+1. scheduler / worker / API / frontend baseline
+2. source onboarding and source test preview
+3. source health and troubleshooting
+4. theme timeline and review support
 5. notifications
 6. daily summary
+7. weekly summary baseline
+8. theme-level conclusion and event explanation
+9. cross-source price comparison baseline
+10. watchlist and saved filter view baseline
 
-The next stage should focus on making the system more reusable for real
-personal monitoring work, especially around source onboarding, real-source
-coverage, analysis assistance, and operational reliability.
+The next stage should focus on making the platform stronger for real long-term
+personal use:
+
+- real source runtime stability
+- replay and debugging depth
+- stronger buying / waiting judgment for price themes
+- weekly review workflows that feel complete
 
 ## Global Instructions
 
@@ -54,239 +61,286 @@ coverage, analysis assistance, and operational reliability.
 6. Task 6
 7. Task 7
 8. Task 8
+9. Task 9
+10. Task 10
+11. Task 11
+12. Task 12
 
-## Task 1: Productize the New-Source Onboarding Flow
+## Direction 1: Replay and Runtime Stability
 
-- Goal: Turn "adding a source" from a code-only workflow into a guided product
-  workflow that still allows source-specific adapter code.
+## Task 1: Implement Historical Snapshot Replay End-to-End
+
+- Goal: Make stored raw snapshots truly reusable for debugging without live
+  network fetches.
 - Inputs:
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - `apps/frontend/src/views/sources/`
-  - `apps/frontend/src/lib/api.ts`
   - `apps/api/src/routes/sources.ts`
   - `apps/api/src/services/source-service.ts`
-  - `packages/shared-contracts/src/`
-- Required output:
-  - an "add source" entry that supports choosing a source type
-  - source-type-aware configuration fields
-  - a pre-save validation result in the UI
-  - a clear source setup status after creation:
-    - draft
-    - ready to test
-    - active
-  - backend support for storing onboarding metadata if needed
-- Acceptance:
-  - a user can create a new source without manually editing seed data or SQL
-  - the system makes clear what still needs to be configured before the source
-    can run
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-
-## Task 2: Add Source Test-Run and Parse Preview
-
-- Goal: Let the user verify a source configuration before enabling it in the
-  scheduler.
-- Inputs:
-  - `apps/frontend/src/views/sources/[sourceId]/components/`
-  - `apps/api/src/routes/sources.ts`
-  - `apps/api/src/services/source-service.ts`
-  - `apps/python-worker/src/info_monitor_worker/adapters/`
   - `apps/python-worker/src/info_monitor_worker/service.py`
+  - `apps/python-worker/src/info_monitor_worker/repositories.py`
+  - `apps/frontend/src/views/sources/[sourceId]/components/`
 - Required output:
-  - a manual "test source" action on source detail
-  - a preview result that shows at minimum:
-    - fetch result summary
-    - parse result summary
-    - sample normalized records
-    - detected issues or warnings
-  - a clear difference between:
+  - a real replay route for selecting a historical snapshot
+  - worker support for replay context:
+    - skip live fetch
+    - re-run normalize / detect / event logic from stored snapshot payload
+  - clear replay result display in source detail
+  - clear distinction between:
+    - live run
     - test run
-    - scheduled production run
-  - if a test run cannot be fully executed in the current architecture,
-    provide the nearest safe implementation that still previews the adapter
-    result through API + worker integration
+    - replay run
 - Acceptance:
-  - before activating a source, the user can confirm whether the source can be
-    fetched and parsed correctly
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-  - `npm run test:python-worker`
-
-## Task 3: Add the First Real Second-Hand Price Monitoring Source
-
-- Goal: Move the price-monitoring scenario from demo-oriented infrastructure to
-  a first real consumer use case.
-- Inputs:
-  - `apps/python-worker/src/info_monitor_worker/adapters/`
-  - `apps/python-worker/src/info_monitor_worker/normalizers/price.py`
-  - `apps/python-worker/src/info_monitor_worker/event_rules/`
-  - `apps/api/src/services/theme-service.ts`
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - `docs/`
-- Required output:
-  - one real list-style second-hand price source integration
-  - support for "same configuration across platforms" comparison if the chosen
-    source shape allows it
-  - at minimum preserve or improve these price signals:
-    - recent 30-day low
-    - notable drop versus recent median or average
-  - demo seed or setup documentation for this source
-  - clear theme-side presentation of cross-source price context
-- Acceptance:
-  - the platform can monitor a real second-hand product price scenario instead
-    of only stock/demo price data
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-  - `npm run test:python-worker`
-
-## Task 4: Add Product Update and Announcement Monitoring as a Reusable Path
-
-- Goal: Make "content update / product release / official announcement"
-  monitoring a first-class reusable capability.
-- Inputs:
-  - `apps/python-worker/src/info_monitor_worker/adapters/generic_content_update_list.py`
-  - `apps/python-worker/src/info_monitor_worker/normalizers/content_update.py`
-  - `apps/python-worker/src/info_monitor_worker/event_rules/keyword_match.py`
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - `apps/frontend/src/views/inbox/components/`
-  - `docs/new-source-integration.md`
-- Required output:
-  - one concrete real-source integration for product updates or announcements
-  - reusable source config conventions for this source family
-  - topic extraction improvements where needed
-  - event presentation that distinguishes:
-    - new function / capability update
-    - marketing / campaign update
-    - official announcement / notice
-- Acceptance:
-  - the platform can monitor a real "what changed recently" product or
-    announcement source and surface it clearly in the workbench
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-  - `npm run test:python-worker`
-
-## Task 5: Add Analysis Assist for Bullish / Bearish / Neutral Financial Events
-
-- Goal: Upgrade financial-event monitoring from "new data arrived" to "what is
-  the likely direction and why".
-- Inputs:
-  - `apps/python-worker/src/info_monitor_worker/normalizers/financial_event.py`
-  - `apps/python-worker/src/info_monitor_worker/event_rules/financial_direction.py`
-  - `apps/api/src/services/event-service.ts`
-  - `apps/api/src/services/daily-summary-service.ts`
-  - `apps/frontend/src/views/events/[eventId]/components/`
-  - `apps/frontend/src/views/inbox/components/`
-- Required output:
-  - explicit direction tagging for relevant financial events:
-    - bullish
-    - bearish
-    - neutral
-  - direction rationale or evidence summary in event detail
-  - summary-level aggregation that shows recent directional balance for a theme
-    or section when possible
-  - keep this as decision support, not auto-action
-- Acceptance:
-  - macro / policy / financial event items are easier to interpret without
-    manually reading each raw item from scratch
+  - a user can pick a historical snapshot and replay parsing from it without a
+    fresh upstream request
 - Minimum verification:
   - `npm run typecheck`
   - `npm --workspace @info-monitor/api test`
   - `npm run test:python-worker`
 
-## Task 6: Formalize Theme-Level Notification Rules and Channel Persistence
+## Task 2: Add Replay Result Comparison View
 
-- Goal: Make notifications durable and useful once real sources increase.
+- Goal: Make replay useful for root-cause analysis, not just as a run type.
 - Inputs:
-  - `apps/frontend/src/views/settings/notifications.vue`
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - `apps/api/src/routes/notification-preferences.ts`
-  - `apps/api/src/routes/channel-config.ts`
-  - `apps/api/src/services/notification-preference-service.ts`
-  - `apps/api/src/services/notification-channels.ts`
+  - `apps/api/src/services/source-service.ts`
+  - `apps/frontend/src/views/sources/[sourceId]/components/`
 - Required output:
-  - backend-persisted channel configuration for supported channels
-  - theme-level notification preferences
-  - signal-type-level notification preferences where practical
-  - basic delivery noise controls at minimum:
-    - mute
-    - frequency guard or dedupe
-    - quiet hours placeholder or initial implementation
-  - UI that clearly explains what will be sent and why
+  - compare historical snapshot replay result against:
+    - stored snapshot summary
+    - previous parse result
+    - current live parse if available
+  - surface count deltas for:
+    - normalized records
+    - changes
+    - events
+  - identify likely failure layer:
+    - raw payload issue
+    - mapping / extraction issue
+    - normalizer issue
+    - rule issue
 - Acceptance:
-  - the user can control which themes and signal types actually notify them
-    without editing local storage or code
+  - a user can quickly see what changed between the old and replayed result
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Task 3: Add Source Config Version Diff
+
+- Goal: Make source config history genuinely useful for debugging.
+- Inputs:
+  - `apps/api/src/services/source-service.ts`
+  - `apps/frontend/src/views/sources/[sourceId]/components/SourceConfigHistoryCard.vue`
+  - `db/migrations/0016_source_config_history.sql`
+- Required output:
+  - diff between current config and historical versions
+  - field-level added / removed / changed markers
+  - clearer rollback target choice
+- Acceptance:
+  - a user can understand what changed between config versions without reading
+    raw JSON manually
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Task 4: Bind Source Runs to Config Versions
+
+- Goal: Let users trace each run to the config version that produced it.
+- Inputs:
+  - `apps/api/src/db/schema.ts`
+  - `apps/api/src/services/source-service.ts`
+  - `apps/python-worker/src/info_monitor_worker/repositories.py`
+  - DB migration if needed
+- Required output:
+  - source runs store config version or config snapshot reference
+  - source detail run list displays config version
+  - replay / retry / history views can reference which config version was used
+- Acceptance:
+  - a user can answer “which config version caused this run?”
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm --workspace @info-monitor/api test`
+
+## Task 5: Strengthen Real Source Runtime Classification
+
+- Goal: Make long-term live-source operation easier to maintain.
+- Inputs:
+  - `apps/python-worker/src/info_monitor_worker/`
+  - `apps/api/src/services/source-health-service.ts`
+  - `apps/frontend/src/views/sources/status/components/`
+- Required output:
+  - clearer runtime failure classes:
+    - upstream unreachable
+    - upstream empty
+    - parse mismatch
+    - normalized zero
+    - rule produced nothing
+  - better user-facing hints in source health and source detail
+  - stronger prioritization for persistent failures
+- Acceptance:
+  - the user can tell whether a source is broken, stale, drifting, or merely
+    quiet
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run test:python-worker`
+  - `npm --workspace @info-monitor/api test`
+
+## Direction 2: Buying and Judgment Quality
+
+## Task 6: Deepen Price Judgment for Real Buying Decisions
+
+- Goal: Make price themes more useful for actual purchase timing.
+- Inputs:
+  - `apps/api/src/services/theme-service.ts`
+  - `apps/frontend/src/views/themes/[themeId]/components/ThemeDetailAnalysisCard.vue`
+  - `apps/frontend/src/views/themes/[themeId]/components/theme-detail-source-compare.ts`
+- Required output:
+  - richer price judgment:
+    - worth buying
+    - worth waiting
+    - worth attention
+    - watching
+  - clearer explanation of why a price is trusted or questionable
+  - stronger tie-in between:
+    - latest signal
+    - price trend
+    - cross-source comparison
+- Acceptance:
+  - a price theme gives the user a more concrete next-step suggestion
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Task 7: Add Trust Scoring for Low-Price Candidates
+
+- Goal: Reduce false-positive low-price excitement.
+- Inputs:
+  - `apps/python-worker/src/info_monitor_worker/normalizers/price.py`
+  - `apps/api/src/services/theme-service.ts`
+  - `packages/shared-contracts/src/`
+- Required output:
+  - trust / credibility markers for low-price candidates
+  - richer outlier reasons
+  - frontend rendering for:
+    - likely valid
+    - suspicious
+    - high-risk low price
+- Acceptance:
+  - a user can quickly tell whether a low price deserves serious attention
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run test:python-worker`
+
+## Task 8: Make Theme-Level Support / Conflict More Concrete
+
+- Goal: Upgrade from count-based theme judgment to source-based judgment.
+- Inputs:
+  - `apps/api/src/services/theme-service.ts`
+  - `apps/frontend/src/views/themes/[themeId]/components/ThemeDetailAnalysisCard.vue`
+- Required output:
+  - supporting sources list with concrete source names or categories
+  - conflicting sources list with concrete source names or categories
+  - clearer reason for conflict:
+    - price divergence
+    - source health
+    - announcement direction mismatch
+    - stale source
+- Acceptance:
+  - users can understand not just that conflict exists, but where it comes from
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Direction 3: Weekly Review Productization
+
+## Task 9: Add a Dedicated Weekly Review History Page
+
+- Goal: Turn weekly review from a card into a usable review workflow.
+- Inputs:
+  - `apps/api/src/routes/weekly-summary.ts`
+  - `apps/frontend/src/views/inbox/`
+  - `apps/frontend/src/lib/api.ts`
+- Required output:
+  - a dedicated weekly review history page
+  - ability to browse prior weeks
+  - stronger drill-down from weekly summaries into themes, events, and sources
+- Acceptance:
+  - a user can revisit multiple prior weekly reviews without relying on the
+    homepage card only
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Task 10: Strengthen Theme-Level Weekly Review Interpretation
+
+- Goal: Make theme-level weekly review useful for recurring decision support.
+- Inputs:
+  - `apps/frontend/src/views/themes/[themeId]/components/ThemeDetailWeeklyReviewCard.vue`
+  - `apps/api/src/services/theme-service.ts`
+- Required output:
+  - clearer 7 / 14 / 30 day comparisons
+  - more meaningful signal distribution interpretation
+  - stronger link between theme review and global weekly review
+- Acceptance:
+  - a user can use the theme page for routine weekly replay without needing
+    other pages open
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm run build`
+
+## Task 11: Improve Weekly Review Export Quality
+
+- Goal: Make weekly review export feel like a useful artifact rather than a raw
+  dump.
+- Inputs:
+  - `apps/api/src/services/weekly-summary-service.ts`
+  - `apps/frontend/src/views/inbox/components/HomeInboxWeeklySummaryCard.vue`
+- Required output:
+  - stronger export formatting
+  - cleaner structure for text export
+  - optional JSON export shape validation
+  - consistent exported language for weekly review sections
+- Acceptance:
+  - exported weekly review content is readable and shareable without manual
+    cleanup
+- Minimum verification:
+  - `npm run typecheck`
+  - `npm --workspace @info-monitor/api test`
+
+## Task 12: Add End-to-End Quality Gates for Completed Summary Logic
+
+- Goal: Protect the increasingly complex summary and review logic from future
+  drift.
+- Inputs:
+  - `apps/api/src/__tests__/summary-math.test.ts`
+  - `scripts/verify-e2e.sh`
+  - `apps/frontend/src/views/inbox/components/`
+  - `apps/frontend/src/views/notifications/index.vue`
+- Required output:
+  - stronger API regression tests for summary math
+  - stronger script-based verification for:
+    - notifications
+    - weekly summary
+    - source health
+    - dashboard
+  - optional higher-level frontend regression tests where appropriate
+- Acceptance:
+  - future changes to summaries and notification flow are more likely to break
+    tests before breaking user experience
 - Minimum verification:
   - `npm run typecheck`
   - `npm --workspace @info-monitor/api test`
   - `npm --workspace @info-monitor/frontend test`
 
-## Task 7: Add Review Timeline and Multi-Day Workbench Replay
-
-- Goal: Strengthen the platform's value as an information workbench instead of
-  only an alert list.
-- Inputs:
-  - `apps/api/src/services/daily-summary-history.ts`
-  - `apps/api/src/services/theme-service.ts`
-  - `apps/frontend/src/views/inbox/components/`
-  - `apps/frontend/src/views/themes/[themeId]/components/`
-  - DB migration if needed
-- Required output:
-  - a theme-level timeline or review stream
-  - ability to review recent days of events, summaries, and notable changes
-  - stronger comparison views such as:
-    - today vs yesterday
-    - this week vs last week
-  - a lightweight weekly review surface if it fits cleanly into the existing UI
-- Acceptance:
-  - the user can use the platform for daily review and weekly replay, not only
-    for immediate alert consumption
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-
-## Task 8: Improve Run Reliability, Failure Diagnosis, and Replay Controls
-
-- Goal: Make real-source operation maintainable as the number of adapters grows.
-- Inputs:
-  - `apps/frontend/src/views/sources/status/components/`
-  - `apps/frontend/src/views/sources/[sourceId]/components/`
-  - `apps/api/src/routes/source-health.ts`
-  - `apps/api/src/services/source-health-service.ts`
-  - `apps/api/src/services/source-service.ts`
-  - `apps/python-worker/src/info_monitor_worker/`
-- Required output:
-  - clearer source health states and failure classification
-  - replay or rerun controls for failed or suspicious runs
-  - source-level issue notes or operator hints
-  - better diagnostics for "no event generated" cases
-  - if feasible, lightweight adapter drift signals such as:
-    - parsed count dropped sharply
-    - required field missing
-    - page structure likely changed
-- Acceptance:
-  - when a real source breaks or silently degrades, the user can locate the
-    issue and retry with less manual investigation
-- Minimum verification:
-  - `npm run typecheck`
-  - `npm run build`
-  - `npm --workspace @info-monitor/api test`
-
 ## Not Recommended Right Now
 
-Do not prioritize these until the real-source loop becomes stable in
-day-to-day use:
+Do not prioritize these until the real-source runtime loop and weekly review
+workflow become stable in day-to-day use:
 
 - multi-user support
 - permission system
-- public sharing or SaaS packaging
-- generic no-code source builder
-- large chart analysis platform
-- advanced public-opinion NLP stack
+- public SaaS packaging
+- fully generic no-code source builder
 - auto-trading or auto-execution
+- heavy charting platform work
+- advanced public-opinion NLP stack
 
 ## Suggested Agent Prompt
 

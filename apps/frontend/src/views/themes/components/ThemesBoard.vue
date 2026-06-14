@@ -21,8 +21,11 @@
       :set-health-filter="setHealthFilter"
       :set-impact-filter="setImpactFilter"
       :set-recent-only24h="setRecentOnly24h"
+      :favorites-only="favoritesOnly"
+      :set-favorites-only="setFavoritesOnly"
       :set-sort-by="setSortBy"
       :clear-query="clearQuery"
+      @load-view="handleLoadView"
     />
 
     <ThemesDiagnosticsCard :diagnostic="themeDiagnostics" />
@@ -130,6 +133,7 @@
       :themes="filteredThemes"
       :selected-theme-ids="selectedThemeIds"
       :toggle-theme-selection="toggleThemeSelection"
+      @favorite-changed="handleFavoriteChanged"
     />
   </div>
 </template>
@@ -160,7 +164,7 @@ import {
   readThemeRouteFilters,
   themeManagedQueryKeys,
 } from "./themes-query";
-import { fetchThemes, type ThemeSummary, updateTheme } from "../../../lib/api";
+import { fetchThemes, fetchThemeFavorites, type ThemeSummary, updateTheme } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
 import { clearRecentEventOperation, loadRecentEventOperation } from "../../../lib/recent-event-operation";
 import {
@@ -177,6 +181,7 @@ const healthFilter = ref("all");
 const impactFilter = ref("all");
 const sortBy = ref("priority");
 const recentOnly24h = ref(false);
+const favoritesOnly = ref(false);
 const selectedThemePresetId = ref("");
 const selectedThemeIds = ref<string[]>([]);
 const bulkUpdating = ref(false);
@@ -274,12 +279,37 @@ function setRecentOnly24h(value: boolean) {
   recentOnly24h.value = value;
 }
 
+function setFavoritesOnly(value: boolean) {
+  favoritesOnly.value = value;
+}
+
 function setSortBy(value: string) {
   sortBy.value = value;
 }
 
 function clearQuery() {
   query.value = "";
+}
+
+function handleLoadView(filters: Record<string, string>) {
+  query.value = filters.query ?? "";
+  typeFilter.value = filters.type ?? "all";
+  statusFilter.value = filters.status ?? "all";
+  eventQueueFilter.value = filters.queue ?? "all";
+  healthFilter.value = filters.health ?? "all";
+  impactFilter.value = filters.impact ?? "all";
+  sortBy.value = filters.sort ?? "priority";
+  recentOnly24h.value = filters.recent === "24h";
+  favoritesOnly.value = filters.fav === "1";
+}
+
+async function handleFavoriteChanged() {
+  try {
+    const favs = await fetchThemeFavorites();
+    favoriteIds.value = new Set(favs);
+  } catch {
+    // fallback handled inside fetchThemeFavorites
+  }
 }
 
 function dismissRecentOperation() {
@@ -316,6 +346,7 @@ function applyQueryFilters() {
   impactFilter.value = nextFilters.impactFilter;
   sortBy.value = nextFilters.sortBy;
   recentOnly24h.value = nextFilters.recentOnly24h;
+  favoritesOnly.value = nextFilters.favoritesOnly;
 }
 
 function resetFilters() {
@@ -327,6 +358,7 @@ function resetFilters() {
   impactFilter.value = "all";
   sortBy.value = "priority";
   recentOnly24h.value = false;
+  favoritesOnly.value = false;
   selectedThemePresetId.value = "";
   selectedThemeIds.value = [];
 }
@@ -370,13 +402,25 @@ const activeFilters = computed<ThemesBoardFilters>(() => ({
   impactFilter: impactFilter.value,
   sortBy: sortBy.value,
   recentOnly24h: recentOnly24h.value,
+  favoritesOnly: favoritesOnly.value,
 }));
 
 const themeFilterSummary = computed(() =>
   buildThemeFilterSummary(activeFilters.value, themeTypeLabel),
 );
 
-const filteredThemes = computed(() => filterThemes(themes.value, activeFilters.value));
+const favoriteIds = ref(new Set<string>());
+
+// Load favorites from DB on mount
+onMounted(async () => {
+  try {
+    const favs = await fetchThemeFavorites();
+    favoriteIds.value = new Set(favs);
+  } catch {
+    // fallback handled inside fetchThemeFavorites
+  }
+});
+const filteredThemes = computed(() => filterThemes(themes.value, activeFilters.value, favoriteIds.value));
 
 const allVisibleSelected = computed(() => {
   if (!filteredThemes.value.length) {

@@ -60,6 +60,8 @@ export const DEMO_EVENT_IDS = {
 export const DEMO_RUN_IDS = {
   // Surface Pro 8
   SURFACE_BASELINE: "run-surface-baseline",
+  XIANYU_SURFACE_SEED: "run-xianyu-surface-seed",
+  ZHUANZHUAN_SURFACE_SEED: "run-zhuanzhuan-surface-seed",
   // PBOC Open Market
   PBC_NEUTRAL: "run-pbc-neutral",
   PBC_INJECTION: "run-pbc-injection",

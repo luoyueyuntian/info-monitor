@@ -36,6 +36,7 @@
       :toggle-select-all-visible="toggleSelectAllVisible"
       :handle-bulk-update-status="handleBulkUpdateStatus"
       :handle-bulk-update-meta="handleBulkUpdateMeta"
+      @load-view="handleLoadView"
     />
 
     <EventWorkbenchDiagnosticsCard :diagnostic="eventDiagnostics" />
@@ -188,6 +189,19 @@ function setRecentOnly24h(value: boolean) {
 
 function clearSinceFilter() {
   sinceFilter.value = "";
+}
+
+function handleLoadView(filters: Record<string, string>) {
+  query.value = filters.query ?? "";
+  themeFilter.value = filters.theme ?? "all";
+  statusFilter.value = filters.status ?? "all";
+  typeFilter.value = filters.type ?? "all";
+  impactFilter.value = filters.impact ?? "all";
+  readFilter.value = filters.read ?? "all";
+  bookmarkFilter.value = filters.bookmark ?? "all";
+  sortBy.value = filters.sort ?? "occurredAt";
+  recentOnly24h.value = filters.recent === "24h";
+  sinceFilter.value = ""; // Clear incremental view when loading a saved view
 }
 
 function syncRouteQueryFromFilters() {

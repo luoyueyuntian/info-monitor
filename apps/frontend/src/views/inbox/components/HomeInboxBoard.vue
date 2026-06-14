@@ -13,6 +13,13 @@
       class="mb-4"
     />
 
+    <HomeInboxWeeklySummaryCard
+      v-if="weeklySummary"
+      :summary="weeklySummary"
+      :delta="weeklyDelta"
+      class="mb-4"
+    />
+
     <HomeInboxDiagnosisCard
       title="今日诊断"
       priority-label="优先处理"
@@ -69,6 +76,7 @@ import { computed, nextTick, onMounted, reactive, ref, type ComponentPublicInsta
 import { useRoute, useRouter } from "vue-router";
 
 import HomeInboxDailySummaryCard from "./HomeInboxDailySummaryCard.vue";
+import HomeInboxWeeklySummaryCard from "./HomeInboxWeeklySummaryCard.vue";
 import HomeInboxDiagnosisCard from "./HomeInboxDiagnosisCard.vue";
 import HomeInboxBookmarkedEventsCard from "./HomeInboxBookmarkedEventsCard.vue";
 import HomeInboxEventSectionsList from "./HomeInboxEventSectionsList.vue";
@@ -90,12 +98,15 @@ import {
 import {
   fetchDashboard,
   fetchDailySummary,
+  fetchWeeklySummaryCompare,
   type DailySummary,
   type DashboardSummary,
   type EventSummary,
   type InboxSectionCounts,
   type SourceStatus,
   type ThemeSummary,
+  type WeeklySummary,
+  type WeeklySummaryCompare,
 } from "../../../lib/api";
 import { clearRecentEventOperation, loadRecentEventOperation } from "../../../lib/recent-event-operation";
 import { toTimestamp } from "../../../lib/time";
@@ -108,6 +119,8 @@ const route = useRoute();
 const router = useRouter();
 
 const dailySummary = ref<DailySummary | null>(null);
+const weeklySummary = ref<WeeklySummary | null>(null);
+const weeklyDelta = ref<WeeklySummaryCompare["delta"]>(null);
 
 const dashboard = reactive<{
   summary: DashboardSummary;
@@ -487,12 +500,17 @@ onMounted(async () => {
   previousSnapshot.value = loadPreviousDashboardSummary();
   recentEventOperation.value = loadRecentEventOperation();
 
-  const [data, summaryData] = await Promise.all([
+  const [data, summaryData, weeklyCompare] = await Promise.all([
     fetchDashboard(),
     fetchDailySummary(),
+    fetchWeeklySummaryCompare().catch(() => null),
   ]);
 
   dailySummary.value = summaryData;
+  if (weeklyCompare) {
+    weeklySummary.value = weeklyCompare.thisWeek;
+    weeklyDelta.value = weeklyCompare.delta;
+  }
 
   dashboard.summary = data.summary;
   dashboard.events = data.events;

@@ -4,6 +4,7 @@ import {
   batchDeleteNotifications,
   batchMarkNotificationsRead,
   clearUnreadByTheme,
+  coalesceNotifications,
   getDueRetries,
   getNotificationDetail,
   getNotificationStats,
@@ -24,6 +25,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       cursor?: string;
       offset?: string;
       signal?: string;
+      level?: string;
       themeId?: string;
       onlyUnreadEvents?: string;
       sortBy?: string;
@@ -62,6 +64,9 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
 
     const sortBy = query.sortBy === "sentAt" ? "sentAt" : "createdAt";
     const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+    const level = query.level === "high" || query.level === "medium" || query.level === "low"
+      ? query.level
+      : undefined;
 
     return listNotifications({
       limit,
@@ -69,6 +74,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       cursor: query.cursor,
       offset,
       signal: query.signal,
+      level,
       themeId: query.themeId,
       onlyUnreadEvents: query.onlyUnreadEvents === "true",
       sortBy,
@@ -237,5 +243,12 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
       count: dueRetries.length,
       notifications: dueRetries,
     };
+  });
+
+  // ─── Coalesce Similar Notifications ──────────────────────────────────────
+  app.post("/api/notifications/coalesce", async (request) => {
+    const body = request.body as { windowMinutes?: number } | undefined;
+    const windowMinutes = body?.windowMinutes ?? 60;
+    return coalesceNotifications(windowMinutes);
   });
 }

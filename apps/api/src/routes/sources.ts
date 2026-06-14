@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import { createSource, deleteSource, enqueueManualSourceRun, enqueueTestSourceRun, getSourceDetail, getSourceTestRunPreview, listSourceStatuses, retrySourceAfterFailure, sourcePresets, updateSource, validateSourceConfig } from "../services/source-service.js";
+import { createSource, deleteSource, enqueueManualSourceRun, enqueueReplaySourceRun, enqueueTestSourceRun, getSourceDetail, getSourceReplayComparison, getSourceTestRunPreview, listSourceStatuses, retrySourceAfterFailure, sourcePresets, updateSource, validateSourceConfig, getSourceConfigHistory, rollbackSourceConfig } from "../services/source-service.js";
 
 export async function registerSourceRoutes(app: FastifyInstance) {
   app.get("/api/sources/status", async () => listSourceStatuses());
@@ -158,5 +158,62 @@ export async function registerSourceRoutes(app: FastifyInstance) {
     }
 
     return deleted;
+  });
+
+  // Config version history
+  app.get<{ Params: { sourceId: string } }>("/api/sources/:sourceId/config-history", async (request) => {
+    return getSourceConfigHistory(request.params.sourceId);
+  });
+
+  app.post<{ Params: { sourceId: string }; Body: { version: number } }>("/api/sources/:sourceId/config-rollback", async (request, reply) => {
+    const { version } = request.body;
+    if (typeof version !== "number") {
+      reply.code(400);
+      return { message: "version must be a number" };
+    }
+
+    const success = await rollbackSourceConfig(request.params.sourceId, version);
+    if (!success) {
+      reply.code(404);
+      return { message: "Version not found" };
+    }
+
+    return { success: true };
+  });
+
+  // Snapshot replay: re-process a stored snapshot without live fetch
+  app.post<{ Params: { sourceId: string }; Body: { snapshotId: string } }>("/api/sources/:sourceId/replay", async (request, reply) => {
+    const { snapshotId } = request.body;
+    if (!snapshotId) {
+      reply.code(400);
+      return { message: "snapshotId is required" };
+    }
+
+    const result = await enqueueReplaySourceRun(request.params.sourceId, snapshotId);
+
+    if (!result) {
+      reply.code(404);
+      return { message: "Source not found" };
+    }
+
+    if ("rejected" in result && result.rejected) {
+      reply.code(409);
+      return result;
+    }
+
+    reply.code(202);
+    return result;
+  });
+
+  // Replay comparison: compare replay results against original run
+  app.get<{ Params: { sourceId: string; runId: string } }>("/api/sources/:sourceId/runs/:runId/comparison", async (request, reply) => {
+    const comparison = await getSourceReplayComparison(request.params.sourceId, request.params.runId);
+
+    if (!comparison) {
+      reply.code(404);
+      return { message: "Replay run not found" };
+    }
+
+    return comparison;
   });
 }

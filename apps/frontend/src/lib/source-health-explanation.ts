@@ -77,6 +77,16 @@ export function issueTypeClass(type: SourceHealthExplanation["issues"][0]["type"
   switch (type) {
     case "fetch_failed":
       return `${base} bg-red-50 text-red-700`;
+    case "upstream_unreachable":
+      return `${base} bg-red-50 text-red-700`;
+    case "upstream_empty":
+      return `${base} bg-orange-50 text-orange-700`;
+    case "parse_mismatch":
+      return `${base} bg-rose-50 text-rose-700`;
+    case "normalized_zero":
+      return `${base} bg-rose-50 text-rose-700`;
+    case "rule_produced_nothing":
+      return `${base} bg-amber-50 text-amber-700`;
     case "long_stale":
       return `${base} bg-amber-50 text-amber-700`;
     case "paused":
@@ -85,6 +95,10 @@ export function issueTypeClass(type: SourceHealthExplanation["issues"][0]["type"
       return `${base} bg-blue-50 text-blue-700`;
     case "error_message":
       return `${base} bg-orange-50 text-orange-700`;
+    case "record_drop":
+      return `${base} bg-amber-50 text-amber-700`;
+    case "silent_degradation":
+      return `${base} bg-rose-50 text-rose-700`;
     default:
       return `${base} bg-slate-50 text-slate-500`;
   }
@@ -97,6 +111,16 @@ export function issueTypeLabel(type: SourceHealthExplanation["issues"][0]["type"
   switch (type) {
     case "fetch_failed":
       return "抓取失败";
+    case "upstream_unreachable":
+      return "上游不可达";
+    case "upstream_empty":
+      return "上游无数据";
+    case "parse_mismatch":
+      return "解析失败";
+    case "normalized_zero":
+      return "标准化无结果";
+    case "rule_produced_nothing":
+      return "规则未触发";
     case "long_stale":
       return "数据过期";
     case "paused":
@@ -105,6 +129,10 @@ export function issueTypeLabel(type: SourceHealthExplanation["issues"][0]["type"
       return "排队中";
     case "error_message":
       return "有错误";
+    case "record_drop":
+      return "数据量下降";
+    case "silent_degradation":
+      return "静默降级";
     default:
       return "未知";
   }

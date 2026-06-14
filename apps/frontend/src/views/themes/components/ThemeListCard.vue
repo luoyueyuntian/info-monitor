@@ -42,13 +42,23 @@
             收藏 {{ theme.bookmarkedEventCount }}
           </span>
         </div>
-        <RouterLink
-          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
-          :to="themeDetailTarget(theme)"
-        >
-          {{ theme.name }}
-          <span aria-hidden="true" class="text-base leading-none">›</span>
-        </RouterLink>
+        <div class="flex items-center gap-2">
+          <RouterLink
+            class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
+            :to="themeDetailTarget(theme)"
+          >
+            {{ theme.name }}
+            <span aria-hidden="true" class="text-base leading-none">›</span>
+          </RouterLink>
+          <button
+            class="text-lg transition-colors"
+            :class="isFavorited(theme.id) ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'"
+            :title="isFavorited(theme.id) ? '取消收藏' : '收藏主题'"
+            @click="toggleFavorite(theme.id)"
+          >
+            {{ isFavorited(theme.id) ? "★" : "☆" }}
+          </button>
+        </div>
         <div class="flex flex-wrap gap-x-2.5 gap-y-2">
           <span class="text-[0.88rem] text-ink-secondary">状态: {{ themeStatusLabel(theme.status) }}</span>
           <span class="text-[0.88rem] text-ink-secondary">来源数: {{ theme.sourceCount }}</span>
@@ -96,7 +106,9 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, reactive } from "vue";
 import type { ThemeSummary } from "../../../lib/api";
+import { fetchThemeFavorites, setThemeFavorite } from "../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
 import {
   eventSignalLabel,
@@ -113,6 +125,37 @@ defineProps<{
   selectedThemeIds: string[];
   toggleThemeSelection: (themeId: string) => void;
 }>();
+
+const emit = defineEmits<{
+  favoriteChanged: [];
+}>();
+
+const favoriteIds = reactive(new Set<string>());
+
+// Load favorites from DB on mount
+onMounted(async () => {
+  try {
+    const favs = await fetchThemeFavorites();
+    for (const id of favs) favoriteIds.add(id);
+  } catch {
+    // fallback handled inside fetchThemeFavorites
+  }
+});
+
+function isFavorited(themeId: string): boolean {
+  return favoriteIds.has(themeId);
+}
+
+async function toggleFavorite(themeId: string) {
+  const currentlyFavorited = favoriteIds.has(themeId);
+  await setThemeFavorite(themeId, !currentlyFavorited);
+  if (currentlyFavorited) {
+    favoriteIds.delete(themeId);
+  } else {
+    favoriteIds.add(themeId);
+  }
+  emit("favoriteChanged");
+}
 
 function themeDetailTarget(theme: ThemeSummary) {
   if ((theme.openEventCount ?? 0) > 0 || (theme.unreadEventCount ?? 0) > 0) {

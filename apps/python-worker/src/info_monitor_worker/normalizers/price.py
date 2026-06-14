@@ -6,6 +6,73 @@ from info_monitor_worker.models import NormalizedRecord
 from info_monitor_worker.normalizers.base import BaseNormalizer
 
 
+def _compute_trust_score(item: dict) -> tuple[int, list[str], str]:
+    """Compute trust score for a price item.
+
+    Returns (score, factors, risk_level) where:
+    - score: 0-100 (higher = more trustworthy)
+    - factors: list of human-readable trust factors
+    - risk_level: "likely_valid", "suspicious", "high_risk"
+    """
+    score = 70  # Base score
+    factors: list[str] = []
+
+    price = item.get("price")
+    if price is None:
+        return 0, ["价格缺失"], "high_risk"
+
+    price = float(price)
+
+    # Check for outlier flag from adapter
+    if item.get("is_outlier"):
+        score -= 30
+        reason = item.get("outlier_reason", "被标记为异常值")
+        factors.append(f"异常值标记: {reason}")
+
+    # Check for price being unreasonably low (heuristic)
+    if price <= 0:
+        score -= 50
+        factors.append("价格为零或负数")
+    elif price < 1:
+        score -= 20
+        factors.append("价格极低，可能为测试数据")
+
+    # Check for spec completeness
+    if not item.get("spec"):
+        score -= 10
+        factors.append("缺少规格信息，无法确认是否同配置")
+
+    # Check for URL/source verification
+    if item.get("url"):
+        score += 5
+        factors.append("有来源链接可供核实")
+    else:
+        score -= 5
+        factors.append("缺少来源链接")
+
+    # Check for volume data (higher volume = more reliable price)
+    volume = item.get("volume")
+    if volume is not None:
+        try:
+            vol = float(volume)
+            if vol > 0:
+                score += 5
+                factors.append("有成交量数据")
+        except (ValueError, TypeError):
+            pass
+
+    # Determine risk level
+    score = max(0, min(100, score))
+    if score >= 70:
+        risk_level = "likely_valid"
+    elif score >= 40:
+        risk_level = "suspicious"
+    else:
+        risk_level = "high_risk"
+
+    return score, factors, risk_level
+
+
 class PriceNormalizer(BaseNormalizer):
     def normalize(self, payload: Any) -> List[NormalizedRecord]:
         records: List[NormalizedRecord] = []
@@ -23,6 +90,9 @@ class PriceNormalizer(BaseNormalizer):
                 logical_key = f"price:{url}:{occurred_at}"
             elif spec:
                 logical_key = f"price:{spec}:{occurred_at}:{item['title']}"
+
+            # Compute trust indicators
+            trust_score, trust_factors, risk_level = _compute_trust_score(item)
 
             records.append(
                 NormalizedRecord(
@@ -44,6 +114,12 @@ class PriceNormalizer(BaseNormalizer):
                         "amplitude": item.get("amplitude"),
                         "symbol": item.get("symbol"),
                         "display_name": item.get("display_name"),
+                        "is_outlier": item.get("is_outlier", False),
+                        "outlier_reason": item.get("outlier_reason"),
+                        # Trust indicators
+                        "trust_score": trust_score,
+                        "trust_factors": trust_factors,
+                        "risk_level": risk_level,
                     },
                 )
             )

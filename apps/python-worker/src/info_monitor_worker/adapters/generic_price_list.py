@@ -35,6 +35,24 @@ from info_monitor_worker.adapters.time_utils import TZ_CST, ensure_iso_with_tz, 
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 
+def _validate_price(price: float, title: str) -> tuple[bool, str | None]:
+    """Validate a price value and return (is_valid, reason)."""
+    if price <= 0:
+        return False, f"Price must be positive, got {price} for '{title}'"
+    if price > 10_000_000:
+        return False, f"Price {price} exceeds maximum threshold for '{title}'"
+    return True, None
+
+
+def _detect_price_outlier(price: float, prices: list[float]) -> bool:
+    """Detect if a price is a suspicious outlier (below 30% of median)."""
+    if len(prices) < 3:
+        return False
+    sorted_prices = sorted(prices)
+    median = sorted_prices[len(sorted_prices) // 2]
+    return price < median * 0.3
+
+
 class GenericPriceListAdapter(BaseAdapter):
     def fetch(self, theme: ThemeContext, source: SourceContext) -> RawFetchResult:
         url = source.config.get("url")
@@ -113,6 +131,20 @@ class GenericPriceListAdapter(BaseAdapter):
             raise ValueError(f"Resolved items is not a list: {type(raw_items).__name__}")
 
         result: List[Dict[str, Any]] = []
+        valid_prices: List[float] = []
+
+        # First pass: collect all valid prices for outlier detection
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            price_raw = _resolve_field(item, price_field)
+            if price_raw is not None:
+                try:
+                    price = float(price_raw)
+                    if price > 0:
+                        valid_prices.append(price)
+                except (ValueError, TypeError):
+                    pass
 
         for item in raw_items:
             if not isinstance(item, dict):
@@ -129,12 +161,22 @@ class GenericPriceListAdapter(BaseAdapter):
             except (ValueError, TypeError):
                 continue
 
+            # Validate price
+            is_valid, reason = _validate_price(price, str(title))
+            if not is_valid:
+                continue
+
             # Build the normalized item
             normalized: Dict[str, Any] = {
                 "title": str(title).strip(),
                 "price": price,
                 "currency": currency,
             }
+
+            # Flag suspicious outliers
+            if _detect_price_outlier(price, valid_prices):
+                normalized["is_outlier"] = True
+                normalized["outlier_reason"] = "Price is below 30% of median — may be invalid listing"
 
             # Optional fields
             if spec_field:

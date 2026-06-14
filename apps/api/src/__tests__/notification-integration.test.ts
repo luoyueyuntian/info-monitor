@@ -69,6 +69,65 @@ describe("notification integration", () => {
         expect(item.status).toBe("pending");
       }
     });
+
+    it("filters by level (high priority)", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/notifications?level=high",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      // All returned items should have a signal that maps to high priority
+      const highSignals = ["30d_low", "bullish", "bearish", "liquidity_injection", "liquidity_withdrawal"];
+      for (const item of body.items) {
+        // Item either has a high-priority signal or no signal (should be excluded now)
+        if (item.signal) {
+          expect(highSignals).toContain(item.signal);
+        }
+      }
+    });
+
+    it("filters by level (medium priority)", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/notifications?level=medium",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      const mediumSignals = ["new_announcement", "new_financial_event"];
+      for (const item of body.items) {
+        if (item.signal) {
+          expect(mediumSignals).toContain(item.signal);
+        }
+      }
+    });
+
+    it("level filter excludes event-less notifications", async () => {
+      // First get all notifications to find one with eventId
+      const allResponse = await app.inject({
+        method: "GET",
+        url: "/api/notifications",
+      });
+      const allItems = allResponse.json().items;
+
+      // Get high-priority filtered notifications
+      const highResponse = await app.inject({
+        method: "GET",
+        url: "/api/notifications?level=high",
+      });
+      const highItems = highResponse.json().items;
+
+      // If there are event-less notifications in all items, they should not be in high items
+      const eventLessInAll = allItems.filter((n: any) => !n.eventId);
+      if (eventLessInAll.length > 0) {
+        const highIds = new Set(highItems.map((n: any) => n.id));
+        for (const eventLess of eventLessInAll) {
+          expect(highIds.has(eventLess.id)).toBe(false);
+        }
+      }
+    });
   });
 
   describe("notification detail", () => {

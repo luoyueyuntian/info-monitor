@@ -55,6 +55,100 @@ export function isNotificationStatus(value: string): value is NotificationStatus
   return notificationStatuses.includes(value as NotificationStatus);
 }
 
+// ─── Notification Coalescing ─────────────────────────────────────────────────
+
+/**
+ * Coalesce similar pending notifications within a time window.
+ * Groups by (signal, themeId) and keeps only the most recent notification
+ * in each group, marking older ones as "sent" (superseded).
+ *
+ * @param windowMinutes - Time window in minutes (default: 60)
+ */
+export async function coalesceNotifications(windowMinutes: number = 60): Promise<{ coalesced: number }> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode - coalesce in-memory
+    const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+    const pending = mockNotifications.filter(
+      (n) => n.status === "pending" && n.createdAt >= cutoff,
+    );
+
+    // Group by (signal, themeId) -- look up themeId from eventId via mockEvents
+    const groups = new Map<string, typeof pending>();
+    for (const n of pending) {
+      const event = mockEvents.find((e) => e.id === n.eventId);
+      const themeId = event?.themeId ?? "unknown";
+      const key = `${n.signal}:${themeId}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(n);
+    }
+
+    let coalesced = 0;
+    for (const [, group] of groups) {
+      if (group.length <= 1) continue;
+      // Sort by createdAt desc, keep first, mark rest as sent
+      group.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      for (let i = 1; i < group.length; i++) {
+        group[i].status = "sent";
+        group[i].sentAt = new Date().toISOString();
+        coalesced++;
+      }
+    }
+
+    return { coalesced };
+  }
+
+  // DB mode - find pending notifications in the window and group in memory
+  const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+
+  const pendingRows = await db
+    .selectFrom("notifications")
+    .select(["id", "event_id", "created_at"])
+    .where("status", "=", "pending")
+    .where("created_at", ">=", cutoff as any)
+    .execute();
+
+  // Get event signals and themeIds for these notifications
+  const eventIds = pendingRows.map((r) => r.event_id).filter(Boolean);
+  let eventMetaMap = new Map<string, { signal: string; themeId: string }>();
+  if (eventIds.length > 0) {
+    const events = await db
+      .selectFrom("events")
+      .select(["id", "signal", "theme_id"])
+      .where("id", "in", eventIds)
+      .execute();
+    eventMetaMap = new Map(events.map((e) => [e.id, { signal: e.signal ?? "", themeId: e.theme_id ?? "unknown" }]));
+  }
+
+  // Group by (signal, themeId)
+  const groups = new Map<string, typeof pendingRows>();
+  for (const row of pendingRows) {
+    const meta = eventMetaMap.get(row.event_id ?? "");
+    if (!meta?.signal) continue;
+    const key = `${meta.signal}:${meta.themeId}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  let coalesced = 0;
+  for (const [, group] of groups) {
+    if (group.length <= 1) continue;
+    // Sort by created_at desc, keep first, mark rest as sent
+    group.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    for (let i = 1; i < group.length; i++) {
+      await db
+        .updateTable("notifications")
+        .set({ status: "sent", sent_at: new Date().toISOString() })
+        .where("id", "=", group[i].id)
+        .execute();
+      coalesced++;
+    }
+  }
+
+  return { coalesced };
+}
+
 function toIsoTimestamp(value: unknown): string | null {
   if (!value) {
     return null;
@@ -90,6 +184,7 @@ export async function listNotifications(
     cursor?: string;
     offset?: number;
     signal?: string;
+    level?: "high" | "medium" | "low";
     themeId?: string;
     onlyUnreadEvents?: boolean;
     sortBy?: "createdAt" | "sentAt";
@@ -100,6 +195,13 @@ export async function listNotifications(
   const limit = options.limit ?? 20;
   const sortBy = options.sortBy ?? "createdAt";
   const sortOrder = options.sortOrder ?? "desc";
+
+  // Level-to-signals mapping (mirrors shared-contracts SIGNAL_PRIORITIES)
+  const LEVEL_SIGNALS: Record<string, string[]> = {
+    high: ["30d_low", "bullish", "bearish", "liquidity_injection", "liquidity_withdrawal"],
+    medium: ["new_announcement", "new_financial_event"],
+    low: ["content_update", "neutral"],
+  };
 
   if (!db) {
     let items = [...mockNotifications];
@@ -112,6 +214,11 @@ export async function listNotifications(
       items = items.filter((item) => {
         return item.signal === options.signal;
       });
+    }
+
+    if (options.level) {
+      const levelSignals = LEVEL_SIGNALS[options.level] ?? [];
+      items = items.filter((item) => levelSignals.includes(item.signal));
     }
 
     if (options.themeId) {
@@ -192,6 +299,16 @@ export async function listNotifications(
     );
   }
 
+  if (options.level) {
+    const levelSignals = LEVEL_SIGNALS[options.level] ?? [];
+    if (levelSignals.length > 0) {
+      // Only match event-linked notifications with the specified level signals.
+      // Event-less notifications (daily summaries, etc.) are excluded when filtering by level.
+      countQuery = countQuery.where("e.signal", "in", levelSignals);
+      dataQuery = dataQuery.where("e.signal", "in", levelSignals);
+    }
+  }
+
   if (options.themeId) {
     const themeId = options.themeId;
     countQuery = countQuery.where((eb) =>
@@ -211,12 +328,14 @@ export async function listNotifications(
     );
   }
 
-  // Apply cursor-based pagination
+  // Apply cursor-based pagination (only to data query, not count)
   if (options.cursor) {
     const cursorDate = new Date(options.cursor);
     const sortColumn = sortBy === "sentAt" ? "n.sent_at" : "n.created_at";
-    countQuery = countQuery.where(sortColumn, "<", cursorDate as any);
-    dataQuery = dataQuery.where(sortColumn, "<", cursorDate as any);
+    // When sorting descending (newest first), cursor means "before this date" (<)
+    // When sorting ascending (oldest first), cursor means "after this date" (>)
+    const cursorOp = sortOrder === "asc" ? ">" : "<";
+    dataQuery = dataQuery.where(sortColumn, cursorOp, cursorDate as any);
   }
 
   // Get total count

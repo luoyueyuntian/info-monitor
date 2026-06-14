@@ -83,6 +83,8 @@ export const DEMO_EVENT_IDS = {
 export const DEMO_RUN_IDS = {
   // Surface Pro 8
   SURFACE_BASELINE: "run-surface-baseline",
+  XIANYU_SURFACE_SEED: "run-xianyu-surface-seed",
+  ZHUANZHUAN_SURFACE_SEED: "run-zhuanzhuan-surface-seed",
   // PBOC Open Market
   PBC_NEUTRAL: "run-pbc-neutral",
   PBC_INJECTION: "run-pbc-injection",
@@ -229,18 +231,18 @@ export const DEMO_SOURCES: Record<string, DemoSourceDefinition> = {
   XIANYU_SURFACE: {
     id: DEMO_SOURCE_IDS.XIANYU_SURFACE,
     themeId: DEMO_THEME_IDS.SURFACE_PRO_8,
-    name: "Xianyu Search Results",
-    sourceType: "page_list",
-    adapterKey: "demo_price_feed",
+    name: "闲鱼搜索结果",
+    sourceType: "api",
+    adapterKey: "generic_price_list",
     status: "healthy",
     isPaused: false,
   },
   ZHUANZHUAN_SURFACE: {
     id: DEMO_SOURCE_IDS.ZHUANZHUAN_SURFACE,
     themeId: DEMO_THEME_IDS.SURFACE_PRO_8,
-    name: "Zhuanzhuan Search Results",
-    sourceType: "page_list",
-    adapterKey: "demo_price_feed",
+    name: "转转搜索结果",
+    sourceType: "api",
+    adapterKey: "generic_price_list",
     status: "healthy",
     isPaused: false,
   },

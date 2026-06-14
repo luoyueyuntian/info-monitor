@@ -16,6 +16,7 @@ describe("ThemesFiltersPanel", () => {
     const setHealthFilter = vi.fn();
     const setImpactFilter = vi.fn();
     const setRecentOnly24h = vi.fn();
+    const setFavoritesOnly = vi.fn();
     const setSortBy = vi.fn();
     const clearQuery = vi.fn();
 
@@ -31,6 +32,7 @@ describe("ThemesFiltersPanel", () => {
         healthFilter: "all",
         impactFilter: "all",
         recentOnly24h: false,
+      favoritesOnly: false,
         sortBy: "priority",
         applyThemePreset,
         resetFilters,
@@ -41,6 +43,7 @@ describe("ThemesFiltersPanel", () => {
         setHealthFilter,
         setImpactFilter,
         setRecentOnly24h,
+        setFavoritesOnly,
         setSortBy,
         clearQuery,
       },

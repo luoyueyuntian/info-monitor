@@ -12,6 +12,7 @@ from info_monitor_worker.models import SourceContext, ThemeContext
 from info_monitor_worker.normalizers.registry import get_normalizer
 from info_monitor_worker.repositories import (
     fetch_pending_runs,
+    fetch_snapshot_payload,
     find_min_price_in_last_30_days,
     find_normalized_record_by_fingerprint,
     find_normalized_record_by_logical_key,
@@ -301,14 +302,29 @@ class WorkerService:
         )
         run_id = run["run_id"]
         is_test = run.get("trigger_type") == "test"
+        is_replay = run.get("trigger_type") == "replay"
+        replay_snapshot_id = run.get("replay_snapshot_id")
 
         try:
             with self.engine.begin() as connection:
                 mark_run_running(connection, run_id)
 
-                adapter = get_adapter(source.adapter_key)
-                raw_result = adapter.fetch(theme, source)
-                raw_payload = adapter.map_to_normalizer_input(raw_result)
+                if is_replay and replay_snapshot_id:
+                    # Replay mode: read stored snapshot instead of live fetch
+                    snapshot = fetch_snapshot_payload(connection, replay_snapshot_id)
+                    if not snapshot:
+                        raise ValueError(
+                            f"Replay snapshot {replay_snapshot_id} not found"
+                        )
+                    raw_payload = snapshot["payload_json"]
+                    if isinstance(raw_payload, str):
+                        import json
+                        raw_payload = json.loads(raw_payload)
+                else:
+                    # Live fetch mode (manual, test, scheduled)
+                    adapter = get_adapter(source.adapter_key)
+                    raw_result = adapter.fetch(theme, source)
+                    raw_payload = adapter.map_to_normalizer_input(raw_result)
 
                 normalizer = get_normalizer(theme.info_type)
                 normalized_records = normalizer.normalize(raw_payload)

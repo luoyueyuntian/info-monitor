@@ -5,6 +5,7 @@ import {
   deleteTheme,
   getThemeDailyActivity,
   getThemeDetail,
+  getPriceComparison,
   getThemeReviewNote,
   listThemes,
   updateTheme,
@@ -125,6 +126,18 @@ export async function registerThemeRoutes(app: FastifyInstance) {
   });
 
   // Review notes endpoints
+
+  // Task 4: Price comparison across sources
+  app.get<{ Params: { themeId: string } }>("/api/themes/:themeId/price-comparison", async (request, reply) => {
+    const comparison = await getPriceComparison(request.params.themeId);
+
+    if (!comparison) {
+      reply.code(404);
+      return { message: "Theme not found or not a price theme" };
+    }
+
+    return comparison;
+  });
   app.get<{ Params: { themeId: string } }>("/api/themes/:themeId/review-note", async (request, reply) => {
     const note = await getThemeReviewNote(request.params.themeId);
 

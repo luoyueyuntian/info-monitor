@@ -18,6 +18,27 @@ class FinancialDirectionResult:
     evidence: list[str]
 
 
+def _assess_impact_level(amount_billion_cny: float | None, term_days: int | None) -> str:
+    """Assess the impact level of a financial operation based on amount and term.
+
+    Returns 'high', 'medium', or 'low'.
+    """
+    if amount_billion_cny is None:
+        return "low"
+
+    # High impact: large amounts or long-term operations
+    if amount_billion_cny >= 500:
+        return "high"
+    if amount_billion_cny >= 100 and term_days and term_days >= 14:
+        return "high"
+
+    # Medium impact: moderate amounts
+    if amount_billion_cny >= 100:
+        return "medium"
+
+    return "low"
+
+
 class FinancialDirectionRule(BaseEventRule):
     """Evaluate whether a financial event carries a bullish or bearish signal.
 
@@ -26,6 +47,11 @@ class FinancialDirectionRule(BaseEventRule):
     Liquidity withdrawal operations (outright repos, central bank bills) are
     treated as bearish signals — cash being drained from the system.
     Neutral / unclassified events are ignored.
+
+    Impact levels:
+    - high: amount >= 500B CNY, or >= 100B with term >= 14 days
+    - medium: amount >= 100B CNY
+    - low: smaller operations
     """
 
     def evaluate(
@@ -39,40 +65,49 @@ class FinancialDirectionRule(BaseEventRule):
         operation_type = normalized_record.content.get("operation_type", "")
         amount = normalized_record.content.get("amount_billion_cny")
 
+        term_days = normalized_record.content.get("term_days")
+        impact_level = _assess_impact_level(amount, term_days)
+
         if label == "liquidity_injection":
-            amount_text = f" Amount: {amount} billion CNY." if amount else ""
+            impact_text = f" Impact: {impact_level}." if impact_level != "low" else ""
             return FinancialDirectionResult(
                 triggered=True,
                 signal="bullish",
                 title=f"Bullish signal: {operation_type or 'liquidity injection'} detected",
                 summary=(
                     f"A liquidity injection operation was detected for {title}. "
-                    f"This typically indicates looser short-term monetary conditions."
+                    f"This typically indicates looser short-term monetary conditions.{impact_text}"
                 ),
                 evidence=[
                     f"Operation type: {operation_type}",
                     f"Direction reason: {direction_reason}",
+                    f"Impact level: {impact_level}",
                     f"Title: {title}",
                     f"Source: {normalized_record.source_url or 'N/A'}",
                 ]
-                + ([f"Amount: {amount} billion CNY"] if amount else []),
+                + ([f"Amount: {amount} billion CNY"] if amount else [])
+                + ([f"Term: {term_days} days"] if term_days else []),
             )
 
         if label == "liquidity_withdrawal":
+            impact_text = f" Impact: {impact_level}." if impact_level != "low" else ""
             return FinancialDirectionResult(
                 triggered=True,
                 signal="bearish",
                 title=f"Bearish signal: {operation_type or 'liquidity withdrawal'} detected",
                 summary=(
                     f"A liquidity withdrawal operation was detected for {title}. "
-                    f"This typically indicates tighter short-term monetary conditions."
+                    f"This typically indicates tighter short-term monetary conditions.{impact_text}"
                 ),
                 evidence=[
                     f"Operation type: {operation_type}",
                     f"Direction reason: {direction_reason}",
+                    f"Impact level: {impact_level}",
                     f"Title: {title}",
                     f"Source: {normalized_record.source_url or 'N/A'}",
-                ],
+                ]
+                + ([f"Amount: {amount} billion CNY"] if amount else [])
+                + ([f"Term: {term_days} days"] if term_days else []),
             )
 
         return FinancialDirectionResult(

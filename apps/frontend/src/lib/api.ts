@@ -45,6 +45,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 function buildFallbackEventExplanation(event: EventSummary) {
   if (event.infoType === "price") {
     return {
+      confidence: 70,
       headline: "这是一个直接影响买入判断的价格信号",
       impact: "当前事件说明该标的在最近一段时间里出现了更低价格，值得优先复核是否为真实可成交低价。",
       whyItMatters: [
@@ -60,6 +61,7 @@ function buildFallbackEventExplanation(event: EventSummary) {
 
   if (event.infoType === "financial_event") {
     return {
+      confidence: 70,
       headline: "这是一个会改变短期市场判断的金融事件",
       impact: "当前事件通常意味着流动性方向、政策操作或市场预期发生了变化，需要结合金额、期限和方向一起判断。",
       whyItMatters: [
@@ -75,6 +77,7 @@ function buildFallbackEventExplanation(event: EventSummary) {
 
   if (event.infoType === "content_update") {
     return {
+      confidence: 70,
       headline: "这是一个需要快速判断影响范围的内容更新",
       impact: "当前事件说明监控对象刚刚发生了新的功能、版本或页面内容变化，重点是先判断它会影响哪些主题和后续动作。",
       whyItMatters: [
@@ -89,6 +92,7 @@ function buildFallbackEventExplanation(event: EventSummary) {
   }
 
   return {
+    confidence: 70,
     headline: "这是一个值得继续跟踪的官方发布信号",
     impact: "当前事件说明官方渠道有了新的发布，可能会影响你对主题的后续判断，但通常还需要先读正文确认含义。",
     whyItMatters: [
@@ -180,6 +184,10 @@ function buildFallbackThemeAnalysis(input: {
           `最近24小时新增 ${recentEventCount} 条价格事件。`,
         ],
       },
+      signalAccumulation: { bullish: 0, bearish: 0, neutral: 0, recentBullish: 0, recentBearish: 0 },
+      supportingSources: [],
+      conflictingSources: [],
+      stance: "neutral" as const,
     } satisfies ThemeAnalysis;
   }
 
@@ -234,6 +242,10 @@ function buildFallbackThemeAnalysis(input: {
           input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
         ],
       },
+      signalAccumulation: { bullish: 0, bearish: 0, neutral: 0, recentBullish: 0, recentBearish: 0 },
+      supportingSources: [],
+      conflictingSources: [],
+      stance: "neutral" as const,
     } satisfies ThemeAnalysis;
   }
 
@@ -282,11 +294,16 @@ function buildFallbackThemeAnalysis(input: {
           input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
         ],
       },
+      signalAccumulation: { bullish: 0, bearish: 0, neutral: 0, recentBullish: 0, recentBearish: 0 },
+      supportingSources: [],
+      conflictingSources: [],
+      stance: "neutral" as const,
     } satisfies ThemeAnalysis;
   }
 
   return {
     tone: latestEvent ? "neutral" : "neutral",
+    stance: "neutral" as const,
     headline: latestEvent ? "近期官方发布值得继续跟踪" : "当前以持续跟踪为主",
     summary: latestEvent?.summary ?? "当前还没有新的官方发布信号，建议继续保持监控。",
     keyPoints: [
@@ -325,6 +342,9 @@ function buildFallbackThemeAnalysis(input: {
         input.latestInsight ? `最近摘要：${input.latestInsight}` : "最近没有可用摘要。",
       ],
     },
+    signalAccumulation: { bullish: 0, bearish: 0, neutral: 0, recentBullish: 0, recentBearish: 0 },
+    supportingSources: [],
+    conflictingSources: [],
   } satisfies ThemeAnalysis;
 }
 
@@ -914,6 +934,12 @@ export type ThemeDailyActivity = {
     runs: number;
     changes: number;
   };
+  signalDistribution?: Record<string, number>;
+  dayOverDay?: {
+    eventsDelta: number;
+    runsDelta: number;
+    trend: "up" | "down" | "flat";
+  };
 };
 
 export async function fetchThemeDailyActivity(themeId: string, days: number = 7) {
@@ -1251,6 +1277,43 @@ export async function triggerTestSourceRun(sourceId: string) {
   return (await response.json()) as { queued: boolean; mode: string; triggerType: string; runId: string };
 }
 
+export async function triggerSourceReplay(sourceId: string, snapshotId: string) {
+  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/replay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ snapshotId }),
+  });
+
+  if (response.status === 409) {
+    const body = await response.json() as { rejected?: boolean; reason?: string };
+    throw new Error(body.reason ?? "Snapshot not found for this source");
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to trigger replay: ${response.status}`);
+  }
+
+  return (await response.json()) as { queued: boolean; mode: string; triggerType: string; runId: string; snapshotId: string };
+}
+
+export type SourceReplayComparison = {
+  replayRunId: string;
+  status: string;
+  originalRunId: string | null;
+  replay: { recordCount: number; changeCount: number; eventCount: number };
+  original: { recordCount: number; changeCount: number; eventCount: number };
+  deltas: { recordDelta: number; changeDelta: number; eventDelta: number };
+  failureLayer: string | null;
+};
+
+export async function fetchSourceReplayComparison(sourceId: string, runId: string) {
+  const response = await requestJson<SourceReplayComparison | null>(
+    `/sources/${sourceId}/runs/${runId}/comparison`,
+    null,
+  );
+  return response;
+}
+
 export type SourceTestRunPreview = {
   runId: string;
   status: string;
@@ -1456,6 +1519,7 @@ export async function fetchNotifications(options?: {
   cursor?: string;
   offset?: number;
   signal?: string;
+  level?: "high" | "medium" | "low";
   themeId?: string;
   onlyUnreadEvents?: boolean;
   sortBy?: "createdAt" | "sentAt";
@@ -1481,6 +1545,10 @@ export async function fetchNotifications(options?: {
 
   if (options?.signal) {
     params.set("signal", options.signal);
+  }
+
+  if (options?.level) {
+    params.set("level", options.level);
   }
 
   if (options?.themeId) {
@@ -1721,12 +1789,18 @@ export type SourceHealthExplanation = {
   sourceName: string;
   status: "healthy" | "warning" | "paused";
   healthScore: number;
+  breakdown: {
+    freshness: number;
+    stability: number;
+    completeness: number;
+    timeliness: number;
+  };
   issue: string | null;
   impact: string | null;
   impactLevel: "none" | "low" | "medium" | "high";
   recommendation: string | null;
   issues: Array<{
-    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message";
+    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message" | "record_drop" | "silent_degradation" | "upstream_unreachable" | "upstream_empty" | "parse_mismatch" | "normalized_zero" | "rule_produced_nothing";
     label: string;
     description: string;
     impact: string;
@@ -2026,4 +2100,287 @@ export async function updateDailySummaryConfig(config: DailySummaryConfig): Prom
   }
 
   return (await response.json()) as DailySummaryConfig;
+}
+
+// ─── Weekly Summary ─────────────────────────────────────────────────────────
+
+export type WeeklySummary = {
+  generatedAt: string;
+  weekStart: string;
+  weekEnd: string;
+  totalEvents: number;
+  recentEvents: number;
+  items: Array<{
+    category: string;
+    label: string;
+    count: number;
+    recentCount: number;
+    dailyTrend: number[];
+  }>;
+  warningSources: Array<{
+    id: string;
+    name: string;
+    themeName: string;
+    status: string;
+    lastErrorMessage: string | null;
+  }>;
+  directionBreakdown?: {
+    bullish: number;
+    bearish: number;
+    neutral: number;
+  };
+  dayLabels: string[];
+  dominantCategory?: {
+    category: string;
+    label: string;
+    percentage: number;
+  };
+  weekOverWeekDelta?: {
+    totalEventsDelta: number;
+    recentEventsDelta: number;
+    trend: "up" | "down" | "flat";
+  };
+  topChanges?: string[];
+  topThemesToFollow?: string[];
+};
+
+export type WeeklySummaryCompare = {
+  thisWeek: WeeklySummary;
+  lastWeek: WeeklySummary | null;
+  delta: {
+    totalEvents: number;
+    recentEvents: number;
+    newWarningSources: number;
+  } | null;
+};
+
+export async function fetchWeeklySummary(): Promise<WeeklySummary> {
+  return requestJsonStrict<WeeklySummary>("/weekly-summary");
+}
+
+export async function fetchWeeklySummaryCompare(): Promise<WeeklySummaryCompare> {
+  return requestJsonStrict<WeeklySummaryCompare>("/weekly-summary/compare");
+}
+
+// ─── Weekly Review History & Export (Task 11) ─────────────────────────────────
+
+export type WeeklyReviewHistoryItem = WeeklySummary;
+
+export async function fetchWeeklyReviewHistory(weeks: number = 4): Promise<WeeklyReviewHistoryItem[]> {
+  return requestJsonStrict<WeeklyReviewHistoryItem[]>(`/weekly-summary/history?weeks=${weeks}`);
+}
+
+export async function fetchWeeklyReviewExport(format: "text" | "json" = "text"): Promise<{ content: string; format: string } | Record<string, unknown>> {
+  return requestJsonStrict<{ content: string; format: string } | Record<string, unknown>>(`/weekly-summary/export?format=${format}`);
+}
+
+// ─── Price Comparison (Task 4) ────────────────────────────────────────────────
+
+export type PriceComparisonItem = {
+  spec: string;
+  sources: Array<{
+    sourceId: string;
+    sourceName: string;
+    price: number;
+    currency: string;
+    occurredAt: string;
+    isOutlier: boolean;
+    outlierReason: string | null;
+  }>;
+  lowest: { price: number; sourceName: string } | null;
+  latest: { price: number; sourceName: string } | null;
+  priceGap: number | null;
+  hasSuspiciousOutlier: boolean;
+};
+
+export type PriceComparisonResult = {
+  themeId: string;
+  themeName: string;
+  items: PriceComparisonItem[];
+  summary: {
+    totalSpecs: number;
+    specsWithMultipleSources: number;
+    outlierCount: number;
+  };
+};
+
+export async function fetchPriceComparison(themeId: string): Promise<PriceComparisonResult> {
+  return requestJsonStrict<PriceComparisonResult>(`/themes/${themeId}/price-comparison`);
+}
+
+// ─── Source Config History ───────────────────────────────────────────────────
+
+export type SourceConfigVersion = {
+  id: string;
+  sourceId: string;
+  config: Record<string, unknown>;
+  version: number;
+  createdAt: string;
+};
+
+export async function fetchSourceConfigHistory(sourceId: string): Promise<SourceConfigVersion[]> {
+  return requestJsonStrict<SourceConfigVersion[]>(`/sources/${sourceId}/config-history`);
+}
+
+export async function rollbackSourceConfig(sourceId: string, version: number): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/config-rollback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to rollback config: ${response.status}`);
+  }
+
+  return (await response.json()) as { success: boolean };
+}
+
+// ─── Theme Favorites (DB-backed with localStorage fallback) ──────────────────
+
+const THEME_FAVORITES_KEY = "themeFavorites";
+
+let cachedFavorites: string[] | null = null;
+
+export async function fetchThemeFavorites(): Promise<string[]> {
+  try {
+    const result = await requestJson<{ favorites: string[] }>(
+      "/user-preferences/favorites",
+      { favorites: JSON.parse(localStorage.getItem(THEME_FAVORITES_KEY) ?? "[]") },
+    );
+    cachedFavorites = result.favorites;
+    // Sync to localStorage as backup
+    localStorage.setItem(THEME_FAVORITES_KEY, JSON.stringify(result.favorites));
+    return result.favorites;
+  } catch {
+    // Fallback to localStorage
+    const local = JSON.parse(localStorage.getItem(THEME_FAVORITES_KEY) ?? "[]") as string[];
+    cachedFavorites = local;
+    return local;
+  }
+}
+
+export async function setThemeFavorite(themeId: string, favorited: boolean): Promise<void> {
+  // Optimistic update
+  const favorites = cachedFavorites ?? getThemeFavoritesLocal();
+  if (favorited && !favorites.includes(themeId)) {
+    favorites.push(themeId);
+  } else if (!favorited) {
+    const idx = favorites.indexOf(themeId);
+    if (idx >= 0) favorites.splice(idx, 1);
+  }
+  cachedFavorites = favorites;
+  localStorage.setItem(THEME_FAVORITES_KEY, JSON.stringify(favorites));
+
+  // Persist to DB
+  try {
+    await fetch(`${API_BASE_URL}/user-preferences/favorites/${themeId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorited }),
+    });
+  } catch {
+    // localStorage already updated, DB sync will happen on next load
+  }
+}
+
+export function isThemeFavorited(themeId: string): boolean {
+  const favorites = cachedFavorites ?? getThemeFavoritesLocal();
+  return favorites.includes(themeId);
+}
+
+function getThemeFavoritesLocal(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(THEME_FAVORITES_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+// ─── Saved Filter Views (DB-backed with localStorage fallback) ────────────────
+
+export type SavedFilterView = {
+  id: string;
+  name: string;
+  viewType: "events" | "themes" | "sources";
+  filters: Record<string, string>;
+  createdAt: string;
+};
+
+const SAVED_VIEWS_KEY = "savedFilterViews";
+
+export async function fetchSavedFilterViews(viewType?: string): Promise<SavedFilterView[]> {
+  try {
+    const params = viewType ? `?viewType=${viewType}` : "";
+    const result = await requestJsonStrict<SavedFilterView[]>(
+      `/user-preferences/saved-views${params}`,
+    );
+    // Merge with existing localStorage data to avoid overwriting other viewTypes
+    const existing = getSavedFilterViewsLocal();
+    if (viewType) {
+      // Replace only the matching viewType entries, keep others
+      const otherViews = existing.filter((v) => v.viewType !== viewType);
+      const merged = [...otherViews, ...result];
+      localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(merged));
+    } else {
+      // Full replacement when no viewType filter
+      localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(result));
+    }
+    return result;
+  } catch {
+    // Fallback to localStorage
+    return getSavedFilterViewsLocal();
+  }
+}
+
+export async function saveFilterView(
+  view: Omit<SavedFilterView, "id" | "createdAt">,
+): Promise<SavedFilterView> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(view),
+    });
+    if (!response.ok) throw new Error(`请求失败 (${response.status})`);
+    const result = (await response.json()) as SavedFilterView;
+    // Update localStorage
+    const views = getSavedFilterViewsLocal();
+    views.push(result);
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+    return result;
+  } catch {
+    // Fallback: save locally
+    const views = getSavedFilterViewsLocal();
+    const newView: SavedFilterView = {
+      ...view,
+      id: `view_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+    };
+    views.push(newView);
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+    return newView;
+  }
+}
+
+export async function deleteFilterView(viewId: string): Promise<void> {
+  // Optimistic: remove from localStorage immediately
+  const views = getSavedFilterViewsLocal().filter((v) => v.id !== viewId);
+  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+
+  try {
+    await fetch(`${API_BASE_URL}/user-preferences/saved-views/${viewId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // localStorage already updated
+  }
+}
+
+function getSavedFilterViewsLocal(): SavedFilterView[] {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
 }

@@ -43,6 +43,7 @@ describe("themes-model", () => {
       impactFilter: "all",
       sortBy: "latestEvent",
       recentOnly24h: false,
+      favoritesOnly: false,
     });
 
     expect(result.map((item) => item.id)).toEqual(["t3", "t1"]);
@@ -60,6 +61,7 @@ describe("themes-model", () => {
           impactFilter: "negative",
           sortBy: "attention",
           recentOnly24h: true,
+        favoritesOnly: false,
         },
         (value) => value,
       ),
@@ -81,6 +83,7 @@ describe("themes-model", () => {
       impactFilter: "all",
       sortBy: "latestBookmarked",
       recentOnly24h: false,
+      favoritesOnly: false,
     });
 
     expect(result.map((item) => item.id)).toEqual(["t2", "t1"]);
@@ -126,6 +129,7 @@ describe("themes-model", () => {
         impactFilter: "all",
         sortBy: "attention",
         recentOnly24h: false,
+      favoritesOnly: false,
       },
     );
 
@@ -154,6 +158,7 @@ describe("themes-model", () => {
         impactFilter: "all",
         sortBy: "attention",
         recentOnly24h: false,
+      favoritesOnly: false,
       },
     );
 

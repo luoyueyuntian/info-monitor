@@ -207,13 +207,25 @@ export type ThemeRecord = {
   content: Record<string, unknown>;
 };
 
+export type ThemeStance = "bullish" | "bearish" | "watch" | "neutral";
+
 export type ThemeAnalysis = {
   tone: ImpactTone;
+  stance: ThemeStance;
   headline: string;
   summary: string;
   keyPoints: string[];
   risks: string[];
   actions: string[];
+  signalAccumulation: {
+    bullish: number;
+    bearish: number;
+    neutral: number;
+    recentBullish: number;
+    recentBearish: number;
+  };
+  supportingSources: string[];
+  conflictingSources: string[];
   recentChange: {
     headline: string;
     summary: string;
@@ -223,6 +235,21 @@ export type ThemeAnalysis = {
     headline: string;
     summary: string;
     highlights: string[];
+  };
+  // Task 7: Multi-event accumulation
+  recentStreak?: {
+    direction: "bullish" | "bearish" | "mixed" | "none";
+    count: number;
+  };
+  hasConflictingSignals?: boolean;
+  // Task 8: Price-specific judgment
+  priceJudgment?: {
+    level: "worth_buying" | "worth_waiting" | "worth_attention" | "watching";
+    label: string;
+    trustHint: string | null;
+    reason?: string;
+    trustScore?: number | null;
+    riskLevel?: "likely_valid" | "suspicious" | "high_risk" | null;
   };
 };
 
@@ -288,6 +315,7 @@ export type SourceDetailRun = {
   id: string;
   status: string;
   triggerType: string;
+  configVersion?: number | null;
   startedAt?: string | null;
   finishedAt?: string | null;
   errorMessage?: string | null;

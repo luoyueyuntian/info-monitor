@@ -95,45 +95,83 @@ export type HealthScoreInput = {
   lastErrorMessage?: string | null;
 };
 
-function calculateSourceHealthScore(source: HealthScoreInput): number {
+export type HealthScoreBreakdown = {
+  /** Freshness: data availability — does the source have recent successful data? (0-100) */
+  freshness: number;
+  /** Stability: run reliability — are runs succeeding consistently? (0-100) */
+  stability: number;
+  /** Completeness: source health — is the source active and error-free? (0-100) */
+  completeness: number;
+  /** Timeliness: current state — did the latest run succeed? (0-100) */
+  timeliness: number;
+};
+
+function calculateSourceHealthScore(source: HealthScoreInput): { score: number; breakdown: HealthScoreBreakdown } {
+  // Track per-dimension penalties (each starts at 100)
+  let freshnessPenalty = 0;
+  let stabilityPenalty = 0;
+  let completenessPenalty = 0;
+  let timelinessPenalty = 0;
+
+  // Overall score — preserved from the original algorithm
   let score = 100;
 
   // Factor 1: Latest run status (fetchStatus)
   if (source.latestRunStatus === "failed") {
     score -= 30;
+    timelinessPenalty += 20;
+    stabilityPenalty += 10;
   } else if (source.latestRunStatus === "pending" || source.latestRunStatus === "running") {
     score -= 10;
+    timelinessPenalty += 10;
   }
 
   // Factor 2: Current status (contentStatus indicator)
   if (source.status === "warning") {
     score -= 25;
+    completenessPenalty += 15;
+    timelinessPenalty += 10;
   }
 
   // Factor 3: Consecutive failures (based on latestFailureAt vs latestSuccessAt)
   if (source.latestFailureAt && source.latestSuccessAt) {
     const failureTime = new Date(source.latestFailureAt).getTime();
     const successTime = new Date(source.latestSuccessAt).getTime();
-    // If failure is more recent than success, indicates consecutive failures
     if (failureTime > successTime) {
       score -= 20;
+      stabilityPenalty += 15;
+      freshnessPenalty += 5;
     }
   } else if (source.latestFailureAt && !source.latestSuccessAt) {
-    // Only failures, no successes
     score -= 40;
+    stabilityPenalty += 25;
+    freshnessPenalty += 15;
   }
 
   // Factor 4: Error message presence
   if (source.lastErrorMessage) {
     score -= 15;
+    stabilityPenalty += 10;
+    freshnessPenalty += 5;
   }
 
   // Factor 5: Paused status
   if (source.isPaused) {
     score -= 10;
+    completenessPenalty += 10;
   }
 
-  return Math.max(0, Math.min(100, score));
+  const breakdown: HealthScoreBreakdown = {
+    freshness: Math.max(0, Math.min(100, 100 - freshnessPenalty)),
+    stability: Math.max(0, Math.min(100, 100 - stabilityPenalty)),
+    completeness: Math.max(0, Math.min(100, 100 - completenessPenalty)),
+    timeliness: Math.max(0, Math.min(100, 100 - timelinessPenalty)),
+  };
+
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    breakdown,
+  };
 }
 
 /**
@@ -157,6 +195,8 @@ export type SourceHealthExplanation = {
   status: "healthy" | "warning" | "paused";
   /** Health score (0-100) */
   healthScore: number;
+  /** Score breakdown by dimension */
+  breakdown: HealthScoreBreakdown;
   /** Primary issue explanation */
   issue: string | null;
   /** Why this issue matters */
@@ -167,7 +207,7 @@ export type SourceHealthExplanation = {
   recommendation: string | null;
   /** Detailed breakdown of issues */
   issues: Array<{
-    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message";
+    type: "fetch_failed" | "long_stale" | "paused" | "pending_backlog" | "error_message" | "record_drop" | "silent_degradation" | "upstream_unreachable" | "upstream_empty" | "parse_mismatch" | "normalized_zero" | "rule_produced_nothing";
     label: string;
     description: string;
     impact: string;
@@ -190,6 +230,16 @@ export function explainSourceHealth(source: {
   lastErrorMessage?: string | null;
   runCount24h?: number;
   failureCount24h?: number;
+  /** Recent record counts, ordered newest-first (index 0 = most recent run) */
+  recentRecordCounts?: number[];
+  /** Recent snapshot counts, ordered newest-first */
+  recentSnapshotCounts?: number[];
+  /** Record count from the most recent run */
+  latestRecordCount?: number;
+  /** Snapshot count from the most recent run */
+  latestSnapshotCount?: number;
+  /** Event count from the most recent run */
+  latestEventCount?: number;
 }): SourceHealthExplanation {
   const issues: SourceHealthExplanation["issues"] = [];
   const now = Date.now();
@@ -204,14 +254,40 @@ export function explainSourceHealth(source: {
     });
   }
 
-  // Check for recent fetch failures
+  // Check for recent fetch failures - classify more precisely
   if (source.latestRunStatus === "failed") {
-    issues.push({
-      type: "fetch_failed",
-      label: "最近抓取失败",
-      description: source.lastErrorMessage || "最近一次抓取任务执行失败。",
-      impact: "最新数据可能缺失或不完整，需要检查失败原因并重新抓取。",
-    });
+    const errorMsg = source.lastErrorMessage || "";
+    const errorLower = errorMsg.toLowerCase();
+
+    if (errorLower.includes("timeout") || errorLower.includes("connection") || errorLower.includes("unreachable") || errorLower.includes("refused") || errorLower.includes("dns") || errorLower.includes("network")) {
+      issues.push({
+        type: "upstream_unreachable",
+        label: "上游不可达",
+        description: errorMsg,
+        impact: "无法连接到数据源，可能是网络问题或上游服务宕机。",
+      });
+    } else if (errorLower.includes("empty") || errorLower.includes("no data") || errorLower.includes("not found") || errorLower.includes("404")) {
+      issues.push({
+        type: "upstream_empty",
+        label: "上游无数据",
+        description: errorMsg,
+        impact: "数据源返回空内容，可能是页面已下线或接口变更。",
+      });
+    } else if (errorLower.includes("parse") || errorLower.includes("selector") || errorLower.includes("extract") || errorLower.includes("structure")) {
+      issues.push({
+        type: "parse_mismatch",
+        label: "解析失败",
+        description: errorMsg,
+        impact: "页面结构可能已变化，适配器需要更新。",
+      });
+    } else {
+      issues.push({
+        type: "fetch_failed",
+        label: "最近抓取失败",
+        description: errorMsg || "最近一次抓取任务执行失败。",
+        impact: "最新数据可能缺失或不完整，需要检查失败原因并重新抓取。",
+      });
+    }
   }
 
   // Check for stale data (no success in 24 hours)
@@ -256,33 +332,94 @@ export function explainSourceHealth(source: {
     });
   }
 
+  // Check for record count drift (significant drop vs average of previous runs)
+  // recentRecordCounts is ordered newest-first (most recent run at index 0)
+  if (source.recentRecordCounts && source.recentRecordCounts.length >= 3) {
+    const latest = source.latestRecordCount ?? source.recentRecordCounts[0]; // [0] = most recent
+    const previousRuns = source.recentRecordCounts.slice(1); // exclude latest
+    const avg = previousRuns.reduce((a, b) => a + b, 0) / previousRuns.length;
+    if (avg > 0 && latest < avg * 0.5) {
+      issues.push({
+        type: "record_drop",
+        label: "数据量异常下降",
+        description: `最近一次抓取记录数 (${latest}) 明显低于平均值 (${Math.round(avg)})，下降超过 50%。`,
+        impact: "来源页面结构可能发生变化，导致数据抓取不完整。",
+      });
+    }
+  }
+
+  // Check for silent degradation (completed run with snapshots but zero records)
+  if (
+    source.latestRunStatus === "completed" &&
+    (source.latestSnapshotCount ?? 0) > 0 &&
+    (source.latestRecordCount ?? 0) === 0 &&
+    !source.isPaused
+  ) {
+    issues.push({
+      type: "normalized_zero",
+      label: "标准化无结果",
+      description: "最近一次运行成功且有快照数据，但未能提取到任何记录。",
+      impact: "来源页面可能已改版，适配器需要更新。",
+    });
+  }
+
+  // Check for rule producing nothing (completed run with records but zero events)
+  if (
+    source.latestRunStatus === "completed" &&
+    (source.latestRecordCount ?? 0) > 0 &&
+    (source.latestEventCount ?? 0) === 0 &&
+    !source.isPaused
+  ) {
+    issues.push({
+      type: "rule_produced_nothing",
+      label: "事件规则未触发",
+      description: "最近一次运行提取到了记录，但未触发任何事件。",
+      impact: "可能是正常的（数据未变化），也可能是事件规则需要调整。",
+    });
+  }
+
   // Determine primary issue
   const primaryIssue = issues[0] ?? null;
 
   // Determine impact level
   let impactLevel: SourceHealthExplanation["impactLevel"] = "none";
+  const hasCriticalDegradation = issues.some(
+    (i) => i.type === "normalized_zero" || i.type === "record_drop" || i.type === "upstream_unreachable",
+  );
   if (source.isPaused) {
     impactLevel = "low"; // Paused is intentional, low impact
-  } else if (source.status === "warning" || source.latestRunStatus === "failed") {
+  } else if (source.status === "warning" || source.latestRunStatus === "failed" || hasCriticalDegradation) {
     impactLevel = "high";
   } else if (issues.length > 0) {
     impactLevel = "medium";
   }
 
-  // Generate recommendation
+  // Generate recommendation (specific issue types first, then generic fallbacks)
   let recommendation: string | null = null;
   if (source.isPaused) {
     recommendation = "如需继续监控，可以恢复该来源。";
-  } else if (source.latestRunStatus === "failed") {
-    recommendation = "检查错误信息并重新运行抓取任务。";
+  } else if (issues.some((i) => i.type === "upstream_unreachable")) {
+    recommendation = "检查目标 URL 是否可访问，网络是否正常。";
+  } else if (issues.some((i) => i.type === "upstream_empty")) {
+    recommendation = "检查数据源是否已下线或接口是否变更。";
+  } else if (issues.some((i) => i.type === "parse_mismatch")) {
+    recommendation = "页面结构可能已变化，需要更新适配器配置。";
+  } else if (issues.some((i) => i.type === "normalized_zero")) {
+    recommendation = "检查页面结构是否变化，CSS 选择器是否仍然有效。";
+  } else if (issues.some((i) => i.type === "record_drop")) {
+    recommendation = "检查页面结构是否变化，手动运行一次确认数据量。";
+  } else if (issues.some((i) => i.type === "rule_produced_nothing")) {
+    recommendation = "检查事件规则是否需要调整，或确认数据是否真的未变化。";
   } else if (issues.some((i) => i.type === "long_stale")) {
     recommendation = "手动触发一次抓取，确认来源是否仍然可用。";
+  } else if (source.latestRunStatus === "failed") {
+    recommendation = "检查错误信息并重新运行抓取任务。";
   } else if (source.latestRunStatus === "pending") {
     recommendation = "等待当前任务完成，或检查是否有任务积压。";
   }
 
-  // Calculate health score
-  const healthScore = calculateSourceHealthScore({
+  // Calculate health score with breakdown
+  const { score: healthScore, breakdown } = calculateSourceHealthScore({
     status: source.status,
     isPaused: source.isPaused,
     latestRunStatus: source.latestRunStatus,
@@ -299,6 +436,7 @@ export function explainSourceHealth(source: {
     sourceName: source.name,
     status,
     healthScore,
+    breakdown,
     issue: primaryIssue?.label ?? null,
     impact: primaryIssue?.impact ?? null,
     impactLevel,
@@ -336,7 +474,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
     // Calculate health scores for each source
     const sourceHealthScores = mockSources.map((s) => ({
       source: s,
-      healthScore: calculateSourceHealthScore(s),
+      healthScore: calculateSourceHealthScore(s).score,
     }));
 
     // Count sources by calculated status
@@ -387,7 +525,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       averageRunDuration: 1500,
       recentErrors,
       sourceDetails: mockSources.map((s) => {
-        const healthScore = calculateSourceHealthScore(s);
+        const { score: healthScore } = calculateSourceHealthScore(s);
         const calculatedStatus = s.isPaused ? "paused" : getHealthStatusFromScore(healthScore);
 
         return {

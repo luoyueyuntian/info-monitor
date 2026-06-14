@@ -61,6 +61,27 @@
         />
       </div>
     </div>
+
+    <!-- Score Breakdown -->
+    <div v-if="explanation.breakdown" class="mt-3 rounded-xl border border-slate-400/15 bg-white/70 px-3.5 py-3">
+      <div class="text-[0.88rem] font-medium text-ink-heading mb-2">分数构成</div>
+      <div class="grid gap-2">
+        <div v-for="dim in breakdownDimensions" :key="dim.key" class="flex items-center gap-3">
+          <div class="w-16 shrink-0 text-[0.82rem] text-ink-secondary">{{ dim.label }}</div>
+          <div class="flex-1 h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div
+              class="h-full rounded-full transition-all duration-300"
+              :class="breakdownBarClass(dim.value)"
+              :style="{ width: `${dim.value}%` }"
+            />
+          </div>
+          <div class="w-8 shrink-0 text-right text-[0.82rem] text-ink-secondary">{{ dim.value }}</div>
+        </div>
+      </div>
+      <div class="mt-2 text-[0.78rem] text-ink-secondary">
+        各维度满分 100，综合反映来源健康状况
+      </div>
+    </div>
   </article>
 </template>
 
@@ -86,4 +107,21 @@ const healthScoreBarClass = computed(() => {
   if (props.explanation.healthScore >= 60) return "bg-amber-500";
   return "bg-red-500";
 });
+
+const breakdownDimensions = computed(() => {
+  if (!props.explanation.breakdown) return [];
+  const b = props.explanation.breakdown;
+  return [
+    { key: "freshness", label: "新鲜度", value: b.freshness },
+    { key: "stability", label: "稳定性", value: b.stability },
+    { key: "completeness", label: "完整性", value: b.completeness },
+    { key: "timeliness", label: "时效性", value: b.timeliness },
+  ];
+});
+
+function breakdownBarClass(value: number): string {
+  if (value > 80) return "bg-green-500";
+  if (value >= 60) return "bg-amber-500";
+  return "bg-red-500";
+}
 </script>

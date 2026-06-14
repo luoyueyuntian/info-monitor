@@ -18,6 +18,7 @@ export const themeManagedQueryKeys = [
   "sort",
   "sortBy",
   "recent",
+  "fav",
 ] as const;
 
 export function buildThemeManagedQuery(filters: ThemesBoardFilters) {
@@ -55,6 +56,10 @@ export function buildThemeManagedQuery(filters: ThemesBoardFilters) {
     nextQuery.recent = "24h";
   }
 
+  if (filters.favoritesOnly) {
+    nextQuery.fav = "1";
+  }
+
   return nextQuery;
 }
 
@@ -87,6 +92,7 @@ export function readThemeRouteFilters(query: QueryRecord): ThemesBoardFilters {
       typeof queryImpact === "string" && allowedImpact.includes(queryImpact) ? queryImpact : "all",
     sortBy: typeof querySort === "string" && allowedSort.includes(querySort) ? querySort : "priority",
     recentOnly24h: queryRecent === "24h" || queryRecent === "true",
+    favoritesOnly: query.fav === "1",
   };
 }
 
@@ -121,6 +127,7 @@ export function matchesThemePresetFilters(
     filters.healthFilter === preset.filters.health &&
     filters.impactFilter === (preset.filters.impact ?? "all") &&
     filters.sortBy === preset.filters.sort &&
-    filters.recentOnly24h === preset.filters.recent
+    filters.recentOnly24h === preset.filters.recent &&
+    !filters.favoritesOnly
   );
 }
