@@ -1,6 +1,7 @@
 import { sql, type Kysely } from "kysely";
 
 import { getDatabase } from "../db/client.js";
+import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js";
 import type { Database } from "../db/schema.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
@@ -85,8 +86,14 @@ function contentUpdateTypeLabel(value: unknown) {
       return "修复更新";
     case "marketing_campaign":
       return "营销活动";
+    case "marketing":
+      return "营销活动";
     case "policy_update":
       return "政策更新";
+    case "announcement":
+      return "官方公告";
+    case "content_update":
+      return "内容更新";
     default:
       return formatNumberForInsight(value);
   }
@@ -270,6 +277,7 @@ function buildThemeAnalysis(input: {
   events: Array<{ title: string; signal: string | null; occurredAt: string | Date; summary: string }>;
   records?: Array<{ occurredAt: string | Date; content: Record<string, unknown> }>;
   sources: Array<{
+    name?: string;
     status: string;
     isPaused?: boolean | null;
     latestRunStatus?: string | null;
@@ -280,13 +288,122 @@ function buildThemeAnalysis(input: {
   const latestEvent = input.events[0] ?? null;
   const threshold = Date.now() - 24 * 60 * 60 * 1000;
   const recentEventCount = input.events.filter((event) => toTimestamp(event.occurredAt) >= threshold).length;
-  const warningCount = input.sources.filter((source) => source.status === "warning").length;
-  const pausedCount = input.sources.filter((source) => source.isPaused).length;
-  const pendingCount = input.sources.filter((source) => source.latestRunStatus === "pending").length;
-  const staleCount = input.sources.filter((source) => {
-    const latest = Math.max(toTimestamp(source.latestSuccessAt), toTimestamp(source.latestFailureAt));
+  const warningSources = input.sources.filter((s) => s.status === "warning");
+  const pausedSources = input.sources.filter((s) => s.isPaused);
+  const healthySources = input.sources.filter((s) => s.status === "healthy" && !s.isPaused);
+  const pendingCount = input.sources.filter((s) => s.latestRunStatus === "pending").length;
+  const staleSources = input.sources.filter((s) => {
+    const latest = Math.max(toTimestamp(s.latestSuccessAt), toTimestamp(s.latestFailureAt));
     return latest > 0 && latest < Date.now() - 48 * 60 * 60 * 1000;
-  }).length;
+  });
+  const warningCount = warningSources.length;
+  const pausedCount = pausedSources.length;
+  const staleCount = staleSources.length;
+
+  // Signal accumulation across all events
+  const bullishSignals = ["bullish", "liquidity_injection", "30d_low"];
+  const bearishSignals = ["bearish", "liquidity_withdrawal"];
+  const signalAccumulation = {
+    bullish: input.events.filter((e) => e.signal && bullishSignals.includes(e.signal)).length,
+    bearish: input.events.filter((e) => e.signal && bearishSignals.includes(e.signal)).length,
+    neutral: input.events.filter((e) => !e.signal || (!bullishSignals.includes(e.signal) && !bearishSignals.includes(e.signal))).length,
+    recentBullish: input.events.filter((e) => toTimestamp(e.occurredAt) >= threshold && e.signal && bullishSignals.includes(e.signal)).length,
+    recentBearish: input.events.filter((e) => toTimestamp(e.occurredAt) >= threshold && e.signal && bearishSignals.includes(e.signal)).length,
+  };
+
+  // Determine stance based on signal accumulation
+  const netSignal = signalAccumulation.bullish - signalAccumulation.bearish;
+  const recentNetSignal = signalAccumulation.recentBullish - signalAccumulation.recentBearish;
+
+  // Multi-event accumulation: detect streaks and conflicting signals (Task 7)
+  const sortedEvents = [...input.events].sort(
+    (a, b) => toTimestamp(b.occurredAt) - toTimestamp(a.occurredAt),
+  );
+  const recentStreak = (() => {
+    if (sortedEvents.length === 0) return { direction: "none" as const, count: 0 };
+    const recent = sortedEvents.slice(0, 5);
+    const bullishCount = recent.filter(
+      (e) => e.signal && bullishSignals.includes(e.signal),
+    ).length;
+    const bearishCount = recent.filter(
+      (e) => e.signal && bearishSignals.includes(e.signal),
+    ).length;
+    if (bullishCount >= 3 && bearishCount === 0)
+      return { direction: "bullish" as const, count: bullishCount };
+    if (bearishCount >= 3 && bullishCount === 0)
+      return { direction: "bearish" as const, count: bearishCount };
+    return { direction: "mixed" as const, count: recent.length };
+  })();
+
+  // Conflicting signal reduction: lower confidence when recent signals conflict
+  const hasConflictingSignals =
+    signalAccumulation.recentBullish > 0 && signalAccumulation.recentBearish > 0;
+
+  let stance: "bullish" | "bearish" | "watch" | "neutral";
+  if (recentStreak.direction === "bullish" && recentStreak.count >= 3) stance = "bullish";
+  else if (recentStreak.direction === "bearish" && recentStreak.count >= 3) stance = "bearish";
+  else if (recentNetSignal >= 2 && !hasConflictingSignals) stance = "bullish";
+  else if (recentNetSignal <= -2 && !hasConflictingSignals) stance = "bearish";
+  else if (hasConflictingSignals) stance = "watch";
+  else if (Math.abs(netSignal) >= 3) stance = "watch";
+  else stance = "neutral";
+
+  // Supporting and conflicting sources — with concrete reasons
+  const supportingSources: string[] = [];
+  const conflictingSources: string[] = [];
+
+  // Supporting: healthy sources providing data
+  if (healthySources.length > 0) {
+    const names = healthySources.map((s) => s.name).filter(Boolean);
+    supportingSources.push(
+      names.length > 0
+        ? `数据正常: ${names.join(", ")}`
+        : `${healthySources.length} 个来源数据正常`
+    );
+  }
+
+  // Conflicting: sources with specific issues
+  if (warningSources.length > 0) {
+    const names = warningSources.map((s) => s.name).filter(Boolean);
+    conflictingSources.push(
+      names.length > 0
+        ? `抓取异常: ${names.join(", ")} — 数据可能不完整`
+        : `${warningSources.length} 个来源抓取异常`
+    );
+  }
+  if (pausedSources.length > 0) {
+    const names = pausedSources.map((s) => s.name).filter(Boolean);
+    conflictingSources.push(
+      names.length > 0
+        ? `已暂停: ${names.join(", ")} — 无法获取最新数据`
+        : `${pausedSources.length} 个来源已暂停`
+    );
+  }
+  if (staleSources.length > 0) {
+    const names = staleSources.map((s) => s.name).filter(Boolean);
+    conflictingSources.push(
+      names.length > 0
+        ? `数据过期(>48h): ${names.join(", ")} — 结论可能滞后`
+        : `${staleSources.length} 个来源数据过期`
+    );
+  }
+
+  // Price-specific conflict: divergence between sources
+  if (input.themeType === "price" && input.records && input.records.length >= 2) {
+    const prices = input.records
+      .map((r) => Number(r.content.price))
+      .filter((p) => Number.isFinite(p) && p > 0);
+    if (prices.length >= 2) {
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      const divergence = ((maxPrice - minPrice) / minPrice) * 100;
+      if (divergence > 10) {
+        conflictingSources.push(
+          `跨源价差 ${divergence.toFixed(1)}% — 最低 ${minPrice} vs 最高 ${maxPrice}，需确认是否同配置`
+        );
+      }
+    }
+  }
   const latestPrice =
     input.themeType === "price" && input.records?.length ? Number(input.records[0].content.price ?? NaN) : NaN;
   const olderPrice =
@@ -299,8 +416,78 @@ function buildThemeAnalysis(input: {
       : null;
 
   if (input.themeType === "price") {
+    // Extract trust info from latest price record
+    const latestPriceRecord = input.records?.[0];
+    const trustScore = latestPriceRecord?.content?.trust_score as number | undefined;
+    const trustFactors = (latestPriceRecord?.content?.trust_factors as string[]) ?? [];
+    const riskLevel = latestPriceRecord?.content?.risk_level as string | undefined;
+
+    // Price-specific judgment: worth buying / worth waiting / worth attention / watching
+    const priceJudgment = (() => {
+      const healthySourceCount = input.sources.filter((s) => s.status === "healthy" && !s.isPaused).length;
+      const totalActiveSources = input.sources.filter((s) => !s.isPaused).length;
+      const sourceReliability = totalActiveSources > 0 ? healthySourceCount / totalActiveSources : 0;
+
+      if (latestEvent?.signal === "30d_low" && stance === "bullish" && sourceReliability >= 0.7) {
+        return {
+          level: "worth_buying" as const,
+          label: "值得关注买入",
+          trustHint: `${healthySourceCount}/${totalActiveSources} 个来源状态正常，30天新低信号可信度较高`,
+          reason: "多源验证的30天新低，且价格趋势向下，建议尽快核实后决定",
+          trustScore: trustScore ?? null,
+          riskLevel: riskLevel ?? null,
+        };
+      }
+      if (latestEvent?.signal === "30d_low") {
+        return {
+          level: "worth_attention" as const,
+          label: "值得关注",
+          trustHint: sourceReliability < 0.7
+            ? `仅 ${healthySourceCount}/${totalActiveSources} 个来源正常，建议先确认数据完整性`
+            : "检测到30天新低，建议核验是否为同配置真实成交价",
+          reason: "出现30天新低信号，但需要交叉验证价格真实性",
+          trustScore: trustScore ?? null,
+          riskLevel: riskLevel ?? null,
+        };
+      }
+      if (priceDelta != null && priceDelta < -5 && recentEventCount >= 2) {
+        return {
+          level: "worth_waiting" as const,
+          label: "建议继续等待",
+          trustHint: "价格仍在下行通道，等待可能获得更好价格",
+          reason: `价格已下跌 ${Math.abs(priceDelta).toFixed(1)}%，且近期有多个看空信号`,
+          trustScore: trustScore ?? null,
+          riskLevel: riskLevel ?? null,
+        };
+      }
+      if (priceDelta != null && priceDelta > 5) {
+        return {
+          level: "worth_attention" as const,
+          label: "价格回升中",
+          trustHint: "近期价格反弹，如需购买建议尽早关注",
+          reason: `价格已回升 ${priceDelta.toFixed(1)}%，可能错失低价窗口`,
+          trustScore: trustScore ?? null,
+          riskLevel: riskLevel ?? null,
+        };
+      }
+      return {
+        level: "watching" as const,
+        label: "持续观察",
+        trustHint: riskLevel === "high_risk" ? "价格可信度较低，建议多源验证" : null,
+        reason: "当前信号不够明确，建议继续收集数据",
+        trustScore: trustScore ?? null,
+        riskLevel: riskLevel ?? null,
+      };
+    })();
+
+    // Build trust-aware key points
+    const trustKeyPoint = trustScore != null
+      ? `价格可信度: ${trustScore}/100 (${riskLevel === "likely_valid" ? "较可信" : riskLevel === "suspicious" ? "需验证" : "高风险"})`
+      : null;
+
     return {
       tone: latestEvent?.signal === "30d_low" ? "positive" : "neutral",
+      stance,
       headline: latestEvent?.signal === "30d_low" ? "当前价格处于近期低位" : "当前价格仍以持续观察为主",
       summary:
         latestEvent?.signal === "30d_low"
@@ -310,7 +497,9 @@ function buildThemeAnalysis(input: {
         latestEvent ? `最新信号：${latestEvent.title}` : "最近没有新的价格事件。",
         input.latestInsight ? `最新价格摘要：${input.latestInsight}` : "最近没有可用的价格摘要。",
         `最近24小时新增 ${recentEventCount} 条事件。`,
-      ],
+        `判断：${priceJudgment.label}`,
+        trustKeyPoint,
+      ].filter(Boolean) as string[],
       risks: [
         warningCount > 0 ? `存在 ${warningCount} 个异常来源，当前价格结论需要先复核。`
           : "当前未发现异常来源。",
@@ -318,12 +507,15 @@ function buildThemeAnalysis(input: {
           : "当前来源覆盖完整度较好。",
         staleCount > 0 ? `有 ${staleCount} 个来源超过48小时没有新结果，结论可能滞后。`
           : "最近来源更新时效基本正常。",
-      ],
+        hasConflictingSignals ? "近期存在方向矛盾的信号，建议谨慎判断。" : null,
+      ].filter(Boolean) as string[],
       actions: [
         "优先核验最低价是否为同配置、可成交且不是异常挂价。",
         pendingCount > 0 ? "等待排队中的来源完成后，再决定是否要跟进。"
           : "必要时立即运行全部来源，再决定是否跟进。",
-      ],
+        priceJudgment.level === "worth_buying" ? "当前信号较强，建议尽快核实后决定是否出手。" : null,
+        priceJudgment.level === "worth_waiting" ? "价格仍在下行，耐心等待可能获得更好价格。" : null,
+      ].filter(Boolean) as string[],
       recentChange: {
         headline: recentEventCount > 0 ? "最近24小时出现新的价格变化" : "最近24小时没有新的价格变化",
         summary:
@@ -354,6 +546,11 @@ function buildThemeAnalysis(input: {
           `最近24小时新增 ${recentEventCount} 条价格事件。`,
         ],
       },
+      signalAccumulation,
+      supportingSources,
+      conflictingSources,
+      priceJudgment,
+      recentStreak,
     };
   }
 
@@ -372,6 +569,7 @@ function buildThemeAnalysis(input: {
           : latestEvent?.signal === "liquidity_withdrawal"
             ? "negative"
             : "neutral",
+      stance,
       headline: directionHeadline,
       summary: latestEvent?.summary ?? "当前还没有足够新的金融事件信号，建议继续等待后续公告。",
       keyPoints: [
@@ -414,12 +612,18 @@ function buildThemeAnalysis(input: {
           input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
         ],
       },
+      signalAccumulation,
+      supportingSources,
+      conflictingSources,
+      recentStreak,
+      hasConflictingSignals,
     };
   }
 
   if (input.themeType === "content_update") {
     return {
       tone: "neutral",
+      stance,
       headline: latestEvent ? "近期内容更新值得优先复核" : "当前以持续跟踪内容更新为主",
       summary:
         latestEvent?.summary ??
@@ -466,11 +670,17 @@ function buildThemeAnalysis(input: {
           input.latestInsight ? `最近结构化摘要：${input.latestInsight}` : "最近没有结构化摘要。",
         ],
       },
+      signalAccumulation,
+      supportingSources,
+      conflictingSources,
+      recentStreak,
+      hasConflictingSignals,
     };
   }
 
   return {
     tone: "neutral",
+    stance,
     headline: latestEvent ? "近期官方发布值得继续跟踪" : "当前以持续跟踪为主",
     summary: latestEvent?.summary ?? "当前还没有新的官方发布信号，建议继续保持监控。",
     keyPoints: [
@@ -514,6 +724,11 @@ function buildThemeAnalysis(input: {
         input.latestInsight ? `最近摘要：${input.latestInsight}` : "最近没有可用摘要。",
       ],
     },
+    signalAccumulation,
+    supportingSources,
+    conflictingSources,
+    recentStreak,
+    hasConflictingSignals,
   };
 }
 
@@ -878,6 +1093,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
       content: item.content as Record<string, unknown>,
     })),
     sources: sources.map((item) => ({
+      name: item.name,
       status: item.status,
       isPaused: item.isPaused,
       latestRunStatus: sourceRunSummaries.find((summary) => summary.sourceId === item.id)?.latestRunStatus ?? null,
@@ -945,11 +1161,12 @@ async function createThemeInDb(db: Kysely<Database>, input: ThemeInput): Promise
     .execute();
 
   if (input.sources?.length) {
+    const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
     const sourceRows = input.sources.map((source) => {
       const sourceId = createId("source");
       sourceIds.push(sourceId);
 
-      return {
+      const row: Record<string, unknown> = {
         id: sourceId,
         theme_id: themeId,
         name: source.name,
@@ -957,16 +1174,21 @@ async function createThemeInDb(db: Kysely<Database>, input: ThemeInput): Promise
         adapter_key: source.adapterKey,
         status: "active",
         is_paused: false,
-        onboarding_status: "active",
         config: source.config ?? {},
         created_at: now,
         updated_at: now,
       };
+
+      if (hasOnboardingStatusColumn) {
+        row.onboarding_status = "active";
+      }
+
+      return row;
     });
 
     await db
       .insertInto("sources")
-      .values(sourceRows)
+      .values(sourceRows as never)
       .execute();
   }
 
@@ -1046,6 +1268,7 @@ export async function getThemeDetail(themeId: string) {
           content: item.content,
         })),
         sources: themeSources.map((item) => ({
+          name: item.name,
           status: item.status,
           isPaused: item.isPaused,
           latestRunStatus: item.latestRunStatus,
@@ -1461,6 +1684,12 @@ export type ThemeDailyActivity = {
     runs: number;
     changes: number;
   };
+  signalDistribution?: Record<string, number>;
+  dayOverDay?: {
+    eventsDelta: number;
+    runsDelta: number;
+    trend: "up" | "down" | "flat";
+  };
 };
 
 export async function getThemeDailyActivity(
@@ -1497,6 +1726,27 @@ export async function getThemeDailyActivity(
       });
     }
 
+    // Signal distribution (Task 10)
+    const signalDistribution: Record<string, number> = {};
+    for (const day of dayList) {
+      for (const [signal, count] of Object.entries(day.signals)) {
+        signalDistribution[signal] = (signalDistribution[signal] ?? 0) + count;
+      }
+    }
+
+    // Day-over-day comparison
+    let dayOverDay: ThemeDailyActivity["dayOverDay"];
+    if (dayList.length >= 2) {
+      const today = dayList[dayList.length - 1];
+      const yesterday = dayList[dayList.length - 2];
+      const eventsDelta = today.eventCount - yesterday.eventCount;
+      dayOverDay = {
+        eventsDelta,
+        runsDelta: today.runCount - yesterday.runCount,
+        trend: eventsDelta > 0 ? "up" : eventsDelta < 0 ? "down" : "flat",
+      };
+    }
+
     return {
       themeId,
       days: dayList,
@@ -1505,6 +1755,8 @@ export async function getThemeDailyActivity(
         runs: 1,
         changes: themeEvents.length > 0 ? 1 : 0,
       },
+      signalDistribution: Object.keys(signalDistribution).length > 0 ? signalDistribution : undefined,
+      dayOverDay,
     };
   }
 
@@ -1564,6 +1816,28 @@ export async function getThemeDailyActivity(
 
   const dayList = Array.from(dayMap.values());
 
+  // Signal distribution across all days (Task 10)
+  const signalDistribution: Record<string, number> = {};
+  for (const day of dayList) {
+    for (const [signal, count] of Object.entries(day.signals)) {
+      signalDistribution[signal] = (signalDistribution[signal] ?? 0) + count;
+    }
+  }
+
+  // Day-over-day comparison: compare last 2 days (Task 10)
+  let dayOverDay: ThemeDailyActivity["dayOverDay"];
+  if (dayList.length >= 2) {
+    const today = dayList[dayList.length - 1];
+    const yesterday = dayList[dayList.length - 2];
+    const eventsDelta = today.eventCount - yesterday.eventCount;
+    const runsDelta = today.runCount - yesterday.runCount;
+    dayOverDay = {
+      eventsDelta,
+      runsDelta,
+      trend: eventsDelta > 0 ? "up" : eventsDelta < 0 ? "down" : "flat",
+    };
+  }
+
   return {
     themeId,
     days: dayList,
@@ -1572,6 +1846,8 @@ export async function getThemeDailyActivity(
       runs: runs.length,
       changes: changes.length,
     },
+    signalDistribution: Object.keys(signalDistribution).length > 0 ? signalDistribution : undefined,
+    dayOverDay,
   };
 }
 
@@ -1712,5 +1988,174 @@ export async function updateThemeReviewNote(
     status: input.status,
     tags: input.tags,
     nextReviewDate: input.nextReviewDate,
+  };
+}
+
+// ─── Price Comparison (Task 4) ───────────────────────────────────────────────
+
+export type PriceComparisonItem = {
+  spec: string;
+  sources: Array<{
+    sourceId: string;
+    sourceName: string;
+    price: number;
+    currency: string;
+    occurredAt: string;
+    isOutlier: boolean;
+    outlierReason: string | null;
+  }>;
+  lowest: { price: number; sourceName: string } | null;
+  latest: { price: number; sourceName: string } | null;
+  priceGap: number | null; // percentage difference between lowest and highest
+  hasSuspiciousOutlier: boolean;
+};
+
+export type PriceComparisonResult = {
+  themeId: string;
+  themeName: string;
+  items: PriceComparisonItem[];
+  summary: {
+    totalSpecs: number;
+    specsWithMultipleSources: number;
+    outlierCount: number;
+  };
+};
+
+export async function getPriceComparison(themeId: string): Promise<PriceComparisonResult | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    // Mock mode: build comparison from mock records
+    const theme = mockThemes.find((t) => t.id === themeId);
+    if (!theme || theme.type !== "price") return null;
+
+    const themeRecords = mockEvents
+      .filter((e) => e.themeId === themeId)
+      .map((e) => ({
+        sourceId: "mock-source",
+        sourceName: "Mock Source",
+        content: e.context ?? {},
+        occurredAt: e.occurredAt,
+      }));
+
+    return buildPriceComparison(themeId, theme.name, themeRecords);
+  }
+
+  // DB mode
+  const theme = await db
+    .selectFrom("themes")
+    .select(["id", "name", "info_type"])
+    .where("id", "=", themeId)
+    .executeTakeFirst();
+
+  if (!theme || theme.info_type !== "price") return null;
+
+  const records = await db
+    .selectFrom("normalized_records as nr")
+    .innerJoin("sources as s", "s.id", "nr.source_id")
+    .select([
+      "nr.source_id as sourceId",
+      "s.name as sourceName",
+      "nr.content",
+      "nr.occurred_at as occurredAt",
+    ])
+    .where("nr.theme_id", "=", themeId)
+    .orderBy("nr.occurred_at desc")
+    .limit(200)
+    .execute();
+
+  const mapped = records.map((r) => ({
+    sourceId: r.sourceId,
+    sourceName: r.sourceName,
+    content: r.content as Record<string, unknown>,
+    occurredAt: r.occurredAt instanceof Date ? r.occurredAt.toISOString() : String(r.occurredAt),
+  }));
+
+  return buildPriceComparison(themeId, theme.name, mapped);
+}
+
+function buildPriceComparison(
+  themeId: string,
+  themeName: string,
+  records: Array<{
+    sourceId: string;
+    sourceName: string;
+    content: Record<string, unknown>;
+    occurredAt: string;
+  }>,
+): PriceComparisonResult {
+  // Group by spec
+  const specMap = new Map<
+    string,
+    Array<{
+      sourceId: string;
+      sourceName: string;
+      price: number;
+      currency: string;
+      occurredAt: string;
+      isOutlier: boolean;
+      outlierReason: string | null;
+    }>
+  >();
+
+  for (const record of records) {
+    const spec = String(record.content.spec || "default");
+    const price = Number(record.content.price);
+    if (!Number.isFinite(price) || price <= 0) continue;
+
+    if (!specMap.has(spec)) specMap.set(spec, []);
+    specMap.get(spec)!.push({
+      sourceId: record.sourceId,
+      sourceName: record.sourceName,
+      price,
+      currency: String(record.content.currency || "CNY"),
+      occurredAt: record.occurredAt,
+      isOutlier: Boolean(record.content.is_outlier),
+      outlierReason: record.content.outlier_reason ? String(record.content.outlier_reason) : null,
+    });
+  }
+
+  const items: PriceComparisonItem[] = [];
+
+  for (const [spec, sources] of specMap) {
+    // Deduplicate by source, keep latest
+    const latestBySource = new Map<string, (typeof sources)[0]>();
+    for (const src of sources) {
+      const existing = latestBySource.get(src.sourceId);
+      if (!existing || src.occurredAt > existing.occurredAt) {
+        latestBySource.set(src.sourceId, src);
+      }
+    }
+
+    const uniqueSources = Array.from(latestBySource.values());
+    const prices = uniqueSources.map((s) => s.price);
+    const lowestPrice = Math.min(...prices);
+    const highestPrice = Math.max(...prices);
+    // Cap priceGap at 10000% to avoid displaying misleading numbers for placeholder/test listings
+    const rawGap = lowestPrice > 0 ? ((highestPrice - lowestPrice) / lowestPrice) * 100 : null;
+    const priceGap = rawGap !== null ? Math.min(rawGap, 10000) : null;
+
+    const lowest = uniqueSources.find((s) => s.price === lowestPrice) ?? null;
+    const latest = uniqueSources.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0] ?? null;
+
+    items.push({
+      spec,
+      sources: uniqueSources,
+      lowest: lowest ? { price: lowest.price, sourceName: lowest.sourceName } : null,
+      latest: latest ? { price: latest.price, sourceName: latest.sourceName } : null,
+      priceGap,
+      hasSuspiciousOutlier: uniqueSources.some((s) => s.isOutlier),
+    });
+  }
+
+  return {
+    themeId,
+    themeName,
+    items,
+    summary: {
+      totalSpecs: items.length,
+      specsWithMultipleSources: items.filter((i) => i.sources.length > 1).length,
+      outlierCount: items.filter((i) => i.hasSuspiciousOutlier).length,
+    },
   };
 }

@@ -5,7 +5,7 @@
         <span aria-hidden="true">‹</span>
       </button>
       <nav class="breadcrumb" aria-label="面包屑">
-        <RouterLink to="/">收件箱</RouterLink>
+        <RouterLink :to="actionsPath">动作工作台</RouterLink>
         <span class="breadcrumb-divider">/</span>
         <span>事件详情</span>
       </nav>
@@ -16,9 +16,18 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
 defineProps<{
   title: string;
   summary: string;
   handleBack: () => void;
 }>();
+
+const route = useRoute();
+const actionsPath = computed(() => {
+  const workspaceId = route.params.workspaceId;
+  return typeof workspaceId === "string" ? `/workspace/${workspaceId}/actions` : "/";
+});
 </script>

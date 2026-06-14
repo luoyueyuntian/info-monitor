@@ -102,7 +102,8 @@ function handleBack() {
     return;
   }
 
-  void router.push("/");
+  const workspaceId = route.params.workspaceId;
+  void router.push(typeof workspaceId === "string" ? `/workspace/${workspaceId}/actions` : "/");
 }
 
 const detailRows = computed(() => {

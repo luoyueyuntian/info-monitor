@@ -68,13 +68,17 @@
       :config="detail.source.config"
     />
 
+    <SourceConfigHistoryCard :source-id="detail.source.id" :current-config="detail.source.config" @config-rolled-back="loadSourceDetail(detail.source.id)" />
+
     <SourceDetailTestRunCard
       :source-id="detail.source.id"
       :onboarding-status="detail.source.onboardingStatus"
       @test-completed="handleTestCompleted"
     />
 
-    <SourceDetailSnapshotsCard :snapshots="detail.snapshots" />
+    <SourceDetailSnapshotsCard :snapshots="detail.snapshots" :replaying-snapshot-id="replayingSnapshotId" @replay="handleReplay" />
+
+    <SourceReplayComparisonCard :comparison="replayComparison" />
 
     <div class="grid two">
       <SourceDetailRunsCard
@@ -97,6 +101,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import SourceDetailAnalysisCard from "./SourceDetailAnalysisCard.vue";
+import SourceConfigHistoryCard from "./SourceConfigHistoryCard.vue";
 import SourceDetailConfigCard from "./SourceDetailConfigCard.vue";
 import SourceDetailChangesCard from "./SourceDetailChangesCard.vue";
 import SourceDetailEventsCard from "./SourceDetailEventsCard.vue";
@@ -108,8 +113,9 @@ import SourceDetailRunsCard from "./SourceDetailRunsCard.vue";
 import SourceDetailSnapshotsCard from "./SourceDetailSnapshotsCard.vue";
 import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
 import SourceDetailTestRunCard from "./SourceDetailTestRunCard.vue";
+import SourceReplayComparisonCard from "./SourceReplayComparisonCard.vue";
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
-import { fetchSourceDetail, fetchSourceHealthExplanation, retrySourceAfterFailure, triggerSourceRun, type SourceDetail, type SourceHealthExplanation } from "../../../../lib/api";
+import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, triggerSourceRun, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
 import {
   eventSignalLabel,
@@ -124,10 +130,18 @@ const router = useRouter();
 const detail = ref<SourceDetail | null>(null);
 const healthExplanation = ref<SourceHealthExplanation | null>(null);
 const rerunningRunId = ref<string | null>(null);
+const replayingSnapshotId = ref<string | null>(null);
+const replayComparison = ref<SourceReplayComparison | null>(null);
 
 function handleBack() {
   if (window.history.length > 1) {
     router.back();
+    return;
+  }
+
+  const workspaceId = route.params.workspaceId;
+  if (typeof workspaceId === "string") {
+    void router.push(`/workspace/${workspaceId}/sources`);
     return;
   }
 
@@ -163,6 +177,37 @@ async function handleRetry(runId: string) {
   }
 }
 
+async function handleReplay(snapshotId: string) {
+  if (!detail.value) return;
+  replayingSnapshotId.value = snapshotId;
+  replayComparison.value = null;
+  try {
+    const result = await triggerSourceReplay(detail.value.source.id, snapshotId);
+    // Poll for completion instead of fixed wait
+    const runId = result.runId;
+    const maxAttempts = 15;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!detail.value) break;
+      await loadSourceDetail(detail.value.source.id);
+      // Check if run completed
+      const run = detail.value.runs.find((r) => r.id === runId);
+      if (run && (run.status === "completed" || run.status === "failed")) {
+        // Load comparison for the replay run
+        try {
+          replayComparison.value = await fetchSourceReplayComparison(detail.value.source.id, runId);
+        } catch {
+          // Comparison is optional
+        }
+        break;
+      }
+    }
+    replayingSnapshotId.value = null;
+  } catch {
+    replayingSnapshotId.value = null;
+  }
+}
+
 function toTimestamp(value?: string | null) {
   if (!value) {
     return 0;
@@ -172,9 +217,9 @@ function toTimestamp(value?: string | null) {
   return Number.isNaN(time) ? 0 : time;
 }
 
-// Production runs only (exclude test runs) for health metrics
+// Production runs only (exclude test and replay runs) for health metrics
 const productionRuns = computed(
-  () => detail.value?.runs.filter((run) => run.triggerType !== "test") ?? [],
+  () => detail.value?.runs.filter((run) => run.triggerType !== "test" && run.triggerType !== "replay") ?? [],
 );
 
 const runCompletedCount = computed(

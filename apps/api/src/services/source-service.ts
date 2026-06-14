@@ -1,9 +1,19 @@
 import { getDatabase } from "../db/client.js";
+import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
 
 // Mock config store for sources created in mock mode
 const mockSourceConfigs = new Map<string, Record<string, unknown>>();
+
+// In-memory config history for mock mode
+const mockConfigHistory: Array<{
+  id: string;
+  sourceId: string;
+  config: Record<string, unknown>;
+  version: number;
+  createdAt: string;
+}> = [];
 
 type SourceInput = {
   themeId: string;
@@ -125,7 +135,9 @@ export async function listSourceStatuses() {
     return mockSources;
   }
 
-  const rows = await db
+  const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
+
+  const baseQuery = db
     .selectFrom("sources as s")
     .innerJoin("themes as t", "t.id", "s.theme_id")
     .select([
@@ -138,12 +150,14 @@ export async function listSourceStatuses() {
       "s.source_type as sourceType",
       "s.adapter_key as adapterKey",
       "s.is_paused as isPaused",
-      "s.onboarding_status as onboardingStatus",
       "s.latest_success_at as latestSuccessAt",
       "s.latest_failure_at as latestFailureAt",
     ])
-    .orderBy("s.created_at desc")
-    .execute();
+    .orderBy("s.created_at desc");
+
+  const rows = hasOnboardingStatusColumn
+    ? await baseQuery.select("s.onboarding_status as onboardingStatus").execute()
+    : await baseQuery.execute();
 
   const latestEvents = await Promise.all(
     rows.map(async (row) => {
@@ -168,7 +182,7 @@ export async function listSourceStatuses() {
         .selectFrom("source_runs")
         .select(["status", "finished_at as finishedAt", "started_at as startedAt", "error_message as errorMessage"])
         .where("source_id", "=", row.id)
-        .where("trigger_type", "!=", "test")
+        .where("trigger_type", "not in", ["test", "replay"])
         .orderBy("created_at desc")
         .limit(1)
         .executeTakeFirst();
@@ -191,6 +205,9 @@ export async function listSourceStatuses() {
 
     return {
       ...row,
+      onboardingStatus:
+        ("onboardingStatus" in row ? row.onboardingStatus : undefined) ??
+        (row.isPaused ? "draft" : "active"),
       latestEventSignal: latestEvent?.latestEventSignal ?? null,
       latestSuccessAt: row.latestSuccessAt?.toISOString?.() ?? null,
       latestFailureAt: row.latestFailureAt?.toISOString?.() ?? null,
@@ -272,8 +289,9 @@ export async function getSourceDetail(sourceId: string) {
       analysis: buildSourceAnalysis({ source, runs, events }),
     };
   }
+  const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
 
-  const source = await db
+  const baseSourceQuery = db
     .selectFrom("sources as s")
     .innerJoin("themes as t", "t.id", "s.theme_id")
     .select([
@@ -287,12 +305,14 @@ export async function getSourceDetail(sourceId: string) {
       "s.adapter_key as adapterKey",
       "s.config as config",
       "s.is_paused as isPaused",
-      "s.onboarding_status as onboardingStatus",
       "s.latest_success_at as latestSuccessAt",
       "s.latest_failure_at as latestFailureAt",
     ])
-    .where("s.id", "=", sourceId)
-    .executeTakeFirst();
+    .where("s.id", "=", sourceId);
+
+  const source = hasOnboardingStatusColumn
+    ? await baseSourceQuery.select("s.onboarding_status as onboardingStatus").executeTakeFirst()
+    : await baseSourceQuery.executeTakeFirst();
 
   if (!source) {
     return null;
@@ -305,6 +325,7 @@ export async function getSourceDetail(sourceId: string) {
       "id",
       "status",
       "trigger_type as triggerType",
+      "config_version as configVersion",
       "started_at as startedAt",
       "finished_at as finishedAt",
       "error_message as errorMessage",
@@ -314,12 +335,12 @@ export async function getSourceDetail(sourceId: string) {
     .limit(10)
     .execute();
 
-  // Latest production run for source-level health fields
+  // Latest production run for source-level health fields (exclude test and replay)
   const latestProdRun = await db
     .selectFrom("source_runs")
     .select(["status", "finished_at as finishedAt", "started_at as startedAt", "error_message as errorMessage"])
     .where("source_id", "=", sourceId)
-    .where("trigger_type", "!=", "test")
+    .where("trigger_type", "not in", ["test", "replay"])
     .orderBy("created_at desc")
     .limit(1)
     .executeTakeFirst();
@@ -420,6 +441,9 @@ export async function getSourceDetail(sourceId: string) {
 
   const normalizedSource = {
     ...source,
+    onboardingStatus:
+      ("onboardingStatus" in source ? source.onboardingStatus : undefined) ??
+      (source.isPaused ? "draft" : "active"),
     latestEventSignal: latestThemeEvent?.signal ?? null,
     latestSuccessAt: source.latestSuccessAt?.toISOString?.() ?? null,
     latestFailureAt: source.latestFailureAt?.toISOString?.() ?? null,
@@ -739,25 +763,51 @@ export async function createSource(input: SourceInput) {
   }
 
   const id = createId("source");
+  const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
+  const values: Record<string, unknown> = {
+    id,
+    theme_id: input.themeId,
+    name: input.name,
+    source_type: input.sourceType,
+    adapter_key: input.adapterKey,
+    status: onboardingStatus === "active" ? "active" : "paused",
+    is_paused: onboardingStatus !== "active",
+    config: input.config ?? {},
+    created_at: now,
+    updated_at: now,
+  };
+
+  if (hasOnboardingStatusColumn) {
+    values.onboarding_status = onboardingStatus;
+  }
 
   await db
     .insertInto("sources")
-    .values({
-      id,
-      theme_id: input.themeId,
-      name: input.name,
-      source_type: input.sourceType,
-      adapter_key: input.adapterKey,
-      status: onboardingStatus === "active" ? "active" : "paused",
-      is_paused: onboardingStatus !== "active",
-      onboarding_status: onboardingStatus,
-      config: input.config ?? {},
-      created_at: now,
-      updated_at: now,
-    })
+    .values(values as never)
     .execute();
 
   return { id, onboardingStatus };
+}
+
+/**
+ * Get the current config version number for a source.
+ * The config history stores PAST configs (version 1..N).
+ * The active config is always version N+1 (or 1 if no history exists).
+ * This ensures runs are stamped with the version that was active when they were created.
+ */
+async function getCurrentConfigVersion(db: NonNullable<ReturnType<typeof getDatabase>>, sourceId: string): Promise<number> {
+  try {
+    const lastVersion = await db
+      .selectFrom("source_config_history" as any)
+      .select("version")
+      .where("source_id", "=", sourceId)
+      .orderBy("version", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    return (lastVersion?.version ?? 0) + 1;
+  } catch {
+    return 1;
+  }
 }
 
 export async function enqueueManualSourceRun(sourceId: string) {
@@ -777,6 +827,8 @@ export async function enqueueManualSourceRun(sourceId: string) {
     return null;
   }
 
+  const configVersion = await getCurrentConfigVersion(db, sourceId);
+
   await db
     .insertInto("source_runs")
     .values({
@@ -785,6 +837,7 @@ export async function enqueueManualSourceRun(sourceId: string) {
       theme_id: source.theme_id,
       trigger_type: "manual",
       status: "pending",
+      config_version: configVersion ?? null,
       created_at: new Date().toISOString(),
     })
     .execute();
@@ -832,6 +885,7 @@ export async function retrySourceAfterFailure(sourceId: string, failedRunId: str
   }
 
   const newRunId = createId("run");
+  const configVersion = await getCurrentConfigVersion(db, sourceId);
 
   await db
     .insertInto("source_runs")
@@ -841,6 +895,7 @@ export async function retrySourceAfterFailure(sourceId: string, failedRunId: str
       theme_id: source.theme_id,
       trigger_type: "manual",
       status: "pending",
+      config_version: configVersion ?? null,
       created_at: new Date().toISOString(),
     })
     .execute();
@@ -877,6 +932,7 @@ export async function enqueueTestSourceRun(sourceId: string) {
   }
 
   const runId = createId("run");
+  const configVersion = await getCurrentConfigVersion(db, sourceId);
 
   await db
     .insertInto("source_runs")
@@ -886,11 +942,169 @@ export async function enqueueTestSourceRun(sourceId: string) {
       theme_id: source.theme_id,
       trigger_type: "test",
       status: "pending",
+      config_version: configVersion ?? null,
       created_at: new Date().toISOString(),
     })
     .execute();
 
   return { queued: true, mode: "db", triggerType: "test", runId };
+}
+
+/**
+ * Enqueue a replay run that re-processes a stored snapshot without live fetch.
+ * The worker reads the snapshot payload and re-runs normalize/detect/event.
+ */
+export async function enqueueReplaySourceRun(sourceId: string, snapshotId: string) {
+  const db = getDatabase();
+
+  if (!db) {
+    return { queued: true, mode: "mock", triggerType: "replay", runId: `replay-${sourceId}-mock`, snapshotId };
+  }
+
+  const source = await db
+    .selectFrom("sources")
+    .select(["id", "theme_id"])
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!source) {
+    return null;
+  }
+
+  // Verify the snapshot exists and belongs to this source
+  const snapshot = await db
+    .selectFrom("raw_snapshots")
+    .select(["id"])
+    .where("id", "=", snapshotId)
+    .where("source_id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!snapshot) {
+    return { rejected: true, reason: "Snapshot not found for this source" };
+  }
+
+  const runId = createId("run");
+  const configVersion = await getCurrentConfigVersion(db, sourceId);
+
+  await db
+    .insertInto("source_runs")
+    .values({
+      id: runId,
+      source_id: source.id,
+      theme_id: source.theme_id,
+      trigger_type: "replay",
+      status: "pending",
+      replay_snapshot_id: snapshotId,
+      config_version: configVersion ?? null,
+      created_at: new Date().toISOString(),
+    })
+    .execute();
+
+  return { queued: true, mode: "db", triggerType: "replay", runId, snapshotId };
+}
+
+export type SourceReplayComparison = {
+  replayRunId: string;
+  status: string;
+  originalRunId: string | null;
+  replay: { recordCount: number; changeCount: number; eventCount: number };
+  original: { recordCount: number; changeCount: number; eventCount: number };
+  deltas: { recordDelta: number; changeDelta: number; eventDelta: number };
+  failureLayer: string | null;
+};
+
+/**
+ * Compare a replay run's results against the original run that produced the snapshot.
+ */
+export async function getSourceReplayComparison(sourceId: string, replayRunId: string): Promise<SourceReplayComparison | null> {
+  const db = getDatabase();
+
+  if (!db) {
+    return {
+      replayRunId,
+      status: "completed",
+      originalRunId: null,
+      replay: { recordCount: 2, changeCount: 1, eventCount: 0 },
+      original: { recordCount: 2, changeCount: 1, eventCount: 0 },
+      deltas: { recordDelta: 0, changeDelta: 0, eventDelta: 0 },
+      failureLayer: null,
+    };
+  }
+
+  // Get the replay run and its snapshot
+  const replayRun = await db
+    .selectFrom("source_runs")
+    .select(["id", "status", "replay_snapshot_id", "error_message"])
+    .where("id", "=", replayRunId)
+    .where("source_id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (!replayRun) return null;
+
+  // Get the original run that produced the snapshot
+  let originalRunId: string | null = null;
+  if (replayRun.replay_snapshot_id) {
+    const snapshot = await db
+      .selectFrom("raw_snapshots")
+      .select(["source_run_id"])
+      .where("id", "=", replayRun.replay_snapshot_id)
+      .executeTakeFirst();
+    originalRunId = snapshot?.source_run_id ?? null;
+  }
+
+  // Count replay results
+  const [replayRecords, replayChanges, replayEvents] = await Promise.all([
+    db.selectFrom("normalized_records").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", replayRunId).executeTakeFirst(),
+    db.selectFrom("changes").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", replayRunId).executeTakeFirst(),
+    db.selectFrom("events").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", replayRunId).executeTakeFirst(),
+  ]);
+
+  const replay = {
+    recordCount: Number(replayRecords?.count ?? 0),
+    changeCount: Number(replayChanges?.count ?? 0),
+    eventCount: Number(replayEvents?.count ?? 0),
+  };
+
+  // Count original results
+  let original = { recordCount: 0, changeCount: 0, eventCount: 0 };
+  if (originalRunId) {
+    const [origRecords, origChanges, origEvents] = await Promise.all([
+      db.selectFrom("normalized_records").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", originalRunId).executeTakeFirst(),
+      db.selectFrom("changes").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", originalRunId).executeTakeFirst(),
+      db.selectFrom("events").select(({ fn }) => fn.count("id").as("count")).where("source_run_id", "=", originalRunId).executeTakeFirst(),
+    ]);
+    original = {
+      recordCount: Number(origRecords?.count ?? 0),
+      changeCount: Number(origChanges?.count ?? 0),
+      eventCount: Number(origEvents?.count ?? 0),
+    };
+  }
+
+  // Identify failure layer
+  let failureLayer: string | null = null;
+  if (replayRun.status === "failed") {
+    if (replay.recordCount === 0 && replay.changeCount === 0) {
+      failureLayer = "normalize";
+    } else if (replay.changeCount === 0 && replay.recordCount > 0) {
+      failureLayer = "detect";
+    } else if (replay.eventCount === 0 && replay.changeCount > 0) {
+      failureLayer = "rule";
+    }
+  }
+
+  return {
+    replayRunId,
+    status: replayRun.status,
+    originalRunId,
+    replay,
+    original,
+    deltas: {
+      recordDelta: replay.recordCount - original.recordCount,
+      changeDelta: replay.changeCount - original.changeCount,
+      eventDelta: replay.eventCount - original.eventCount,
+    },
+    failureLayer,
+  };
 }
 
 export type SourceTestRunPreview = {
@@ -1142,6 +1356,16 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
     }
 
     if (input.config !== undefined) {
+      // Save current config to history before overwriting
+      const currentConfig = mockSourceConfigs.get(sourceId) ?? {};
+      const version = mockConfigHistory.filter((h) => h.sourceId === sourceId).length + 1;
+      mockConfigHistory.push({
+        id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        sourceId,
+        config: { ...currentConfig },
+        version,
+        createdAt: new Date().toISOString(),
+      });
       mockSourceConfigs.set(sourceId, input.config);
     }
 
@@ -1187,6 +1411,50 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
   }
 
   if (input.config !== undefined) {
+    // Save current config to history before overwriting
+    const currentConfigRow = await db
+      .selectFrom("sources")
+      .select("config")
+      .where("id", "=", sourceId)
+      .executeTakeFirst();
+
+    if (currentConfigRow) {
+      const currentConfig = typeof currentConfigRow.config === "string"
+        ? JSON.parse(currentConfigRow.config)
+        : currentConfigRow.config ?? {};
+
+      try {
+        // Get next version number
+        const lastVersion = await db
+          .selectFrom("source_config_history" as any)
+          .select("version")
+          .where("source_id", "=", sourceId)
+          .orderBy("version", "desc")
+          .limit(1)
+          .executeTakeFirst();
+
+        const nextVersion = (lastVersion?.version ?? 0) + 1;
+
+        await db
+          .insertInto("source_config_history" as any)
+          .values({
+            id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            source_id: sourceId,
+            config: currentConfig, // Pass object directly — Kysely handles jsonb serialization
+            version: nextVersion,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+      } catch (error: unknown) {
+        // Table may not exist yet during migration - log but don't fail the source update
+        if (error instanceof Error && error.message.includes("does not exist")) {
+          // Expected during migration - silently skip
+        } else {
+          console.error("Failed to save config history:", error);
+        }
+      }
+    }
+
     nextValues.config = input.config;
   }
 
@@ -1194,8 +1462,9 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
     nextValues.is_paused = input.isPaused;
   }
 
+  const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
+
   if (input.onboardingStatus !== undefined) {
-    nextValues.onboarding_status = input.onboardingStatus;
     // Sync status and is_paused to match onboardingStatus
     if (input.onboardingStatus === "active") {
       nextValues.status = "active";
@@ -1203,6 +1472,10 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
     } else {
       nextValues.status = "paused";
       nextValues.is_paused = true;
+    }
+
+    if (hasOnboardingStatusColumn) {
+      nextValues.onboarding_status = input.onboardingStatus;
     }
   }
 
@@ -1213,16 +1486,24 @@ export async function updateSource(sourceId: string, input: SourceUpdateInput) {
     .execute();
 
   // Read back actual values from DB for accurate return
-  const updated = await db
+  const updatedBaseQuery = db
     .selectFrom("sources")
-    .select(["is_paused as isPaused", "onboarding_status as onboardingStatus"])
-    .where("id", "=", sourceId)
-    .executeTakeFirst();
+    .select("is_paused as isPaused")
+    .where("id", "=", sourceId);
+
+  const updated = hasOnboardingStatusColumn
+    ? await updatedBaseQuery.select("onboarding_status as onboardingStatus").executeTakeFirst()
+    : await updatedBaseQuery.executeTakeFirst();
+  const updatedOnboardingStatus = hasOnboardingStatusColumn
+    ? (updated as { onboardingStatus?: "draft" | "ready_to_test" | "active" } | undefined)?.onboardingStatus
+    : undefined;
 
   return {
     id: sourceId,
     isPaused: updated?.isPaused ?? false,
-    onboardingStatus: (updated?.onboardingStatus as "draft" | "ready_to_test" | "active") ?? "active",
+    onboardingStatus:
+      updatedOnboardingStatus ??
+      ((updated?.isPaused ?? false) ? "draft" : "active"),
     mode: "db",
   };
 }
@@ -1267,4 +1548,112 @@ export async function deleteSource(sourceId: string) {
     .execute();
 
   return { id: sourceId };
+}
+
+// ─── Config History ────────────────────────────────────────────────────────
+
+export type SourceConfigVersion = {
+  id: string;
+  sourceId: string;
+  config: Record<string, unknown>;
+  version: number;
+  createdAt: string;
+};
+
+export async function getSourceConfigHistory(sourceId: string): Promise<SourceConfigVersion[]> {
+  const db = getDatabase();
+
+  if (!db) {
+    return mockConfigHistory
+      .filter((h) => h.sourceId === sourceId)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  const rows = await db
+    .selectFrom("source_config_history" as any)
+    .select(["id", "source_id", "config", "version", "created_at"])
+    .where("source_id", "=", sourceId)
+    .orderBy("version", "desc")
+    .execute();
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    sourceId: row.source_id,
+    config: typeof row.config === "string" ? JSON.parse(row.config) : row.config,
+    version: row.version,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }));
+}
+
+export async function rollbackSourceConfig(sourceId: string, version: number): Promise<boolean> {
+  const db = getDatabase();
+
+  if (!db) {
+    const history = mockConfigHistory.find((h) => h.sourceId === sourceId && h.version === version);
+    if (!history) return false;
+
+    // Save current config to history before rolling back (matches DB mode behavior)
+    const currentConfig = mockSourceConfigs.get(sourceId) ?? {};
+    const maxVersion = mockConfigHistory
+      .filter((h) => h.sourceId === sourceId)
+      .reduce((max, h) => Math.max(max, h.version), 0);
+    mockConfigHistory.push({
+      id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      sourceId,
+      config: { ...currentConfig },
+      version: maxVersion + 1,
+      createdAt: new Date().toISOString(),
+    });
+
+    mockSourceConfigs.set(sourceId, { ...history.config });
+    return true;
+  }
+
+  const row = await db
+    .selectFrom("source_config_history" as any)
+    .select("config")
+    .where("source_id", "=", sourceId)
+    .where("version", "=", version)
+    .executeTakeFirst();
+
+  if (!row) return false;
+
+  const config = typeof row.config === "string" ? JSON.parse(row.config) : row.config;
+
+  // Save current config as a new version before rolling back
+  const current = await db
+    .selectFrom("sources")
+    .select("config")
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+
+  if (current) {
+    const currentConfig = typeof current.config === "string" ? JSON.parse(current.config) : current.config ?? {};
+    const lastVersion = await db
+      .selectFrom("source_config_history" as any)
+      .select("version")
+      .where("source_id", "=", sourceId)
+      .orderBy("version", "desc")
+      .limit(1)
+      .executeTakeFirst();
+
+    await db
+      .insertInto("source_config_history" as any)
+      .values({
+        id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        source_id: sourceId,
+        config: currentConfig, // Pass object directly — Kysely handles jsonb serialization
+        version: (lastVersion?.version ?? 0) + 1,
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+  }
+
+  await db
+    .updateTable("sources")
+    .set({ config, updated_at: new Date().toISOString() }) // Pass object directly — Kysely handles jsonb serialization
+    .where("id", "=", sourceId)
+    .execute();
+
+  return true;
 }

@@ -1,7 +1,26 @@
 # Production Dockerfile for Info Monitor
-# Assumes frontend is pre-built locally
+# Frontend is built during image build in a dedicated builder stage.
 
-FROM node:18-alpine
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Install dependencies with workspace metadata first for better layer caching.
+COPY package.json package-lock.json ./
+COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared-contracts/package.json ./packages/shared-contracts/
+
+RUN npm ci
+
+# Copy only the files needed to build the frontend.
+COPY apps/frontend ./apps/frontend
+COPY packages/shared-contracts ./packages/shared-contracts
+
+RUN npm run build --workspace @info-monitor/frontend
+
+
+FROM node:22-alpine
 
 # Install Python, curl, and build dependencies
 RUN apk add --no-cache python3 py3-pip curl gcc python3-dev musl-dev
@@ -23,8 +42,8 @@ COPY apps/api/src ./apps/api/src
 COPY packages/shared-contracts/src ./packages/shared-contracts/src
 COPY packages/shared-contracts/package.json ./packages/shared-contracts/
 
-# Copy pre-built frontend
-COPY apps/frontend/dist ./apps/frontend/dist
+# Copy frontend dist from the builder stage
+COPY --from=frontend-builder /app/apps/frontend/dist ./apps/frontend/dist
 
 # Copy Python worker
 COPY apps/python-worker/src ./apps/python-worker/src

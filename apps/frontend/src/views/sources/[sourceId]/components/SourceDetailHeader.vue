@@ -5,7 +5,7 @@
         <span aria-hidden="true">‹</span>
       </button>
       <nav class="breadcrumb" aria-label="面包屑">
-        <RouterLink :to="{ path: '/sources/status', query: { themeId } }">来源状态</RouterLink>
+        <RouterLink :to="sourcesPath">来源状态</RouterLink>
         <span class="breadcrumb-divider">/</span>
         <span>{{ sourceName }}</span>
       </nav>
@@ -22,10 +22,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
 import type { SourceOnboardingStatus } from "@info-monitor/shared-contracts";
 import { sourceTypeLabel } from "../../../../lib/presentation";
 
-defineProps<{
+const props = defineProps<{
   sourceName: string;
   themeId: string;
   themeName: string;
@@ -42,4 +45,12 @@ function onboardingStatusLabel(status: SourceOnboardingStatus): string {
     default: return "";
   }
 }
+
+const route = useRoute();
+const sourcesPath = computed(() => {
+  const workspaceId = route.params.workspaceId;
+  return typeof workspaceId === "string"
+    ? { path: `/workspace/${workspaceId}/sources` }
+    : { path: "/sources/status", query: { themeId: props.themeId } };
+});
 </script>

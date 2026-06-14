@@ -5,7 +5,7 @@
         <span aria-hidden="true">‹</span>
       </button>
       <nav class="breadcrumb" aria-label="面包屑">
-        <RouterLink to="/themes">主题中心</RouterLink>
+        <RouterLink :to="topicsPath">主题中心</RouterLink>
         <span class="breadcrumb-divider">/</span>
         <span>{{ themeName }}</span>
       </nav>
@@ -19,6 +19,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
 import { themeTypeLabel } from "../../../../lib/presentation";
 
 defineProps<{
@@ -28,4 +31,10 @@ defineProps<{
   eventCount: number;
   onBack: () => void;
 }>();
+
+const route = useRoute();
+const topicsPath = computed(() => {
+  const workspaceId = route.params.workspaceId;
+  return typeof workspaceId === "string" ? `/workspace/${workspaceId}/topics` : "/themes";
+});
 </script>

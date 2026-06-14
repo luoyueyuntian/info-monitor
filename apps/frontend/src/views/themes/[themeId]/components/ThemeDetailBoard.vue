@@ -270,7 +270,8 @@ function handleBack() {
     return;
   }
 
-  void router.push("/themes");
+  const workspaceId = route.params.workspaceId;
+  void router.push(typeof workspaceId === "string" ? `/workspace/${workspaceId}/topics` : "/themes");
 }
 
 function toggleEditThemeForm() {
@@ -690,7 +691,8 @@ async function handleDeleteTheme() {
 
   try {
     await deleteTheme(detail.value.theme.id);
-    await router.push("/themes");
+    const workspaceId = route.params.workspaceId;
+    await router.push(typeof workspaceId === "string" ? `/workspace/${workspaceId}/topics` : "/themes");
   } finally {
     deletingTheme.value = false;
   }
