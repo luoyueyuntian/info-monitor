@@ -74,6 +74,13 @@
 - **来源**: 新闻列表 (`source-pbc-news-list`)
 - **事件**: 最新报告 (`event-pbc-news-latest`)
 
+### 3.7 A股与港股每日市场概览
+
+- **主题 ID**: `theme-cn-hk-market-overview`
+- **类型**: `financial_event`
+- **来源**: 东方财富中港股概览 (`source-cn-hk-market-overview`)
+- **事件**: A股偏强信号 (`event-cn-hk-market-bullish`)
+
 ## 4. 三套数据的映射关系
 
 ### 4.1 ID 映射

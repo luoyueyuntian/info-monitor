@@ -18,6 +18,8 @@ Config keys:
     display_name_field: field name for display name
     max_items: max items to process (default: 20)
     default_spec: fallback spec value
+    include_title_keywords: optional comma-separated string or list of title keywords that must match
+    exclude_title_keywords: optional comma-separated string or list of title keywords that will be excluded
     headers: optional dict of HTTP headers
 """
 
@@ -51,6 +53,32 @@ def _detect_price_outlier(price: float, prices: list[float]) -> bool:
     sorted_prices = sorted(prices)
     median = sorted_prices[len(sorted_prices) // 2]
     return price < median * 0.3
+
+
+def _normalize_keywords(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [item.strip().lower() for item in value.split(",") if item.strip()]
+
+    if isinstance(value, list):
+        return [str(item).strip().lower() for item in value if str(item).strip()]
+
+    return []
+
+
+def _matches_keyword_policy(
+    title: str,
+    include_keywords: list[str],
+    exclude_keywords: list[str],
+) -> bool:
+    normalized = title.strip().lower()
+
+    if include_keywords and not any(keyword in normalized for keyword in include_keywords):
+        return False
+
+    if exclude_keywords and any(keyword in normalized for keyword in exclude_keywords):
+        return False
+
+    return True
 
 
 class GenericPriceListAdapter(BaseAdapter):
@@ -94,6 +122,8 @@ class GenericPriceListAdapter(BaseAdapter):
                 "display_name_field": str(source.config.get("display_name_field") or ""),
                 "max_items": int(source.config.get("max_items", 20)),
                 "default_spec": str(source.config.get("default_spec") or ""),
+                "include_title_keywords": _normalize_keywords(source.config.get("include_title_keywords")),
+                "exclude_title_keywords": _normalize_keywords(source.config.get("exclude_title_keywords")),
                 "base_url": str(url),
             },
         )
@@ -113,6 +143,8 @@ class GenericPriceListAdapter(BaseAdapter):
         display_name_field = str(meta.get("display_name_field") or "")
         max_items = int(meta.get("max_items") or 20)
         default_spec = str(meta.get("default_spec") or "")
+        include_title_keywords = _normalize_keywords(meta.get("include_title_keywords"))
+        exclude_title_keywords = _normalize_keywords(meta.get("exclude_title_keywords"))
         base_url = str(meta.get("base_url") or "")
         fallback_occurred_at = now_cst()
 
@@ -167,8 +199,17 @@ class GenericPriceListAdapter(BaseAdapter):
                 continue
 
             # Build the normalized item
+            title_text = str(title).strip()
+
+            if not _matches_keyword_policy(
+                title_text,
+                include_title_keywords,
+                exclude_title_keywords,
+            ):
+                continue
+
             normalized: Dict[str, Any] = {
-                "title": str(title).strip(),
+                "title": title_text,
                 "price": price,
                 "currency": currency,
             }

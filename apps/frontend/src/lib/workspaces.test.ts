@@ -15,16 +15,21 @@ describe("workspace classification", () => {
     expect(byThemeName.get("PBOC Open Market Operations")).toBe("market-impact");
     expect(byThemeName.get("NBS CPI Releases")).toBe("market-impact");
     expect(byThemeName.get("Figma Product Updates")).toBe("competitor-watch");
-    expect(byThemeName.get("贵州茅台每日价格")).toBe("market-impact");
+    expect(byThemeName.get("贵州茅台每日价格")).toBe("stock-market");
+    expect(byThemeName.get("A股与港股每日市场概览")).toBe("stock-market");
   });
 
   it("builds scoped datasets without cross-workspace leakage", () => {
     const market = buildWorkspaceDataset("market-impact", fallbackThemes, fallbackEvents, fallbackSources);
+    const stock = buildWorkspaceDataset("stock-market", fallbackThemes, fallbackEvents, fallbackSources);
     const goods = buildWorkspaceDataset("goods-supply", fallbackThemes, fallbackEvents, fallbackSources);
     const competitor = buildWorkspaceDataset("competitor-watch", fallbackThemes, fallbackEvents, fallbackSources);
 
     expect(market.themes.map((theme) => theme.name)).toContain("PBOC Open Market Operations");
     expect(market.themes.map((theme) => theme.name)).not.toContain("Figma Product Updates");
+    expect(market.themes.map((theme) => theme.name)).not.toContain("贵州茅台每日价格");
+    expect(stock.themes.map((theme) => theme.name)).toContain("贵州茅台每日价格");
+    expect(stock.themes.map((theme) => theme.name)).toContain("A股与港股每日市场概览");
     expect(goods.themes.map((theme) => theme.name)).toContain("Surface Pro 8 16G + 512G Price");
     expect(goods.themes.map((theme) => theme.name)).not.toContain("PBOC Open Market Operations");
     expect(competitor.themes.map((theme) => theme.name)).toEqual(["Figma Product Updates"]);

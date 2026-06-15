@@ -64,9 +64,47 @@ class FinancialDirectionRule(BaseEventRule):
         title = normalized_record.title
         operation_type = normalized_record.content.get("operation_type", "")
         amount = normalized_record.content.get("amount_billion_cny")
+        market_label = normalized_record.content.get("market_label", "")
+        benchmark_name = normalized_record.content.get("benchmark_name", "")
+        benchmark_change_percent = normalized_record.content.get("benchmark_change_percent")
+        fund_flow_net_billion = normalized_record.content.get("fund_flow_net_billion")
+        fund_flow_currency = normalized_record.content.get("fund_flow_currency", "CNY")
+        explicit_signal_title = normalized_record.content.get("signal_title")
+        explicit_signal_summary = normalized_record.content.get("signal_summary")
 
         term_days = normalized_record.content.get("term_days")
         impact_level = _assess_impact_level(amount, term_days)
+
+        if label in {"bullish", "bearish"}:
+            direction_text = "偏多" if label == "bullish" else "偏空"
+            benchmark_text = (
+                f"{benchmark_name}: {benchmark_change_percent:+.2f}%"
+                if isinstance(benchmark_change_percent, (int, float))
+                else None
+            )
+            fund_flow_text = (
+                f"资金净流向: {fund_flow_net_billion:+.2f} 亿{fund_flow_currency}"
+                if isinstance(fund_flow_net_billion, (int, float))
+                else None
+            )
+            return FinancialDirectionResult(
+                triggered=True,
+                signal=label,
+                title=str(explicit_signal_title or f"{market_label or title}{direction_text}信号"),
+                summary=str(
+                    explicit_signal_summary
+                    or normalized_record.content.get("description")
+                    or f"{market_label or title}当前整体呈现{direction_text}特征。"
+                ),
+                evidence=[
+                    f"Direction reason: {direction_reason}",
+                    f"Title: {title}",
+                    f"Source: {normalized_record.source_url or 'N/A'}",
+                ]
+                + ([f"Market: {market_label}"] if market_label else [])
+                + ([benchmark_text] if benchmark_text else [])
+                + ([fund_flow_text] if fund_flow_text else []),
+            )
 
         if label == "liquidity_injection":
             impact_text = f" Impact: {impact_level}." if impact_level != "low" else ""

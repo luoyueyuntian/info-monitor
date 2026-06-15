@@ -1,7 +1,7 @@
 import type { EventSummary, SourceStatus, ThemeSummary } from "./api";
 import { eventImpactTone } from "./impact";
 
-export type WorkspaceId = "market-impact" | "goods-supply" | "competitor-watch";
+export type WorkspaceId = "market-impact" | "stock-market" | "goods-supply" | "competitor-watch";
 
 export type WorkspaceDefinition = {
   id: WorkspaceId;
@@ -22,6 +22,15 @@ export const workspaceDefinitions: WorkspaceDefinition[] = [
     summary: "宏观数据、官方公告、政策与市场联动",
     emptyTitle: "这个工作区还没有接入金融类主题",
     emptyBody: "接入统计局、央行、交易所、行情和政策类来源后，这里会形成完整的金融市场工作台。",
+  },
+  {
+    id: "stock-market",
+    label: "股市",
+    shortLabel: "股市",
+    description: "集中查看 A股、港股、指数、个股价格和跨境资金流向，形成独立的日度行情工作区。",
+    summary: "A股、港股、指数、个股价格与资金流向",
+    emptyTitle: "这个工作区还没有接入股市主题",
+    emptyBody: "接入 A股、港股、指数、个股和资金流来源后，这里会成为你的独立股市工作台。",
   },
   {
     id: "goods-supply",
@@ -81,6 +90,45 @@ const marketKeywords = [
   "汇率",
   "利率",
   "指数",
+];
+
+const investmentKeywords = [
+  "黄金",
+  "白银",
+  "金条",
+  "金币",
+  "纪念币",
+  "基金",
+  "etf",
+  "股票",
+  "债券",
+  "期货",
+  "外汇",
+  "比特币",
+  "投资",
+  "理财",
+];
+
+const stockKeywords = [
+  "a股",
+  "港股",
+  "沪深",
+  "上交所",
+  "深交所",
+  "港交所",
+  "龙虎榜",
+  "恒生",
+  "国企指数",
+  "创业板",
+  "上证",
+  "深证",
+  "股票",
+  "个股",
+  "茅台",
+  "kline",
+  "market overview",
+  "northbound",
+  "southbound",
 ];
 
 const competitorKeywords = [
@@ -147,7 +195,16 @@ function eventText(event: EventSummary) {
 
 function sourceLooksLikeMarket(source: SourceStatus) {
   const text = sourceText(source);
-  return includesAny(text, marketKeywords) || source.adapterKey === "eastmoney_stock_kline";
+  return includesAny(text, marketKeywords) || includesAny(text, investmentKeywords);
+}
+
+function sourceLooksLikeStock(source: SourceStatus) {
+  const text = sourceText(source);
+  return (
+    includesAny(text, stockKeywords) ||
+    source.adapterKey === "eastmoney_stock_kline" ||
+    source.adapterKey === "eastmoney_market_overview"
+  );
 }
 
 function sourceLooksLikeCompetitor(source: SourceStatus) {
@@ -160,6 +217,10 @@ function sourceLooksLikeGoods(source: SourceStatus) {
 
 function themeLooksLikeMarket(theme: ThemeSummary, events: EventSummary[], sources: SourceStatus[]) {
   if (theme.type === "financial_event") {
+    if (sources.some(sourceLooksLikeStock) || includesAny(themeText(theme), stockKeywords)) {
+      return false;
+    }
+
     return true;
   }
 
@@ -171,7 +232,27 @@ function themeLooksLikeMarket(theme: ThemeSummary, events: EventSummary[], sourc
     return true;
   }
 
-  return events.some((event) => includesAny(eventText(event), marketKeywords));
+  return events.some((event) => includesAny(eventText(event), marketKeywords) || includesAny(eventText(event), investmentKeywords));
+}
+
+function themeLooksLikeStock(theme: ThemeSummary, events: EventSummary[], sources: SourceStatus[]) {
+  if (sources.some(sourceLooksLikeStock)) {
+    return true;
+  }
+
+  if (includesAny(themeText(theme), stockKeywords)) {
+    return true;
+  }
+
+  if (events.some((event) => includesAny(eventText(event), stockKeywords))) {
+    return true;
+  }
+
+  if (theme.type === "price" && sources.some(sourceLooksLikeMarket)) {
+    return true;
+  }
+
+  return false;
 }
 
 function themeLooksLikeCompetitor(theme: ThemeSummary, events: EventSummary[], sources: SourceStatus[]) {
@@ -200,10 +281,13 @@ function themeLooksLikeGoods(theme: ThemeSummary, events: EventSummary[], source
   }
 
   if (includesAny(themeText(theme), goodsKeywords)) {
+    if (includesAny(themeText(theme), investmentKeywords)) {
+      return false;
+    }
     return true;
   }
 
-  return events.some((event) => includesAny(eventText(event), goodsKeywords));
+  return events.some((event) => includesAny(eventText(event), goodsKeywords) && !includesAny(eventText(event), investmentKeywords));
 }
 
 export function getWorkspaceDefinition(workspaceId?: string | null) {
@@ -217,6 +301,10 @@ export function classifyThemeWorkspace(
 ): WorkspaceId {
   if (themeLooksLikeCompetitor(theme, relatedEvents, relatedSources)) {
     return "competitor-watch";
+  }
+
+  if (themeLooksLikeStock(theme, relatedEvents, relatedSources)) {
+    return "stock-market";
   }
 
   if (themeLooksLikeMarket(theme, relatedEvents, relatedSources)) {

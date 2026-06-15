@@ -10,6 +10,20 @@
       :handle-back="handleBack"
     />
 
+    <StockMarketInvestigationCard
+      v-if="isStockMarketWorkspace"
+      title="股市来源调查快捷区"
+      summary="快速回到股市盘后报告、来源控制台和所属主题，方便在来源质量与主题判断之间切换。"
+      :actions="stockMarketInvestigationActions"
+    />
+
+    <StockMarketSignalContextCard
+      v-if="isStockMarketWorkspace"
+      title="股市来源上下文"
+      :summary="stockMarketSourceContextSummary"
+      :bullets="stockMarketSourceContextBullets"
+    />
+
     <article class="card">
       <div class="card-topline">
         <h3>关联主题信号</h3>
@@ -99,6 +113,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import type { RouteLocationRaw } from "vue-router";
 
 import SourceDetailAnalysisCard from "./SourceDetailAnalysisCard.vue";
 import SourceConfigHistoryCard from "./SourceConfigHistoryCard.vue";
@@ -114,6 +129,8 @@ import SourceDetailSnapshotsCard from "./SourceDetailSnapshotsCard.vue";
 import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
 import SourceDetailTestRunCard from "./SourceDetailTestRunCard.vue";
 import SourceReplayComparisonCard from "./SourceReplayComparisonCard.vue";
+import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
+import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
 import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, triggerSourceRun, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
@@ -132,6 +149,53 @@ const healthExplanation = ref<SourceHealthExplanation | null>(null);
 const rerunningRunId = ref<string | null>(null);
 const replayingSnapshotId = ref<string | null>(null);
 const replayComparison = ref<SourceReplayComparison | null>(null);
+const isStockMarketWorkspace = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
+const stockMarketInvestigationActions = computed<Array<{ label: string; to: RouteLocationRaw }>>(() => {
+  if (!detail.value || !isStockMarketWorkspace.value) {
+    return [];
+  }
+
+  return [
+    { label: "查看盘后报告", to: `/workspace/stock-market/reports` },
+    { label: "返回来源控制台", to: `/workspace/stock-market/sources` },
+    { label: "查看所属主题", to: `/workspace/stock-market/topics/${detail.value.source.themeId}` },
+  ];
+});
+const stockMarketSourceContextSummary = computed(() => {
+  if (!detail.value) {
+    return "";
+  }
+
+  if (detail.value.source.adapterKey === "eastmoney_market_overview") {
+    return "这个来源是股市盘后报告的核心总览来源，一旦异常，收盘概览、主催化和连续复盘都会直接受影响。";
+  }
+
+  if (detail.value.source.adapterKey === "eastmoney_daily_billboard") {
+    return "这个来源主要负责提供龙虎榜异动线索，适合重点查看它最近是否在支持重点异动对象的判断。";
+  }
+
+  return "这个来源已经进入股市工作区，适合作为盘后报告里的公告或线索补充来源来复核。";
+});
+const stockMarketSourceContextBullets = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+
+  const bullets: string[] = [];
+
+  bullets.push(`适配器: ${formatMaybeLabel(detail.value.source.adapterKey)}`);
+  bullets.push(`关联主题: ${detail.value.source.themeName}`);
+
+  if (detail.value.events.length) {
+    bullets.push(`关联事件数: ${detail.value.events.length}`);
+  }
+
+  if (detail.value.runs.length) {
+    bullets.push(`运行记录数: ${detail.value.runs.length}`);
+  }
+
+  return bullets.slice(0, 4);
+});
 
 function handleBack() {
   if (window.history.length > 1) {
@@ -307,6 +371,26 @@ function recordDetails(record: SourceDetail["records"][number]) {
   }
 
   if (record.infoType === "financial_event") {
+    if (record.content.event_class === "market_overview") {
+      return [
+        { label: "市场", value: formatMaybeLabel(record.content.market_label) },
+        { label: "基准", value: formatMaybeLabel(record.content.benchmark_name) },
+        { label: "基准涨跌", value: formatMaybeLabel(record.content.benchmark_change_percent) },
+        { label: "资金流向", value: formatMaybeLabel(record.content.fund_flow_direction) },
+        { label: "净流向（亿）", value: formatMaybeLabel(record.content.fund_flow_net_billion) },
+      ];
+    }
+
+    if (record.content.event_class === "daily_billboard") {
+      return [
+        { label: "个股", value: formatMaybeLabel(record.content.security_name) },
+        { label: "代码", value: formatMaybeLabel(record.content.security_code) },
+        { label: "净额（亿元）", value: formatMaybeLabel(record.content.amount_billion_cny) },
+        { label: "涨跌幅（%）", value: formatMaybeLabel(record.content.change_rate_percent) },
+        { label: "上榜次数", value: formatMaybeLabel(record.content.onlist_num) },
+      ];
+    }
+
     return [
       { label: "方向", value: formatMaybeLabel(record.content.direction_label) },
       { label: "公告号", value: formatMaybeLabel(record.content.announcement_no) },

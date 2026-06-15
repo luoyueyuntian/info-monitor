@@ -123,6 +123,35 @@ function buildLatestInsight(
   }
 
   if (infoType === "financial_event") {
+    const marketLabel = formatNumberForInsight(content.market_label);
+    const benchmarkName = formatNumberForInsight(content.benchmark_name);
+    const benchmarkChangePercent = toNumber(content.benchmark_change_percent);
+    const fundFlowNetBillion = toNumber(content.fund_flow_net_billion);
+    const fundFlowCurrency = formatNumberForInsight(content.fund_flow_currency);
+    const securityName = formatNumberForInsight(content.security_name);
+    const netAmount = toNumber(content.amount_billion_cny);
+    const changeRate = toNumber(content.change_rate_percent);
+
+    if (marketLabel) {
+      return [
+        marketLabel,
+        benchmarkName && benchmarkChangePercent != null
+          ? `${benchmarkName} ${formatSignedPercent(benchmarkChangePercent)}`
+          : benchmarkName,
+        fundFlowNetBillion != null
+          ? `资金 ${formatSignedAmount(fundFlowNetBillion, fundFlowCurrency)}`
+          : null,
+      ].filter(Boolean).join(" · ");
+    }
+
+    if (securityName) {
+      return [
+        securityName,
+        netAmount != null ? `净额 ${netAmount.toFixed(2)}亿元` : null,
+        changeRate != null ? `涨跌 ${changeRate >= 0 ? "+" : ""}${changeRate.toFixed(2)}%` : null,
+      ].filter(Boolean).join(" · ");
+    }
+
     const direction = signalLabel(String(content.direction_label ?? latestEvent?.signal ?? ""));
     const amount = formatNumberForInsight(content.amount_billion_cny);
     const term = formatNumberForInsight(content.term_days);
@@ -260,6 +289,382 @@ function buildThemeBreakdown(
   }
 
   return null;
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function formatSignedPercent(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatSignedAmount(value: number | null | undefined, currency: string | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)} 亿${currency ?? ""}`.trim();
+}
+
+function directionToTone(direction: string | null | undefined): "positive" | "negative" | "neutral" {
+  if (direction === "bullish" || direction === "liquidity_injection") {
+    return "positive";
+  }
+
+  if (direction === "bearish" || direction === "liquidity_withdrawal") {
+    return "negative";
+  }
+
+  return "neutral";
+}
+
+type MarketOverviewRecord = {
+  market: "a_share" | "hk";
+  marketLabel: string;
+  occurredAt: string;
+  tone: "positive" | "negative" | "neutral";
+  directionLabel: string;
+  summary: string;
+  benchmarkName: string | null;
+  benchmarkChangePercent: number | null;
+  fundFlowDirection: "inflow" | "outflow" | "flat";
+  fundFlowNetBillion: number | null;
+  fundFlowTurnoverBillion: number | null;
+  fundFlowCurrency: string | null;
+  indices: Array<{
+    code: string;
+    label: string;
+    latest: number | null;
+    changePercent: number | null;
+  }>;
+  sectorFlows: Array<{
+    code: string;
+    label: string;
+    changePercent: number | null;
+    netInflowBillion: number | null;
+    leadingStockName: string | null;
+    leadingStockCode: string | null;
+  }>;
+  topMovers: Array<{
+    code: string;
+    label: string;
+    latest: number | null;
+    changePercent: number | null;
+    turnoverBillion: number | null;
+    reasons?: string[];
+  }>;
+  topDecliners: Array<{
+    code: string;
+    label: string;
+    latest: number | null;
+    changePercent: number | null;
+    turnoverBillion: number | null;
+    reasons?: string[];
+  }>;
+  highlights: string[];
+};
+
+function parseMarketOverviewRecord(input: {
+  occurredAt: string | Date;
+  content: Record<string, unknown>;
+}): MarketOverviewRecord | null {
+  const content = input.content ?? {};
+
+  if (content.event_class !== "market_overview") {
+    return null;
+  }
+
+  const market = content.market_region === "hk" ? "hk" : content.market_region === "a_share" ? "a_share" : null;
+
+  if (!market) {
+    return null;
+  }
+
+  const rawIndices = Array.isArray(content.major_indices) ? content.major_indices : [];
+  const indices = rawIndices
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const row = item as Record<string, unknown>;
+      return {
+        code: typeof row.code === "string" ? row.code : "",
+        label: typeof row.label === "string" ? row.label : typeof row.name === "string" ? row.name : "未命名指数",
+        latest: toNumber(row.latest),
+        changePercent: toNumber(row.change_percent ?? row.changePercent),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  const rawSectorFlows = Array.isArray(content.sector_flows) ? content.sector_flows : [];
+  const sectorFlows = rawSectorFlows
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const row = item as Record<string, unknown>;
+      return {
+        code: typeof row.code === "string" ? row.code : "",
+        label: typeof row.label === "string" ? row.label : "未命名板块",
+        changePercent: toNumber(row.change_percent ?? row.changePercent),
+        netInflowBillion: toNumber(row.net_inflow_billion ?? row.netInflowBillion),
+        leadingStockName: typeof row.leading_stock_name === "string" ? row.leading_stock_name : null,
+        leadingStockCode: typeof row.leading_stock_code === "string" ? row.leading_stock_code : null,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  function parseMovers(value: unknown) {
+    const rows = Array.isArray(value) ? value : [];
+    return rows
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const row = item as Record<string, unknown>;
+        return {
+          code: typeof row.code === "string" ? row.code : "",
+          label: typeof row.label === "string" ? row.label : "未命名个股",
+          latest: toNumber(row.latest),
+          changePercent: toNumber(row.change_percent ?? row.changePercent),
+          turnoverBillion: toNumber(row.turnover_billion ?? row.turnoverBillion),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }
+
+  const highlights = (Array.isArray(content.summary_points) ? content.summary_points : [])
+    .map((item) => (typeof item === "string" ? item : null))
+    .filter((item): item is string => Boolean(item));
+
+  const benchmarkChangePercent = toNumber(content.benchmark_change_percent);
+  const fundFlowNetBillion = toNumber(content.fund_flow_net_billion);
+  const fundFlowTurnoverBillion = toNumber(content.fund_flow_turnover_billion);
+  const marketLabel = typeof content.market_label === "string"
+    ? content.market_label
+    : market === "a_share"
+      ? "A股"
+      : "港股";
+  const occurredAt = input.occurredAt instanceof Date
+    ? input.occurredAt.toISOString()
+    : String(input.occurredAt);
+  const directionLabel = typeof content.direction_label === "string"
+    ? content.direction_label
+    : "neutral";
+  const flowDirection = content.fund_flow_direction === "inflow" || content.fund_flow_direction === "outflow"
+    ? content.fund_flow_direction
+    : "flat";
+
+  return {
+    market,
+    marketLabel,
+    occurredAt,
+    tone: directionToTone(directionLabel),
+    directionLabel,
+    summary: typeof content.description === "string" ? content.description : "",
+    benchmarkName: typeof content.benchmark_name === "string" ? content.benchmark_name : null,
+    benchmarkChangePercent,
+    fundFlowDirection: flowDirection,
+    fundFlowNetBillion,
+    fundFlowTurnoverBillion,
+    fundFlowCurrency: typeof content.fund_flow_currency === "string" ? content.fund_flow_currency : null,
+    indices,
+    sectorFlows,
+    topMovers: parseMovers(content.top_movers),
+    topDecliners: parseMovers(content.top_decliners),
+    highlights,
+  };
+}
+
+function inferMoverReasons(input: {
+  mover: {
+    code: string;
+    label: string;
+    changePercent: number | null;
+  };
+  marketRecord: MarketOverviewRecord;
+  history: MarketOverviewRecord[];
+  direction: "up" | "down";
+}) {
+  const reasons: string[] = [];
+  const { mover, marketRecord, history, direction } = input;
+
+  const matchingSector = marketRecord.sectorFlows.find(
+    (sector) =>
+      (sector.leadingStockCode && sector.leadingStockCode === mover.code) ||
+      (sector.leadingStockName && sector.leadingStockName === mover.label),
+  );
+
+  if (matchingSector) {
+    reasons.push(
+      `板块资金共振：${matchingSector.label}净流向 ${formatSignedAmount(matchingSector.netInflowBillion, "CNY") ?? "--"}`
+    );
+  }
+
+  let streak = 1;
+  for (const previous of history.slice(1)) {
+    const sameSideList = direction === "up" ? previous.topMovers : previous.topDecliners;
+    if (sameSideList.some((item) => item.code === mover.code)) {
+      streak += 1;
+      continue;
+    }
+    break;
+  }
+
+  if (streak >= 2) {
+    reasons.push(`连续 ${streak} 个交易日进入${direction === "up" ? "强势" : "弱势"}榜`);
+  }
+
+  if (direction === "up" && marketRecord.tone === "positive") {
+    reasons.push(`${marketRecord.marketLabel}整体偏强，风险偏好在扩散`);
+  }
+
+  if (direction === "down" && marketRecord.tone === "negative") {
+    reasons.push(`${marketRecord.marketLabel}整体承压，弱势个股延续回落`);
+  }
+
+  if (direction === "up" && marketRecord.market === "hk" && marketRecord.fundFlowDirection === "inflow") {
+    reasons.push("南向资金净流入，对港股强势股形成支撑");
+  }
+
+  if (direction === "up" && marketRecord.market === "a_share" && marketRecord.fundFlowDirection === "inflow") {
+    reasons.push("北向资金回暖，A股强势主线更容易扩散");
+  }
+
+  if (direction === "down" && marketRecord.fundFlowDirection === "outflow") {
+    reasons.push("资金面偏流出，回调股承压更明显");
+  }
+
+  return reasons.slice(0, 3);
+}
+
+function buildThemeMarketOverview(records: Array<{
+  occurredAt: string | Date;
+  content: Record<string, unknown>;
+}>) {
+  const overviewRecords = records
+    .map((record) => parseMarketOverviewRecord(record))
+    .filter((record): record is MarketOverviewRecord => Boolean(record));
+
+  if (overviewRecords.length === 0) {
+    return null;
+  }
+
+  const latestByMarket = new Map<string, MarketOverviewRecord>();
+
+  for (const record of overviewRecords) {
+    if (!latestByMarket.has(record.market)) {
+      latestByMarket.set(record.market, record);
+    }
+  }
+
+  const snapshots = ["a_share", "hk"]
+    .map((market) => latestByMarket.get(market))
+    .filter((item): item is MarketOverviewRecord => Boolean(item))
+    .map((snapshot) => {
+      const marketHistory = overviewRecords.filter((record) => record.market === snapshot.market);
+      const benchmarkText = formatSignedPercent(snapshot.benchmarkChangePercent);
+      const flowText = formatSignedAmount(snapshot.fundFlowNetBillion, snapshot.fundFlowCurrency);
+      const directionText =
+        snapshot.directionLabel === "bullish"
+          ? "偏强"
+          : snapshot.directionLabel === "bearish"
+            ? "偏弱"
+            : "震荡";
+
+      return {
+        market: snapshot.market,
+        marketLabel: snapshot.marketLabel,
+        occurredAt: snapshot.occurredAt,
+        tone: snapshot.tone,
+        directionLabel: directionText,
+        headline: `${snapshot.marketLabel}整体${directionText}`,
+        summary: snapshot.summary,
+        benchmarkName: snapshot.benchmarkName,
+        benchmarkChangePercent: snapshot.benchmarkChangePercent,
+        fundFlowDirection: snapshot.fundFlowDirection,
+        fundFlowNetBillion: snapshot.fundFlowNetBillion,
+        fundFlowTurnoverBillion: snapshot.fundFlowTurnoverBillion,
+        fundFlowCurrency: snapshot.fundFlowCurrency,
+        indices: snapshot.indices,
+        sectorFlows: snapshot.sectorFlows,
+        topMovers: snapshot.topMovers.map((mover) => ({
+          ...mover,
+          reasons: inferMoverReasons({
+            mover,
+            marketRecord: snapshot,
+            history: marketHistory,
+            direction: "up",
+          }),
+        })),
+        topDecliners: snapshot.topDecliners.map((mover) => ({
+          ...mover,
+          reasons: inferMoverReasons({
+            mover,
+            marketRecord: snapshot,
+            history: marketHistory,
+            direction: "down",
+          }),
+        })),
+        highlights: [
+          benchmarkText && snapshot.benchmarkName
+            ? `${snapshot.benchmarkName} ${benchmarkText}`
+            : null,
+          flowText ? `资金面 ${flowText}` : null,
+          snapshot.sectorFlows[0]
+            ? `板块资金领先: ${snapshot.sectorFlows[0].label} ${formatSignedAmount(snapshot.sectorFlows[0].netInflowBillion, "CNY") ?? ""}`.trim()
+            : null,
+          snapshot.topMovers[0]
+            ? `异动个股: ${snapshot.topMovers[0].label} ${formatSignedPercent(snapshot.topMovers[0].changePercent) ?? ""}`.trim()
+            : null,
+          ...snapshot.highlights,
+        ].filter((item): item is string => Boolean(item)),
+      };
+    });
+
+  const positiveCount = snapshots.filter((snapshot) => snapshot.tone === "positive").length;
+  const negativeCount = snapshots.filter((snapshot) => snapshot.tone === "negative").length;
+  const headline =
+    positiveCount === snapshots.length
+      ? "A股与港股当日共振偏强"
+      : negativeCount === snapshots.length
+        ? "A股与港股当日共振偏弱"
+        : "A股与港股当日表现分化";
+  const summary = snapshots
+    .map((snapshot) => {
+      const benchmarkText = formatSignedPercent(snapshot.benchmarkChangePercent);
+      const flowText = formatSignedAmount(snapshot.fundFlowNetBillion, snapshot.fundFlowCurrency);
+      return [
+        snapshot.marketLabel,
+        benchmarkText ? `${snapshot.benchmarkName ?? "基准"} ${benchmarkText}` : null,
+        flowText ? `资金 ${flowText}` : null,
+      ].filter(Boolean).join("，");
+    })
+    .join("；");
+
+  return {
+    headline,
+    summary,
+    crossMarketHighlights: snapshots.map((snapshot) => snapshot.headline),
+    snapshots,
+  };
 }
 
 function toTimestamp(value?: string | Date | null) {
@@ -551,6 +956,114 @@ function buildThemeAnalysis(input: {
       conflictingSources,
       priceJudgment,
       recentStreak,
+    };
+  }
+
+  const marketOverview = input.themeType === "financial_event" && input.records
+    ? buildThemeMarketOverview(
+        input.records.map((record) => ({
+          occurredAt: record.occurredAt,
+          content: record.content,
+        })),
+      )
+    : null;
+
+  if (input.themeType === "financial_event" && marketOverview) {
+    const aShareSnapshot = marketOverview.snapshots.find((item) => item.market === "a_share");
+    const hkSnapshot = marketOverview.snapshots.find((item) => item.market === "hk");
+    const positiveMarkets = marketOverview.snapshots.filter((item) => item.tone === "positive").length;
+    const negativeMarkets = marketOverview.snapshots.filter((item) => item.tone === "negative").length;
+    const averageBenchmark = (() => {
+      const values = marketOverview.snapshots
+        .map((item) => item.benchmarkChangePercent)
+        .filter((value): value is number => value != null && Number.isFinite(value));
+
+      if (values.length === 0) {
+        return null;
+      }
+
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    })();
+    const totalFundFlow = marketOverview.snapshots
+      .map((item) => item.fundFlowNetBillion)
+      .filter((value): value is number => value != null && Number.isFinite(value))
+      .reduce((sum, value) => sum + value, 0);
+
+    const marketStance =
+      positiveMarkets === marketOverview.snapshots.length
+        ? "bullish"
+        : negativeMarkets === marketOverview.snapshots.length
+          ? "bearish"
+          : positiveMarkets > 0 && negativeMarkets > 0
+            ? "watch"
+            : stance;
+
+    return {
+      tone:
+        positiveMarkets === marketOverview.snapshots.length
+          ? "positive"
+          : negativeMarkets === marketOverview.snapshots.length
+            ? "negative"
+            : "neutral",
+      stance: marketStance,
+      headline: marketOverview.headline,
+      summary: marketOverview.summary,
+      keyPoints: [
+        aShareSnapshot
+          ? `A股: ${aShareSnapshot.headline}，${aShareSnapshot.benchmarkName ?? "基准"} ${formatSignedPercent(aShareSnapshot.benchmarkChangePercent) ?? "--"}`
+          : null,
+        hkSnapshot
+          ? `港股: ${hkSnapshot.headline}，${hkSnapshot.benchmarkName ?? "基准"} ${formatSignedPercent(hkSnapshot.benchmarkChangePercent) ?? "--"}`
+          : null,
+        Number.isFinite(totalFundFlow) ? `两地合计跟踪资金流向 ${totalFundFlow >= 0 ? "+" : ""}${totalFundFlow.toFixed(2)} 亿` : null,
+        `最近24小时新增 ${recentEventCount} 条市场相关事件。`,
+      ].filter((item): item is string => Boolean(item)),
+      risks: [
+        warningCount > 0 ? `存在 ${warningCount} 个异常来源，日度行情结论需要复核抓取结果。` : "当前未发现异常来源。",
+        pausedCount > 0 ? `有 ${pausedCount} 个来源暂停，市场观察可能不完整。` : "当前来源运行状态较稳定。",
+        positiveMarkets > 0 && negativeMarkets > 0 ? "A股与港股方向分化，跨市场判断需要分开看。" : null,
+        staleCount > 0 ? `有 ${staleCount} 个来源更新滞后，盘后判断可能不够新。` : null,
+      ].filter((item): item is string => Boolean(item)),
+      actions: [
+        "先看主要指数与资金流是否同向，再决定今天的整体基调是否成立。",
+        "若 A 股与港股分化，优先按市场分别复盘，不要合并成单一结论。",
+        "如需更细判断，可继续补充行业、板块或个股层面的资金流来源。",
+      ],
+      recentChange: {
+        headline: recentEventCount > 0 ? "最近24小时市场概览已更新" : "最近24小时没有新的市场概览事件",
+        summary:
+          recentEventCount > 0
+            ? "最新一轮收盘概览已经入库，可以直接比较 A股 和 港股 的指数方向与资金流是否同步。"
+            : "当前还没有新的收盘概览事件，建议等待下一轮日度抓取。",
+        highlights: marketOverview.snapshots.flatMap((snapshot) => snapshot.highlights.slice(0, 2)),
+      },
+      trend: {
+        headline:
+          averageBenchmark == null
+            ? "当前市场趋势样本不足"
+            : averageBenchmark >= 1
+              ? "跨市场指数整体偏强"
+              : averageBenchmark <= -1
+                ? "跨市场指数整体偏弱"
+                : "跨市场指数整体震荡",
+        summary:
+          averageBenchmark == null
+            ? "当前可用的市场概览样本还不够，建议继续累积更多日度记录。"
+            : `按当前市场概览估算，核心指数均值变化约为 ${formatSignedPercent(averageBenchmark)}。`,
+        highlights: marketOverview.snapshots.map((snapshot) => [
+          snapshot.marketLabel,
+          snapshot.benchmarkName,
+          formatSignedPercent(snapshot.benchmarkChangePercent),
+          snapshot.fundFlowNetBillion != null
+            ? `资金 ${formatSignedAmount(snapshot.fundFlowNetBillion, snapshot.fundFlowCurrency)}`
+            : null,
+        ].filter(Boolean).join(" · ")),
+      },
+      signalAccumulation,
+      supportingSources,
+      conflictingSources,
+      recentStreak,
+      hasConflictingSignals: positiveMarkets > 0 && negativeMarkets > 0,
     };
   }
 
@@ -1036,6 +1549,12 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
     records[0] ? { content: records[0].content as Record<string, unknown> } : undefined,
     events[0] ? { signal: events[0].signal } : null,
   );
+  const marketOverview = buildThemeMarketOverview(
+    records.map((item) => ({
+      occurredAt: item.occurredAt,
+      content: item.content as Record<string, unknown>,
+    })),
+  );
   const breakdown = buildThemeBreakdown(
     theme.info_type,
     breakdownRecords.map((item) => ({ content: item.content as Record<string, unknown> })),
@@ -1131,6 +1650,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
       label: item.label,
     })),
     breakdown,
+    marketOverview,
     timeline,
     records: records.map((item) => ({
       ...item,
@@ -1245,6 +1765,12 @@ export async function getThemeDetail(themeId: string) {
     const mockTimeline = buildMockThemeTimeline(theme, themeEvents, themeSources);
     const mockHistory = buildMockThemeHistory(theme);
     const mockBreakdown = buildMockThemeBreakdown(theme, mockRecords);
+    const mockMarketOverview = buildThemeMarketOverview(
+      mockRecords.map((item) => ({
+        occurredAt: item.occurredAt,
+        content: item.content,
+      })),
+    );
 
     return {
       theme,
@@ -1252,6 +1778,7 @@ export async function getThemeDetail(themeId: string) {
       events: themeEvents,
       history: mockHistory,
       breakdown: mockBreakdown,
+      marketOverview: mockMarketOverview,
       timeline: mockTimeline,
       records: mockRecords,
       analysis: buildThemeAnalysis({
@@ -1378,6 +1905,167 @@ function buildMockThemeRecords(
     ];
   }
 
+  if (theme.id === "theme-cn-hk-market-overview") {
+    return [
+      {
+        id: `${theme.id}-record-a-1`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "A股市场收盘概览",
+        occurredAt: "2026-06-15T15:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "a_share",
+          market_label: "A股",
+          direction_label: "bullish",
+          benchmark_name: "A股核心指数均值",
+          benchmark_change_percent: 1.88,
+          fund_flow_direction: "inflow",
+          fund_flow_net_billion: 18.4,
+          fund_flow_turnover_billion: 1124.6,
+          fund_flow_currency: "CNY",
+          major_indices: [
+            { code: "000001", label: "上证指数", latest: 4083.43, change_percent: 1.29 },
+            { code: "399001", label: "深证成指", latest: 15266.61, change_percent: 2.03 },
+            { code: "399006", label: "创业板指", latest: 3919.62, change_percent: 2.33 },
+          ],
+          sector_flows: [
+            { code: "BK1201", label: "电子", change_percent: 4.35, net_inflow_billion: 184.77, leading_stock_name: "东山精密", leading_stock_code: "002384" },
+            { code: "BK1036", label: "半导体", change_percent: 3.99, net_inflow_billion: 67.86, leading_stock_name: "兆易创新", leading_stock_code: "603986" },
+            { code: "BK1203", label: "非银金融", change_percent: 2.35, net_inflow_billion: 29.65, leading_stock_name: "东方财富", leading_stock_code: "300059" },
+          ],
+          top_movers: [
+            { code: "301566", label: "达利凯普", latest: 36.64, change_percent: 20.01, turnover_billion: 11.93 },
+            { code: "300726", label: "宏达电子", latest: 72.41, change_percent: 20.0, turnover_billion: 17.41 },
+            { code: "300570", label: "太辰光", latest: 222.1, change_percent: 20.0, turnover_billion: 61.78 },
+          ],
+          top_decliners: [
+            { code: "600000", label: "示例回调股A", latest: 12.44, change_percent: -6.21, turnover_billion: 8.42 },
+            { code: "000001", label: "示例回调股B", latest: 9.88, change_percent: -5.74, turnover_billion: 6.35 },
+          ],
+          summary_points: [
+            "三大指数集体收涨，成长风格表现更强。",
+            "北向资金维持净流入，风险偏好有所修复。",
+          ],
+          description: "A股主要指数集体收涨，北向资金保持净流入，全天情绪偏强。",
+        },
+      },
+      {
+        id: `${theme.id}-record-hk-1`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "港股市场收盘概览",
+        occurredAt: "2026-06-15T16:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "hk",
+          market_label: "港股",
+          direction_label: "neutral",
+          benchmark_name: "港股核心指数均值",
+          benchmark_change_percent: 0.72,
+          fund_flow_direction: "inflow",
+          fund_flow_net_billion: 20.51,
+          fund_flow_turnover_billion: 323.26,
+          fund_flow_currency: "HKD",
+          major_indices: [
+            { code: "HSI", label: "恒生指数", latest: 24921.38, change_percent: 0.82 },
+            { code: "HSCEI", label: "国企指数", latest: 8426.28, change_percent: 0.62 },
+          ],
+          top_movers: [
+            { code: "06658", label: "溜溜梅", latest: 1239.0, change_percent: 184.3, turnover_billion: 3.39 },
+            { code: "01985", label: "美高域", latest: 36.9, change_percent: 39.25, turnover_billion: 0.14 },
+            { code: "02513", label: "智谱", latest: 14430.0, change_percent: 31.54, turnover_billion: 42.31 },
+          ],
+          top_decliners: [
+            { code: "00999", label: "示例港股回调A", latest: 18.6, change_percent: -7.42, turnover_billion: 1.22 },
+            { code: "00888", label: "示例港股回调B", latest: 7.45, change_percent: -5.11, turnover_billion: 0.84 },
+          ],
+          summary_points: [
+            "恒指和国企指数同步收涨，但弹性弱于A股。",
+            "南向资金延续净买入，对港股形成托底。",
+          ],
+          description: "港股核心指数震荡偏强，南向资金保持净买入，市场以修复为主。",
+        },
+      },
+      {
+        id: `${theme.id}-record-a-0`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "A股市场收盘概览",
+        occurredAt: "2026-06-14T15:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "a_share",
+          market_label: "A股",
+          direction_label: "neutral",
+          benchmark_name: "A股核心指数均值",
+          benchmark_change_percent: 0.24,
+          fund_flow_direction: "outflow",
+          fund_flow_net_billion: -6.8,
+          fund_flow_turnover_billion: 986.2,
+          fund_flow_currency: "CNY",
+          major_indices: [
+            { code: "000001", label: "上证指数", latest: 4031.20, change_percent: 0.11 },
+            { code: "399001", label: "深证成指", latest: 14980.43, change_percent: 0.25 },
+            { code: "399006", label: "创业板指", latest: 3848.01, change_percent: 0.36 },
+          ],
+          sector_flows: [
+            { code: "BK0459", label: "元件", change_percent: 7.44, net_inflow_billion: 77.04, leading_stock_name: "东山精密", leading_stock_code: "002384" },
+          ],
+          top_movers: [
+            { code: "301566", label: "达利凯普", latest: 34.11, change_percent: 12.32, turnover_billion: 8.14 },
+          ],
+          top_decliners: [
+            { code: "600002", label: "示例回调股C", latest: 11.92, change_percent: -4.63, turnover_billion: 4.72 },
+          ],
+          summary_points: [
+            "上一交易日指数窄幅震荡。",
+            "北向资金小幅流出，市场更偏观望。",
+          ],
+          description: "前一交易日A股窄幅震荡，北向资金小幅流出。",
+        },
+      },
+      {
+        id: `${theme.id}-record-hk-0`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "港股市场收盘概览",
+        occurredAt: "2026-06-14T16:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "hk",
+          market_label: "港股",
+          direction_label: "bearish",
+          benchmark_name: "港股核心指数均值",
+          benchmark_change_percent: -0.86,
+          fund_flow_direction: "outflow",
+          fund_flow_net_billion: -9.3,
+          fund_flow_turnover_billion: 287.4,
+          fund_flow_currency: "HKD",
+          major_indices: [
+            { code: "HSI", label: "恒生指数", latest: 24718.11, change_percent: -0.74 },
+            { code: "HSCEI", label: "国企指数", latest: 8342.02, change_percent: -0.98 },
+          ],
+          top_movers: [
+            { code: "00648", label: "京玖康疗(新)", latest: 29.2, change_percent: 22.69, turnover_billion: 0.02 },
+          ],
+          top_decliners: [
+            { code: "00777", label: "示例港股回调C", latest: 6.42, change_percent: -6.21, turnover_billion: 0.31 },
+          ],
+          summary_points: [
+            "前一交易日港股回落更明显。",
+            "南向资金小幅流出，修复力度不足。",
+          ],
+          description: "前一交易日港股整体承压，南向资金也偏流出。",
+        },
+      },
+    ];
+  }
+
   return [];
 }
 
@@ -1445,6 +2133,31 @@ function buildMockThemeTimeline(
     ];
   }
 
+  if (theme.id === "theme-cn-hk-market-overview") {
+    return [
+      {
+        id: `${theme.id}-timeline-run-1`,
+        kind: "run",
+        at: "2026-06-15T16:05:00+08:00",
+        title: "Latest fetch completed",
+        summary: "A-share and Hong Kong close snapshots were fetched from Eastmoney.",
+        meta: { status: "completed", triggerType: "schedule", sourceName },
+      },
+      {
+        id: `${theme.id}-timeline-event-1`,
+        kind: "event",
+        at: events[0]?.occurredAt ?? "2026-06-15T16:00:00+08:00",
+        title: events[0]?.title ?? "Cross-market snapshot updated",
+        summary: events[0]?.summary ?? "The latest A-share and Hong Kong market overview was recorded.",
+        meta: {
+          signal: events[0]?.signal ?? "bullish",
+          eventType: events[0]?.eventType ?? "financial_direction",
+          sourceName,
+        },
+      },
+    ];
+  }
+
   return [];
 }
 
@@ -1465,6 +2178,14 @@ function buildMockThemeHistory(theme: { id: string; type: string }): Array<{ at:
   }
 
   if (theme.type === "financial_event") {
+    if (theme.id === "theme-cn-hk-market-overview") {
+      return [
+        { at: "2026-06-14T16:00:00+08:00", label: "前一交易日A股与港股表现分化" },
+        { at: "2026-06-15T15:00:00+08:00", label: "A股收盘概览更新，市场情绪转强" },
+        { at: "2026-06-15T16:00:00+08:00", label: "港股收盘概览更新，南向资金继续净流入" },
+      ];
+    }
+
     return [
       { at: "2026-05-30T06:00:00Z", label: "Liquidity withdrawal operation recorded" },
       { at: "2026-05-31T06:10:00Z", label: "Neutral open market operation detected" },

@@ -1,12 +1,5 @@
 <template>
   <section class="page">
-    <header class="page-header">
-      <div class="page-title-row">
-        <h2>Workspace Switcher</h2>
-      </div>
-      <p>三个工作区彼此平级且完全隔离。先选择工作区，再进入该工作区自己的大盘、动作、主题、来源和报告。</p>
-    </header>
-
     <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <article class="card">
         <div class="text-[0.82rem] uppercase tracking-[0.08em] text-ink-label">全局视角</div>
@@ -35,7 +28,7 @@
       </article>
     </section>
 
-    <section class="grid gap-4 xl:grid-cols-3">
+    <section class="grid gap-4 xl:grid-cols-4">
       <RouterLink
         v-for="workspace in workspaceCards"
         :key="workspace.definition.id"

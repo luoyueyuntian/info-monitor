@@ -39,6 +39,7 @@ export const DEMO_THEME_IDS = {
   FIGMA_UPDATES: "theme-figma-updates",
   EASTMONEY_MOUTAI: "theme-eastmoney-moutai",
   PBC_NEWS: "theme-pbc-news",
+  CN_HK_MARKET_OVERVIEW: "theme-cn-hk-market-overview",
 } as const;
 
 // ─── Source IDs ────────────────────────────────────────────────────────────────
@@ -58,6 +59,8 @@ export const DEMO_SOURCE_IDS = {
   EASTMONEY_MOUTAI_KLINE: "source-eastmoney-moutai-kline",
   // PBOC News
   PBC_NEWS_LIST: "source-pbc-news-list",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW: "source-cn-hk-market-overview",
 } as const;
 
 // ─── Event IDs ────────────────────────────────────────────────────────────────
@@ -76,6 +79,8 @@ export const DEMO_EVENT_IDS = {
   PBC_NEWS_LATEST: "event-pbc-news-latest",
   // NBS Stats Data Release
   STATS_DATA_RELEASE_LATEST: "event-stats-data-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_BULLISH: "event-cn-hk-market-bullish",
 } as const;
 
 // ─── Run IDs ──────────────────────────────────────────────────────────────────
@@ -97,6 +102,8 @@ export const DEMO_RUN_IDS = {
   STATS_DATA_RELEASE_LATEST: "run-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "run-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "run-cn-hk-market-overview-latest",
 } as const;
 
 // ─── Snapshot IDs ─────────────────────────────────────────────────────────────
@@ -116,6 +123,8 @@ export const DEMO_SNAPSHOT_IDS = {
   STATS_DATA_RELEASE_LATEST: "snapshot-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "snapshot-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "snapshot-cn-hk-market-overview-latest",
 } as const;
 
 // ─── Record IDs ───────────────────────────────────────────────────────────────
@@ -135,6 +144,8 @@ export const DEMO_RECORD_IDS = {
   STATS_DATA_RELEASE_LATEST: "record-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "record-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "record-cn-hk-market-overview-latest",
 } as const;
 
 // ─── Change IDs ───────────────────────────────────────────────────────────────
@@ -212,6 +223,13 @@ export const DEMO_THEMES: Record<string, DemoThemeDefinition> = {
     type: "news_announcement",
     status: "active",
     description: "Official PBOC news and release list",
+  },
+  CN_HK_MARKET_OVERVIEW: {
+    id: DEMO_THEME_IDS.CN_HK_MARKET_OVERVIEW,
+    name: "A股与港股每日市场概览",
+    type: "financial_event",
+    status: "active",
+    description: "Daily market overview for A-shares and Hong Kong equities with northbound/southbound flow snapshots",
   },
 };
 
@@ -297,6 +315,15 @@ export const DEMO_SOURCES: Record<string, DemoSourceDefinition> = {
     name: "PBOC News List",
     sourceType: "page_list",
     adapterKey: "pbc_news_list",
+    status: "healthy",
+    isPaused: false,
+  },
+  CN_HK_MARKET_OVERVIEW: {
+    id: DEMO_SOURCE_IDS.CN_HK_MARKET_OVERVIEW,
+    themeId: DEMO_THEME_IDS.CN_HK_MARKET_OVERVIEW,
+    name: "Eastmoney China / Hong Kong Market Overview",
+    sourceType: "api",
+    adapterKey: "eastmoney_market_overview",
     status: "healthy",
     isPaused: false,
   },

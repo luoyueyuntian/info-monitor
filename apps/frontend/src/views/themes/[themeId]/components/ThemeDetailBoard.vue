@@ -8,6 +8,20 @@
       :on-back="handleBack"
     />
 
+    <StockMarketInvestigationCard
+      v-if="isStockMarketWorkspace"
+      title="股市复盘快捷区"
+      summary="围绕当前主题快速跳回盘后报告、动作台或来源控制台，保持在股市板块内完成复盘与调查。"
+      :actions="stockMarketInvestigationActions"
+    />
+
+    <StockMarketSignalContextCard
+      v-if="isStockMarketWorkspace"
+      title="股市主题上下文"
+      :summary="stockMarketThemeContextSummary"
+      :bullets="stockMarketThemeContextBullets"
+    />
+
     <ThemeDetailActionsBar
       :running-all-sources="runningAllSources"
       :saving-theme-archive="savingThemeArchive"
@@ -43,6 +57,14 @@
         :analysis-tone-label="analysisToneLabel"
         :review-actions="analysisReviewActions"
       />
+    </div>
+
+    <div v-if="detail.marketOverview">
+      <ThemeDetailMarketOverviewCard :market-overview="detail.marketOverview" />
+    </div>
+
+    <div v-if="marketStructureTrendData">
+      <ThemeDetailMarketStructureCard :data="marketStructureTrendData" />
     </div>
 
     <ThemeDetailEventQueueCard
@@ -174,6 +196,8 @@ import ThemeDetailReviewNoteCard from "./ThemeDetailReviewNoteCard.vue";
 import ThemeDetailEditThemeFormCard from "./ThemeDetailEditThemeFormCard.vue";
 import ThemeDetailEventQueueCard from "./ThemeDetailEventQueueCard.vue";
 import ThemeDetailHeader from "./ThemeDetailHeader.vue";
+import ThemeDetailMarketOverviewCard from "./ThemeDetailMarketOverviewCard.vue";
+import ThemeDetailMarketStructureCard from "./ThemeDetailMarketStructureCard.vue";
 import ThemeDetailNoticeCard from "./ThemeDetailNoticeCard.vue";
 import ThemeDetailRecentEventsCard from "./ThemeDetailRecentEventsCard.vue";
 import ThemeDetailRecordsCard from "./ThemeDetailRecordsCard.vue";
@@ -186,10 +210,13 @@ import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
 import ThemeDetailWeeklyReviewCard from "./ThemeDetailWeeklyReviewCard.vue";
+import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
+import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
 import { buildThemeSourceCompareData, buildContinuousSnapshotCompareData } from "./theme-detail-source-compare";
 import { buildFinancialRhythmData } from "./theme-detail-financial-rhythm";
+import { buildMarketStructureTrendData } from "./theme-detail-market-structure";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
 import {
   createSource,
@@ -232,6 +259,58 @@ const operationMessage = ref<{
   actions: Array<{ label: string; to: RouteLocationRaw }>;
 } | null>(null);
 const themeFormStatus = ref("");
+const isStockMarketWorkspace = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
+const stockMarketInvestigationActions = computed<Array<{ label: string; to: RouteLocationRaw }>>(() => {
+  if (!detail.value || !isStockMarketWorkspace.value) {
+    return [];
+  }
+
+  return [
+    { label: "查看盘后报告", to: `/workspace/stock-market/reports` },
+    { label: "查看动作台", to: `/workspace/stock-market/actions` },
+    { label: "查看来源控制台", to: `/workspace/stock-market/sources` },
+  ];
+});
+const stockMarketThemeContextSummary = computed(() => {
+  if (!detail.value) {
+    return "";
+  }
+
+  if (detail.value.marketOverview) {
+    return "这是股市工作区里的核心复盘主题，适合优先结合市场总览、板块资金流、重点异动对象和连续复盘一起看。";
+  }
+
+  if (detail.value.theme.type === "news_announcement") {
+    return "这个主题更像公告和线索资产，适合作为盘后报告里异动对象的解释来源，而不是单独脱离市场总览来看。";
+  }
+
+  return "这个主题已经进入股市工作区，适合放回盘后报告和动作台里一起判断它在当前市场故事中的位置。";
+});
+const stockMarketThemeContextBullets = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+
+  const bullets: string[] = [];
+
+  if (detail.value.marketOverview?.snapshots.length) {
+    bullets.push(`已覆盖市场快照: ${detail.value.marketOverview.snapshots.map((item) => item.marketLabel).join("、")}`);
+  }
+
+  if (marketStructureTrendData.value?.leaders.length) {
+    bullets.push(`当前板块主线: ${marketStructureTrendData.value.leaders[0].label}`);
+  }
+
+  if (detail.value.events.length) {
+    bullets.push(`主题事件数: ${detail.value.events.length}，最近优先复盘最新事件和时间线`);
+  }
+
+  if (detail.value.sources.length) {
+    bullets.push(`关联来源数: ${detail.value.sources.length}`);
+  }
+
+  return bullets.slice(0, 4);
+});
 const shortDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
   month: "2-digit",
@@ -339,6 +418,29 @@ function recordDetails(record: ThemeRecord) {
   }
 
   if (record.infoType === "financial_event") {
+    if (record.content.event_class === "market_overview") {
+      return [
+        { label: "市场", value: formatMaybeLabel(record.content.market_label) },
+        { label: "基准", value: formatMaybeLabel(record.content.benchmark_name) },
+        { label: "基准涨跌", value: formatMaybeLabel(record.content.benchmark_change_percent) },
+        { label: "资金流向", value: formatMaybeLabel(record.content.fund_flow_direction) },
+        { label: "净流向（亿）", value: formatMaybeLabel(record.content.fund_flow_net_billion) },
+        { label: "成交额（亿）", value: formatMaybeLabel(record.content.fund_flow_turnover_billion) },
+        { label: "摘要", value: formatMaybeLabel(record.content.description) },
+      ];
+    }
+
+    if (record.content.event_class === "daily_billboard") {
+      return [
+        { label: "个股", value: formatMaybeLabel(record.content.security_name) },
+        { label: "代码", value: formatMaybeLabel(record.content.security_code) },
+        { label: "净额（亿元）", value: formatMaybeLabel(record.content.amount_billion_cny) },
+        { label: "涨跌幅（%）", value: formatMaybeLabel(record.content.change_rate_percent) },
+        { label: "上榜次数", value: formatMaybeLabel(record.content.onlist_num) },
+        { label: "方向", value: eventSignalLabel(String(record.content.direction_label ?? "")) },
+      ];
+    }
+
     return [
       { label: "方向", value: eventSignalLabel(String(record.content.direction_label ?? "")) },
       { label: "公告号", value: formatMaybeLabel(record.content.announcement_no) },
@@ -537,6 +639,14 @@ const financialRhythmData = computed(() => {
   }
 
   return buildFinancialRhythmData(detail.value);
+});
+
+const marketStructureTrendData = computed(() => {
+  if (!detail.value) {
+    return null;
+  }
+
+  return buildMarketStructureTrendData(detail.value);
 });
 
 const analysisReviewActions = computed(() => {

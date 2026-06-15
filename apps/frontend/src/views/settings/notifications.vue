@@ -92,6 +92,51 @@
       </div>
     </article>
 
+    <article class="rounded-[18px] border border-emerald-200 bg-emerald-50/50 p-[18px]">
+      <div class="mb-3 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-900">股市盘后日报订阅</h3>
+          <p class="text-xs text-gray-500">收盘后自动推送股市工作区盘后复盘</p>
+        </div>
+        <label class="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            :checked="stockMarketCloseReport.enabled"
+            class="peer sr-only"
+            @change="toggleStockMarketCloseReport"
+          />
+          <div class="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all peer-checked:bg-emerald-600 peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+        </label>
+      </div>
+      <div v-if="stockMarketCloseReport.enabled" class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">接收渠道</label>
+          <select
+            v-model="stockMarketCloseReport.channel"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveStockMarketCloseReportConfig"
+          >
+            <option value="in_app">应用内</option>
+            <option value="email">邮件</option>
+            <option value="webhook">Webhook</option>
+            <option value="telegram">Telegram</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">推送时间</label>
+          <input
+            v-model="stockMarketCloseReport.deliveryTime"
+            type="time"
+            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs"
+            @change="saveStockMarketCloseReportConfig"
+          />
+        </div>
+      </div>
+      <div v-if="stockMarketCloseReportStatus" class="mt-2 text-xs" :class="stockMarketCloseReportStatus === 'saved' ? 'text-green-600' : 'text-red-500'">
+        {{ stockMarketCloseReportStatus === 'saved' ? '✓ 已保存' : '保存失败' }}
+      </div>
+    </article>
+
     <div v-if="loading" class="rounded-2xl border border-slate-400/15 bg-white/78 p-8 text-center text-ink-body">
       加载中...
     </div>
@@ -279,13 +324,16 @@ import {
   deleteNotificationPreference,
   fetchDailySummaryConfig,
   fetchNotificationPreferences,
+  fetchStockMarketCloseReportConfig,
   loadChannelConfigFromBackend,
   saveChannelConfigToBackend,
   updateDailySummaryConfig,
   updateNotificationPreference,
+  updateStockMarketCloseReportConfig,
   type ChannelConfig,
   type DailySummaryConfig,
   type NotificationPreference,
+  type StockMarketCloseReportConfig,
 } from "../../lib/api";
 
 const preferences = ref<NotificationPreference[]>([]);
@@ -299,6 +347,12 @@ const dailySummary = ref({
   deliveryTime: "09:00",
 });
 const dailySummaryStatus = ref<"saved" | "failed" | "">("");
+const stockMarketCloseReport = ref({
+  enabled: false,
+  channel: "in_app",
+  deliveryTime: "16:25",
+});
+const stockMarketCloseReportStatus = ref<"saved" | "failed" | "">("");
 
 // Channel-specific config for external delivery
 const channelConfig = ref<ChannelConfig>({
@@ -462,6 +516,37 @@ async function loadDailySummaryConfig() {
   }
 }
 
+function toggleStockMarketCloseReport() {
+  stockMarketCloseReport.value.enabled = !stockMarketCloseReport.value.enabled;
+  saveStockMarketCloseReportConfig();
+}
+
+async function saveStockMarketCloseReportConfig() {
+  stockMarketCloseReportStatus.value = "";
+  try {
+    await updateStockMarketCloseReportConfig(stockMarketCloseReport.value);
+    stockMarketCloseReportStatus.value = "saved";
+  } catch {
+    stockMarketCloseReportStatus.value = "failed";
+  }
+  setTimeout(() => {
+    stockMarketCloseReportStatus.value = "";
+  }, 2000);
+}
+
+async function loadStockMarketCloseReportConfig() {
+  try {
+    const config = await fetchStockMarketCloseReportConfig();
+    stockMarketCloseReport.value = {
+      enabled: config.enabled,
+      channel: config.channel,
+      deliveryTime: config.deliveryTime,
+    };
+  } catch {
+    // Use defaults
+  }
+}
+
 async function saveChannelConfig() {
   const channel = dailySummary.value.channel;
   try {
@@ -486,5 +571,6 @@ async function saveChannelConfig() {
 onMounted(() => {
   loadPreferences();
   loadDailySummaryConfig();
+  loadStockMarketCloseReportConfig();
 });
 </script>

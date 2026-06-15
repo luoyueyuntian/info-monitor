@@ -188,6 +188,64 @@ class TestGenericPriceListAdapterMapToNormalizerInput:
         result = self.adapter.map_to_normalizer_input(raw)
         assert len(result) == 5
 
+    def test_excludes_investment_keywords_in_title(self):
+        raw = RawFetchResult(
+            payload=[
+                {"title": "iPhone 16 128G", "price": 5999},
+                {"title": "投资金条 100g", "price": 79999},
+            ],
+            metadata={
+                "url": "https://example.com",
+                "theme_name": "Test",
+                "items_field": "",
+                "title_field": "title",
+                "price_field": "price",
+                "spec_field": "",
+                "url_field": "",
+                "time_field": "",
+                "currency": "CNY",
+                "symbol_field": "",
+                "display_name_field": "",
+                "max_items": 20,
+                "default_spec": "",
+                "include_title_keywords": [],
+                "exclude_title_keywords": ["投资", "金条"],
+                "base_url": "https://example.com",
+            },
+        )
+        result = self.adapter.map_to_normalizer_input(raw)
+        assert len(result) == 1
+        assert result[0]["title"] == "iPhone 16 128G"
+
+    def test_include_keywords_keep_only_matching_titles(self):
+        raw = RawFetchResult(
+            payload=[
+                {"title": "iPhone 16 128G", "price": 5999},
+                {"title": "MacBook Pro 14", "price": 13999},
+            ],
+            metadata={
+                "url": "https://example.com",
+                "theme_name": "Test",
+                "items_field": "",
+                "title_field": "title",
+                "price_field": "price",
+                "spec_field": "",
+                "url_field": "",
+                "time_field": "",
+                "currency": "CNY",
+                "symbol_field": "",
+                "display_name_field": "",
+                "max_items": 20,
+                "default_spec": "",
+                "include_title_keywords": ["iphone"],
+                "exclude_title_keywords": [],
+                "base_url": "https://example.com",
+            },
+        )
+        result = self.adapter.map_to_normalizer_input(raw)
+        assert len(result) == 1
+        assert result[0]["title"] == "iPhone 16 128G"
+
     def test_with_time_field(self):
         raw = RawFetchResult(
             payload=[

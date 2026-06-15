@@ -12,15 +12,19 @@ import type {
   NotificationPreferenceInput,
   RuleConfiguration,
   RuleConfigurationInput,
+  StockMarketCloseReport,
+  StockMarketCloseReportSnapshot,
   SourceDetail,
   SourceStatus,
   ThemeAnalysis,
   ThemeDetail,
+  ThemeMarketOverview,
   ThemeRecord,
   ThemeSummary,
 } from "@info-monitor/shared-contracts";
 
 import { fallbackEvents, fallbackNotifications, fallbackSources, fallbackThemes } from "./demo-fixtures";
+import { buildStockMarketCloseReport } from "./stock-market-report";
 
 export type {
   DashboardSummary,
@@ -32,10 +36,13 @@ export type {
   NotificationPreferenceInput,
   RuleConfiguration,
   RuleConfigurationInput,
+  StockMarketCloseReport,
+  StockMarketCloseReportSnapshot,
   SourceDetail,
   SourceStatus,
   ThemeAnalysis,
   ThemeDetail,
+  ThemeMarketOverview,
   ThemeRecord,
   ThemeSummary,
 };
@@ -192,6 +199,97 @@ function buildFallbackThemeAnalysis(input: {
   }
 
   if (input.type === "financial_event") {
+    const marketRecords = (input.records ?? []).filter(
+      (record) => record.content.event_class === "market_overview",
+    );
+
+    if (marketRecords.length > 0) {
+      const latestA = marketRecords.find((record) => record.content.market_region === "a_share");
+      const latestHk = marketRecords.find((record) => record.content.market_region === "hk");
+      const aBenchmark = typeof latestA?.content.benchmark_change_percent === "number"
+        ? latestA.content.benchmark_change_percent
+        : null;
+      const hkBenchmark = typeof latestHk?.content.benchmark_change_percent === "number"
+        ? latestHk.content.benchmark_change_percent
+        : null;
+      const allBenchmarks = [aBenchmark, hkBenchmark].filter((value): value is number => value != null);
+      const averageBenchmark = allBenchmarks.length > 0
+        ? allBenchmarks.reduce((sum, value) => sum + value, 0) / allBenchmarks.length
+        : null;
+
+      return {
+        tone:
+          averageBenchmark != null && averageBenchmark > 0.8
+            ? "positive"
+            : averageBenchmark != null && averageBenchmark < -0.8
+              ? "negative"
+              : "neutral",
+        headline:
+          latestA && latestHk
+            ? "A股与港股日度概览已更新"
+            : latestA
+              ? "A股日度概览已更新"
+              : "港股日度概览已更新",
+        summary: latestEvent?.summary ?? "当前主题会按日度收盘快照汇总 A股、港股 指数表现与资金流向。",
+        keyPoints: [
+          latestA
+            ? `A股: ${typeof latestA.content.description === "string" ? latestA.content.description : "主要指数与北向资金已更新。"}`
+            : null,
+          latestHk
+            ? `港股: ${typeof latestHk.content.description === "string" ? latestHk.content.description : "主要指数与南向资金已更新。"}`
+            : null,
+          `来源状态：${input.sources.length} 个来源中，${warningCount} 个异常，${pausedCount} 个暂停。`,
+        ].filter((item): item is string => Boolean(item)),
+        risks: [
+          warningCount > 0 ? "存在异常来源，市场概览可能缺少最新一轮数据。" : "当前未发现异常来源。",
+          pausedCount > 0 ? "有来源被暂停，A股或港股任一侧的收盘概览都可能不完整。" : "当前来源运行状态较稳定。",
+        ],
+        actions: [
+          "先判断指数方向和资金流是否同向，再确认当天整体行情结论。",
+          "若 A股 与 港股 出现分化，建议把两边的判断拆开复盘。",
+        ],
+        recentChange: {
+          headline: recentEventCount > 0 ? "最近24小时市场概览有更新" : "最近24小时没有新的市场概览",
+          summary:
+            recentEventCount > 0
+              ? "新的收盘快照已经入库，可以直接比较 A股 和 港股 的日内表现。"
+              : "当前还没有新的日度概览，建议等待下一轮收盘抓取。",
+          highlights: [
+            latestA ? "A股指数与北向资金已更新。" : null,
+            latestHk ? "港股指数与南向资金已更新。" : null,
+            `最近24小时新增 ${recentEventCount} 条金融事件。`,
+          ].filter((item): item is string => Boolean(item)),
+        },
+        trend: {
+          headline:
+            averageBenchmark == null
+              ? "当前市场趋势样本不足"
+              : averageBenchmark > 0.8
+                ? "跨市场指数整体偏强"
+                : averageBenchmark < -0.8
+                  ? "跨市场指数整体偏弱"
+                  : "跨市场指数整体震荡",
+          summary:
+            averageBenchmark == null
+              ? "当前还缺少足够的市场概览样本。"
+              : `按当前可用收盘概览估算，核心指数均值变化约为 ${averageBenchmark >= 0 ? "+" : ""}${averageBenchmark.toFixed(2)}%。`,
+          highlights: [
+            latestA ? "A股跟踪了上证、深证、创业板表现。" : null,
+            latestHk ? "港股跟踪了恒指、国企指数表现。" : null,
+            input.latestInsight ? `最近摘要：${input.latestInsight}` : "最近没有可用摘要。",
+          ].filter((item): item is string => Boolean(item)),
+        },
+        signalAccumulation: { bullish: 0, bearish: 0, neutral: 0, recentBullish: 0, recentBearish: 0 },
+        supportingSources: [],
+        conflictingSources: [],
+        stance: averageBenchmark != null && averageBenchmark > 0.8
+          ? "bullish"
+          : averageBenchmark != null && averageBenchmark < -0.8
+            ? "bearish"
+            : "watch",
+      } satisfies ThemeAnalysis;
+    }
+
     return {
       tone:
         latestEvent?.signal === "liquidity_injection"
@@ -381,6 +479,198 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
           title: "首次抓取完成",
           summary: "已完成东方财富茅台日线数据采集。",
           meta: { status: "completed", triggerType: "seed", sourceName: "东方财富 K 线: 600519" },
+        },
+      ],
+      records,
+    };
+  }
+
+  if (theme.id === "theme-cn-hk-market-overview") {
+    const records: ThemeRecord[] = [
+      {
+        id: `${theme.id}-record-a-1`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "A股市场收盘概览",
+        occurredAt: "2026-06-15T15:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "a_share",
+          market_label: "A股",
+          direction_label: "bullish",
+          benchmark_name: "A股核心指数均值",
+          benchmark_change_percent: 1.88,
+          fund_flow_direction: "inflow",
+          fund_flow_net_billion: 18.4,
+          fund_flow_turnover_billion: 1124.6,
+          fund_flow_currency: "CNY",
+          major_indices: [
+            { code: "000001", label: "上证指数", latest: 4083.43, change_percent: 1.29 },
+            { code: "399001", label: "深证成指", latest: 15266.61, change_percent: 2.03 },
+            { code: "399006", label: "创业板指", latest: 3919.62, change_percent: 2.33 },
+          ],
+          sector_flows: [
+            { code: "BK1201", label: "电子", change_percent: 4.35, net_inflow_billion: 184.77, leading_stock_name: "东山精密", leading_stock_code: "002384" },
+            { code: "BK1036", label: "半导体", change_percent: 3.99, net_inflow_billion: 67.86, leading_stock_name: "兆易创新", leading_stock_code: "603986" },
+            { code: "BK1203", label: "非银金融", change_percent: 2.35, net_inflow_billion: 29.65, leading_stock_name: "东方财富", leading_stock_code: "300059" },
+          ],
+          top_movers: [
+            { code: "301566", label: "达利凯普", latest: 36.64, change_percent: 20.01, turnover_billion: 11.93 },
+            { code: "300726", label: "宏达电子", latest: 72.41, change_percent: 20.0, turnover_billion: 17.41 },
+            { code: "300570", label: "太辰光", latest: 222.1, change_percent: 20.0, turnover_billion: 61.78 },
+          ],
+          top_decliners: [
+            { code: "600000", label: "示例回调股A", latest: 12.44, change_percent: -6.21, turnover_billion: 8.42 },
+            { code: "000001", label: "示例回调股B", latest: 9.88, change_percent: -5.74, turnover_billion: 6.35 },
+          ],
+          summary_points: [
+            "三大指数集体收涨，成长风格更强。",
+            "北向资金延续净流入，市场风险偏好改善。",
+          ],
+          description: "A股主要指数集体收涨，北向资金保持净流入，全天情绪偏强。",
+        },
+      },
+      {
+        id: `${theme.id}-record-hk-1`,
+        sourceId: "source-cn-hk-market-overview",
+        sourceName: "Eastmoney China / Hong Kong Market Overview",
+        title: "港股市场收盘概览",
+        occurredAt: "2026-06-15T16:00:00+08:00",
+        infoType: "financial_event",
+        content: {
+          event_class: "market_overview",
+          market_region: "hk",
+          market_label: "港股",
+          direction_label: "neutral",
+          benchmark_name: "港股核心指数均值",
+          benchmark_change_percent: 0.72,
+          fund_flow_direction: "inflow",
+          fund_flow_net_billion: 20.51,
+          fund_flow_turnover_billion: 323.26,
+          fund_flow_currency: "HKD",
+          major_indices: [
+            { code: "HSI", label: "恒生指数", latest: 24921.38, change_percent: 0.82 },
+            { code: "HSCEI", label: "国企指数", latest: 8426.28, change_percent: 0.62 },
+          ],
+          top_movers: [
+            { code: "06658", label: "溜溜梅", latest: 1239.0, change_percent: 184.3, turnover_billion: 3.39 },
+            { code: "01985", label: "美高域", latest: 36.9, change_percent: 39.25, turnover_billion: 0.14 },
+            { code: "02513", label: "智谱", latest: 14430.0, change_percent: 31.54, turnover_billion: 42.31 },
+          ],
+          top_decliners: [
+            { code: "00999", label: "示例港股回调A", latest: 18.6, change_percent: -7.42, turnover_billion: 1.22 },
+            { code: "00888", label: "示例港股回调B", latest: 7.45, change_percent: -5.11, turnover_billion: 0.84 },
+          ],
+          summary_points: [
+            "港股同步修复，但弹性仍弱于A股。",
+            "南向资金继续净买入，对港股形成托底。",
+          ],
+          description: "港股核心指数震荡偏强，南向资金保持净买入，市场以修复为主。",
+        },
+      },
+    ];
+
+    const marketOverview: ThemeMarketOverview = {
+      headline: "A股与港股当日表现分化",
+      summary: "A股指数弹性更强，北向资金回暖；港股同步修复，南向资金继续净买入。",
+      crossMarketHighlights: ["A股整体偏强", "港股震荡修复"],
+      snapshots: [
+        {
+          market: "a_share",
+          marketLabel: "A股",
+          occurredAt: "2026-06-15T15:00:00+08:00",
+          tone: "positive",
+          directionLabel: "偏强",
+          headline: "A股整体偏强",
+          summary: "A股主要指数集体收涨，北向资金保持净流入，全天情绪偏强。",
+          benchmarkName: "A股核心指数均值",
+          benchmarkChangePercent: 1.88,
+          fundFlowDirection: "inflow",
+          fundFlowNetBillion: 18.4,
+          fundFlowTurnoverBillion: 1124.6,
+          fundFlowCurrency: "CNY",
+          indices: [
+            { code: "000001", label: "上证指数", latest: 4083.43, changePercent: 1.29 },
+            { code: "399001", label: "深证成指", latest: 15266.61, changePercent: 2.03 },
+            { code: "399006", label: "创业板指", latest: 3919.62, changePercent: 2.33 },
+          ],
+          sectorFlows: [
+            { code: "BK1201", label: "电子", changePercent: 4.35, netInflowBillion: 184.77, leadingStockName: "东山精密", leadingStockCode: "002384" },
+            { code: "BK1036", label: "半导体", changePercent: 3.99, netInflowBillion: 67.86, leadingStockName: "兆易创新", leadingStockCode: "603986" },
+            { code: "BK1203", label: "非银金融", changePercent: 2.35, netInflowBillion: 29.65, leadingStockName: "东方财富", leadingStockCode: "300059" },
+          ],
+          topMovers: [
+            { code: "301566", label: "达利凯普", latest: 36.64, changePercent: 20.01, turnoverBillion: 11.93 },
+            { code: "300726", label: "宏达电子", latest: 72.41, changePercent: 20.0, turnoverBillion: 17.41 },
+            { code: "300570", label: "太辰光", latest: 222.1, changePercent: 20.0, turnoverBillion: 61.78 },
+          ],
+          topDecliners: [
+            { code: "600000", label: "示例回调股A", latest: 12.44, changePercent: -6.21, turnoverBillion: 8.42 },
+            { code: "000001", label: "示例回调股B", latest: 9.88, changePercent: -5.74, turnoverBillion: 6.35 },
+          ],
+          highlights: ["A股核心指数均值 +1.88%", "资金面 +18.40 亿CNY", "北向资金延续净流入，市场风险偏好改善。"],
+        },
+        {
+          market: "hk",
+          marketLabel: "港股",
+          occurredAt: "2026-06-15T16:00:00+08:00",
+          tone: "neutral",
+          directionLabel: "震荡",
+          headline: "港股震荡修复",
+          summary: "港股核心指数震荡偏强，南向资金保持净买入，市场以修复为主。",
+          benchmarkName: "港股核心指数均值",
+          benchmarkChangePercent: 0.72,
+          fundFlowDirection: "inflow",
+          fundFlowNetBillion: 20.51,
+          fundFlowTurnoverBillion: 323.26,
+          fundFlowCurrency: "HKD",
+          indices: [
+            { code: "HSI", label: "恒生指数", latest: 24921.38, changePercent: 0.82 },
+            { code: "HSCEI", label: "国企指数", latest: 8426.28, changePercent: 0.62 },
+          ],
+          topMovers: [
+            { code: "06658", label: "溜溜梅", latest: 1239.0, changePercent: 184.3, turnoverBillion: 3.39 },
+            { code: "01985", label: "美高域", latest: 36.9, changePercent: 39.25, turnoverBillion: 0.14 },
+            { code: "02513", label: "智谱", latest: 14430.0, changePercent: 31.54, turnoverBillion: 42.31 },
+          ],
+          topDecliners: [
+            { code: "00999", label: "示例港股回调A", latest: 18.6, changePercent: -7.42, turnoverBillion: 1.22 },
+            { code: "00888", label: "示例港股回调B", latest: 7.45, changePercent: -5.11, turnoverBillion: 0.84 },
+          ],
+          highlights: ["港股核心指数均值 +0.72%", "资金面 +20.51 亿HKD", "南向资金继续净买入，对港股形成托底。"],
+        },
+      ],
+    };
+
+    return {
+      history: [
+        { at: "2026-06-14T16:00:00+08:00", label: "前一交易日A股与港股表现分化" },
+        { at: "2026-06-15T15:00:00+08:00", label: "A股收盘概览更新，市场情绪转强" },
+        { at: "2026-06-15T16:00:00+08:00", label: "港股收盘概览更新，南向资金继续净流入" },
+      ],
+      breakdown: null,
+      marketOverview,
+      timeline: [
+        {
+          id: `${theme.id}-timeline-run-1`,
+          kind: "run",
+          at: "2026-06-15T16:05:00+08:00",
+          title: "最新抓取完成",
+          summary: "已完成 A股 / 港股 收盘快照与资金流向采集。",
+          meta: { status: "completed", triggerType: "schedule", sourceName: "Eastmoney China / Hong Kong Market Overview" },
+        },
+        {
+          id: `${theme.id}-timeline-event-1`,
+          kind: "event",
+          at: events[0]?.occurredAt ?? "2026-06-15T16:00:00+08:00",
+          title: events[0]?.title ?? "A股市场偏强信号",
+          summary: events[0]?.summary ?? "The latest China / Hong Kong market overview was recorded.",
+          meta: {
+            signal: events[0]?.signal ?? "bullish",
+            eventType: events[0]?.eventType ?? "financial_direction",
+            sourceName: "Eastmoney China / Hong Kong Market Overview",
+          },
         },
       ],
       records,
@@ -906,6 +1196,7 @@ export async function fetchThemeDetail(themeId: string) {
     sources,
     history: artifacts.history,
     breakdown: artifacts.breakdown,
+    marketOverview: artifacts.marketOverview ?? null,
     timeline: artifacts.timeline,
     records: artifacts.records,
     analysis: buildFallbackThemeAnalysis({
@@ -2100,6 +2391,101 @@ export async function updateDailySummaryConfig(config: DailySummaryConfig): Prom
   }
 
   return (await response.json()) as DailySummaryConfig;
+}
+
+export type StockMarketCloseReportConfig = {
+  enabled: boolean;
+  channel: string;
+  deliveryTime: string;
+};
+
+// ─── Stock Market Close Report ─────────────────────────────────────────────
+
+function buildFallbackStockMarketCloseReport(): StockMarketCloseReport | null {
+  const theme = fallbackThemes.find((item) => item.id === "theme-cn-hk-market-overview");
+  if (!theme) {
+    return null;
+  }
+
+  const events = fallbackEvents.filter((item) => item.themeId === theme.id);
+  const artifacts = buildFallbackThemeArtifacts(theme, events);
+  const detail: ThemeDetail = {
+    theme,
+    events,
+    sources: fallbackSources.filter((item) => item.themeId === theme.id),
+    history: artifacts.history,
+    breakdown: artifacts.breakdown,
+    marketOverview: artifacts.marketOverview ?? null,
+    timeline: artifacts.timeline,
+    records: artifacts.records,
+    analysis: buildFallbackThemeAnalysis({
+      type: theme.type,
+      latestInsight: theme.latestInsight,
+      events,
+      sources: fallbackSources.filter((item) => item.themeId === theme.id),
+      records: artifacts.records,
+    }),
+  };
+
+  return buildStockMarketCloseReport(detail);
+}
+
+export async function fetchStockMarketCloseReport(): Promise<StockMarketCloseReport | null> {
+  const fallback = buildFallbackStockMarketCloseReport();
+  return requestJson("/stock-market-report", fallback);
+}
+
+export async function fetchStockMarketCloseReportHistory(limit: number = 7): Promise<StockMarketCloseReportSnapshot[]> {
+  const fallbackReport = buildFallbackStockMarketCloseReport();
+  const fallback: StockMarketCloseReportSnapshot[] = fallbackReport
+    ? [
+        {
+          id: "report-stock-market-fallback",
+          workspaceId: "stock-market",
+          date: fallbackReport.date,
+          report: fallbackReport,
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    : [];
+  return requestJson(`/stock-market-report/history?limit=${limit}`, fallback);
+}
+
+export async function fetchStockMarketCloseReportSnapshotByDate(date: string): Promise<StockMarketCloseReportSnapshot | null> {
+  const fallbackHistory = await fetchStockMarketCloseReportHistory(30);
+  const fallback = fallbackHistory.find((item) => item.date === date) ?? null;
+  return requestJson(`/stock-market-report/by-date?date=${date}`, fallback);
+}
+
+export async function saveStockMarketCloseReport(): Promise<StockMarketCloseReportSnapshot> {
+  const response = await fetch(`${API_BASE_URL}/stock-market-report/save`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save stock market close report: ${response.status}`);
+  }
+
+  return (await response.json()) as StockMarketCloseReportSnapshot;
+}
+
+export async function fetchStockMarketCloseReportConfig(): Promise<StockMarketCloseReportConfig> {
+  const fallback: StockMarketCloseReportConfig = { enabled: false, channel: "in_app", deliveryTime: "16:25" };
+  return requestJson("/stock-market-report/config", fallback);
+}
+
+export async function updateStockMarketCloseReportConfig(config: StockMarketCloseReportConfig): Promise<StockMarketCloseReportConfig> {
+  const response = await fetch(`${API_BASE_URL}/stock-market-report/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update stock market close report config: ${response.status}`);
+  }
+
+  return (await response.json()) as StockMarketCloseReportConfig;
 }
 
 // ─── Weekly Summary ─────────────────────────────────────────────────────────

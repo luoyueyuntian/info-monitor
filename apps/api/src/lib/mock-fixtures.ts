@@ -379,6 +379,71 @@ const eastmoneyTheme: DemoThemeFixture = {
   ],
 };
 
+const cnHkMarketTheme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.CN_HK_MARKET_OVERVIEW,
+    name: "A股与港股每日市场概览",
+    type: "financial_event",
+    status: "active",
+    latestRunAt: "2026-06-15T08:05:00Z",
+    latestEventAt: "2026-06-15T08:00:00Z",
+    sourceCount: 1,
+    metadata: {},
+  },
+  events: [
+    {
+      id: DEMO_EVENT_IDS.CN_HK_MARKET_BULLISH,
+      themeId: DEMO_THEME_IDS.CN_HK_MARKET_OVERVIEW,
+      themeName: "A股与港股每日市场概览",
+      title: "A股市场偏强信号",
+      signal: "bullish",
+      status: "open",
+      isRead: false,
+      isBookmarked: true,
+      bookmarkedAt: "2026-06-15T08:08:00Z",
+      eventType: DEFAULT_EVENT_TYPES.financial_event,
+      occurredAt: "2026-06-15T08:00:00Z",
+      summary: "A股主要指数收涨且北向资金回暖，收盘概览显示日内情绪偏强。",
+      infoType: "financial_event",
+      context: {
+        event_class: "market_overview",
+        market_region: "a_share",
+        market_label: "A股",
+        direction_label: "bullish",
+        benchmark_name: "A股核心指数均值",
+        benchmark_change_percent: 1.88,
+        fund_flow_net_billion: 18.4,
+        fund_flow_currency: "CNY",
+      },
+      evidence: [
+        "Eastmoney index snapshot fetched successfully.",
+        "Northbound and southbound flow snapshot normalized into market_overview records.",
+        "Direction was classified as bullish for the latest A-share close.",
+      ],
+    },
+  ],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.CN_HK_MARKET_OVERVIEW,
+      themeId: DEMO_THEME_IDS.CN_HK_MARKET_OVERVIEW,
+      themeName: "A股与港股每日市场概览",
+      themeType: "financial_event",
+      latestEventSignal: "bullish",
+      name: "Eastmoney China / Hong Kong Market Overview",
+      status: "healthy",
+      sourceType: "api",
+      adapterKey: "eastmoney_market_overview",
+      isPaused: false,
+      onboardingStatus: "active",
+      latestRunStatus: "completed",
+      latestRunAt: "2026-06-15T08:05:00Z",
+      latestSuccessAt: "2026-06-15T08:05:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
 const pbcNewsTheme: DemoThemeFixture = {
   theme: {
     id: DEMO_THEME_IDS.PBC_NEWS,
@@ -440,7 +505,15 @@ const pbcNewsTheme: DemoThemeFixture = {
   ],
 };
 
-export const mockFixtures: DemoThemeFixture[] = [surfaceTheme, pbcTheme, cpiTheme, figmaTheme, eastmoneyTheme, pbcNewsTheme];
+export const mockFixtures: DemoThemeFixture[] = [
+  surfaceTheme,
+  pbcTheme,
+  cpiTheme,
+  figmaTheme,
+  eastmoneyTheme,
+  cnHkMarketTheme,
+  pbcNewsTheme,
+];
 
 export const mockThemes = mockFixtures.map((fixture) => fixture.theme);
 export const mockEvents = mockFixtures.flatMap((fixture) => fixture.events);

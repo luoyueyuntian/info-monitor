@@ -268,6 +268,59 @@ export type ThemeBreakdown = {
   items: Array<{ label: string; count: number }>;
 };
 
+export type ThemeMarketOverviewIndex = {
+  code: string;
+  label: string;
+  latest: number | null;
+  changePercent: number | null;
+};
+
+export type ThemeMarketSectorFlow = {
+  code: string;
+  label: string;
+  changePercent: number | null;
+  netInflowBillion: number | null;
+  leadingStockName: string | null;
+  leadingStockCode: string | null;
+};
+
+export type ThemeMarketMover = {
+  code: string;
+  label: string;
+  latest: number | null;
+  changePercent: number | null;
+  turnoverBillion: number | null;
+  reasons?: string[];
+};
+
+export type ThemeMarketOverviewSnapshot = {
+  market: "a_share" | "hk";
+  marketLabel: string;
+  occurredAt: string;
+  tone: ImpactTone;
+  directionLabel: string;
+  headline: string;
+  summary: string;
+  benchmarkName: string | null;
+  benchmarkChangePercent: number | null;
+  fundFlowDirection: "inflow" | "outflow" | "flat";
+  fundFlowNetBillion: number | null;
+  fundFlowTurnoverBillion: number | null;
+  fundFlowCurrency: string | null;
+  indices: ThemeMarketOverviewIndex[];
+  sectorFlows?: ThemeMarketSectorFlow[];
+  topMovers?: ThemeMarketMover[];
+  topDecliners?: ThemeMarketMover[];
+  highlights: string[];
+};
+
+export type ThemeMarketOverview = {
+  headline: string;
+  summary: string;
+  crossMarketHighlights: string[];
+  snapshots: ThemeMarketOverviewSnapshot[];
+};
+
 export type ThemeDetail = {
   theme: {
     id: string;
@@ -304,6 +357,7 @@ export type ThemeDetail = {
   }>;
   history: Array<{ at: string; label: string }>;
   breakdown: ThemeBreakdown | null;
+  marketOverview?: ThemeMarketOverview | null;
   timeline: ThemeTimelineEntry[];
   records: ThemeRecord[];
   analysis: ThemeAnalysis;
@@ -600,4 +654,65 @@ export type DailySummary = {
   }>;
   totalEvents: number;
   recentEvents: number;
+};
+
+export type StockMarketCloseReport = {
+  date: string;
+  headline: string;
+  summary: string;
+  keySignals: string[];
+  timeline: Array<{
+    at: string;
+    title: string;
+    summary: string;
+    kind: "market_close" | "primary_catalyst" | "secondary_catalyst" | "mover";
+    targetThemeId?: string | null;
+  }>;
+  catalystSummary: {
+    primary: Array<{ title: string; summary: string; targetThemeId?: string | null }>;
+    secondary: Array<{ title: string; summary: string; targetThemeId?: string | null }>;
+    background: Array<{ title: string; summary: string; targetThemeId?: string | null }>;
+  };
+  sectorFocus: string[];
+  moverFocus: string[];
+  announcementFocus: Array<{
+    level: "high" | "medium" | "low";
+    title: string;
+    summary: string;
+    targetThemeId?: string | null;
+  }>;
+  sourceClues: Array<{
+    level: "high" | "medium" | "low";
+    title: string;
+    summary: string;
+    targetThemeId?: string | null;
+  }>;
+  moverCards: Array<{
+    market: "a_share" | "hk";
+    direction: "up" | "down";
+    label: string;
+    code: string;
+    changeText: string;
+    reasons: string[];
+    announcementClues: Array<{
+      level: "high" | "medium" | "low";
+      title: string;
+      targetThemeId?: string | null;
+    }>;
+    sourceClues: Array<{
+      level: "high" | "medium" | "low";
+      title: string;
+      summary: string;
+      targetThemeId?: string | null;
+    }>;
+  }>;
+  actionItems: string[];
+};
+
+export type StockMarketCloseReportSnapshot = {
+  id: string;
+  workspaceId: string;
+  date: string;
+  report: StockMarketCloseReport;
+  createdAt: string;
 };

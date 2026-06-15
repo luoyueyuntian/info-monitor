@@ -7,6 +7,21 @@ from info_monitor_worker.normalizers.base import BaseNormalizer
 
 
 def classify_direction(item: dict[str, Any]) -> tuple[str, str]:
+    explicit_label = item.get("direction_label")
+    explicit_reason = item.get("direction_reason")
+
+    if explicit_label in {
+        "bullish",
+        "bearish",
+        "neutral",
+        "liquidity_injection",
+        "liquidity_withdrawal",
+    }:
+        return (
+            str(explicit_label),
+            str(explicit_reason or "Direction was explicitly classified by the adapter."),
+        )
+
     operation_type = item.get("operation_type")
 
     if operation_type in {"逆回购", "MLF", "SLF", "SLO", "国库现金定存"}:
@@ -59,6 +74,21 @@ class FinancialEventNormalizer(BaseNormalizer):
                         "bidding_method": item.get("bidding_method"),
                         "direction_label": direction_label,
                         "direction_reason": direction_reason,
+                        "market_region": item.get("market_region"),
+                        "market_label": item.get("market_label"),
+                        "benchmark_name": item.get("benchmark_name"),
+                        "benchmark_change_percent": item.get("benchmark_change_percent"),
+                        "fund_flow_direction": item.get("fund_flow_direction"),
+                        "fund_flow_net_billion": item.get("fund_flow_net_billion"),
+                        "fund_flow_turnover_billion": item.get("fund_flow_turnover_billion"),
+                        "fund_flow_currency": item.get("fund_flow_currency"),
+                        "major_indices": item.get("major_indices"),
+                        "sector_flows": item.get("sector_flows"),
+                        "top_movers": item.get("top_movers"),
+                        "top_decliners": item.get("top_decliners"),
+                        "summary_points": item.get("summary_points"),
+                        "signal_title": item.get("signal_title"),
+                        "signal_summary": item.get("signal_summary"),
                         "description": item.get("description"),
                     },
                 )

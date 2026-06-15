@@ -20,6 +20,7 @@ import { registerChannelConfigRoutes } from "./routes/channel-config.js";
 import { registerDailySummaryRoutes } from "./routes/daily-summary.js";
 import { registerWeeklySummaryRoutes } from "./routes/weekly-summary.js";
 import { registerUserPreferencesRoutes } from "./routes/user-preferences.js";
+import { registerStockMarketCloseReportRoutes } from "./routes/stock-market-close-report.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ export async function buildApp() {
   await registerChannelConfigRoutes(app);
   await registerDailySummaryRoutes(app);
   await registerWeeklySummaryRoutes(app);
+  await registerStockMarketCloseReportRoutes(app);
   await registerUserPreferencesRoutes(app);
 
   // Serve frontend static files

@@ -6,6 +6,20 @@
       :handle-back="handleBack"
     />
 
+    <StockMarketInvestigationCard
+      v-if="isStockMarketWorkspace"
+      title="股市调查快捷区"
+      summary="从这里快速切到盘后报告、动作台和关联主题，保持在股市板块内完成调查闭环。"
+      :actions="stockMarketInvestigationActions"
+    />
+
+    <StockMarketSignalContextCard
+      v-if="isStockMarketWorkspace"
+      title="股市事件上下文"
+      :summary="stockMarketContextSummary"
+      :bullets="stockMarketContextBullets"
+    />
+
     <EventDetailSummaryCard :detail="detail" />
 
     <EventDetailStatusCard
@@ -76,6 +90,8 @@ import EventDetailStatusCard from "./EventDetailStatusCard.vue";
 import EventDetailSummaryCard from "./EventDetailSummaryCard.vue";
 import EventDetailThemeCard from "./EventDetailThemeCard.vue";
 import EventDetailTriggerReasonCard from "./EventDetailTriggerReasonCard.vue";
+import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
+import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import { buildSingleEventOperationNotice } from "../../components/event-operation-feedback";
 import { fetchEventDetail, type EventDetail, updateEvent, updateEventStatus } from "../../../../lib/api";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
@@ -95,6 +111,63 @@ const operationNotice = ref<{
   message: string;
   actions: Array<{ label: string; to: RouteLocationRaw }>;
 } | null>(null);
+const isStockMarketWorkspace = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
+const stockMarketInvestigationActions = computed<Array<{ label: string; to: RouteLocationRaw }>>(() => {
+  if (!detail.value || !isStockMarketWorkspace.value) {
+    return [];
+  }
+
+  return [
+    { label: "查看盘后报告", to: `/workspace/stock-market/reports` },
+    { label: "返回动作台", to: `/workspace/stock-market/actions` },
+    { label: "查看关联主题", to: `/workspace/stock-market/topics/${detail.value.themeId}` },
+  ];
+});
+const stockMarketContextSummary = computed(() => {
+  if (!detail.value) {
+    return "";
+  }
+
+  if (detail.value.context?.event_class === "daily_billboard") {
+    return "这条事件属于龙虎榜异动线索，适合结合净额方向、涨跌幅和相关公告一起判断是否只是情绪脉冲，还是更强的主线异动。";
+  }
+
+  if (detail.value.context?.event_class === "market_overview") {
+    return "这条事件属于盘后市场总览的一部分，适合放回股市盘后报告里和主催化、主线板块、重点异动对象一起看。";
+  }
+
+  return "这条事件已经处在股市工作区内，适合优先结合盘后报告、关联主题和来源线索一起调查。";
+});
+const stockMarketContextBullets = computed(() => {
+  if (!detail.value) {
+    return [];
+  }
+
+  const bullets: string[] = [];
+  const context = detail.value.context ?? {};
+
+  if (context.security_name) {
+    bullets.push(`相关个股: ${formatMaybeLabel(context.security_name)} (${formatMaybeLabel(context.security_code)})`);
+  }
+
+  if (context.change_rate_percent != null) {
+    bullets.push(`当日涨跌幅: ${formatMaybeLabel(context.change_rate_percent)}%`);
+  }
+
+  if (context.amount_billion_cny != null) {
+    bullets.push(`相关净额/金额: ${formatMaybeLabel(context.amount_billion_cny)} 亿元`);
+  }
+
+  if (context.market_label) {
+    bullets.push(`所属市场: ${formatMaybeLabel(context.market_label)}`);
+  }
+
+  if (detail.value.sourceName) {
+    bullets.push(`数据来源: ${detail.value.sourceName}`);
+  }
+
+  return bullets.slice(0, 4);
+});
 
 function handleBack() {
   if (window.history.length > 1) {

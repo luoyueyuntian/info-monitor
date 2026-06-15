@@ -190,6 +190,14 @@ export interface DailySummariesTable {
   created_at: TimestampColumn;
 }
 
+export interface WorkspaceCloseReportsTable {
+  id: string;
+  workspace_id: string;
+  date: string;
+  report: JsonColumn<Record<string, unknown>>;
+  created_at: TimestampColumn;
+}
+
 export interface Database {
   themes: ThemesTable;
   sources: SourcesTable;
@@ -207,4 +215,5 @@ export interface Database {
   theme_favorites: ThemeFavoritesTable;
   saved_filter_views: SavedFilterViewsTable;
   daily_summaries: DailySummariesTable;
+  workspace_close_reports: WorkspaceCloseReportsTable;
 }
