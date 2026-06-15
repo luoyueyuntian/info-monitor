@@ -14,7 +14,7 @@
         <span :class="pillToneClass(event.isBookmarked ? '30d_low' : 'neutral')">{{ eventBookmarkLabel(event.isBookmarked) }}</span>
         <RouterLink
           class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.98rem] font-semibold text-ink-link"
-          :to="`/events/${event.id}`"
+          :to="eventDetailTarget(event.id)"
         >
           {{ event.title }}
           <span aria-hidden="true" class="text-base leading-none">›</span>
@@ -24,13 +24,13 @@
         <div class="mt-2 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
-            :to="{ path: `/themes/${themeId}`, query: { section: eventImpactTone(event) === 'negative' ? 'analysis' : 'timeline' } }"
+            :to="themeDetailTarget(eventImpactTone(event) === 'negative' ? 'analysis' : 'timeline')"
           >
             {{ eventImpactTone(event) === "negative" ? "查看主题分析" : "查看主题时间线" }}
           </RouterLink>
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"
-            :to="`/events/${event.id}`"
+            :to="eventDetailTarget(event.id)"
           >
             查看事件详情
           </RouterLink>
@@ -42,8 +42,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
 import type { SourceDetail } from "../../../../lib/api";
 import { eventImpactTone, impactToneLabel } from "../../../../lib/impact";
+import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
 import {
   eventBookmarkLabel,
   eventReadLabel,
@@ -53,8 +57,37 @@ import {
   pillToneClass,
 } from "../../../../lib/presentation";
 
-defineProps<{
+const props = defineProps<{
   themeId: string;
   events: SourceDetail["events"];
 }>();
+
+const route = useRoute();
+const workspaceId = computed(() => typeof route.params.workspaceId === "string" ? route.params.workspaceId : null);
+const stockReportQuery = computed(() => buildStockReportReturnQuery({
+  reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+  reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+}));
+
+function eventDetailTarget(eventId: string) {
+  if (workspaceId.value) {
+    return {
+      path: `/workspace/${workspaceId.value}/actions/${eventId}`,
+      query: stockReportQuery.value,
+    };
+  }
+
+  return `/events/${eventId}`;
+}
+
+function themeDetailTarget(section: string) {
+  if (workspaceId.value) {
+    return {
+      path: `/workspace/${workspaceId.value}/topics/${props.themeId}`,
+      query: { section, ...stockReportQuery.value },
+    };
+  }
+
+  return { path: `/themes/${props.themeId}`, query: { section } };
+}
 </script>

@@ -96,7 +96,7 @@
             <div class="rounded-2xl bg-slate-50/90 px-4 py-4 text-[0.95rem] leading-7 text-ink-body">
               {{ effectiveStockMarketReport.headline }}：{{ effectiveStockMarketReport.summary }}
             </div>
-            <div class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
+            <div :ref="setSectionRef('catalysts')" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
               <strong class="block text-ink-heading">催化归并</strong>
               <div class="mt-3 grid gap-3 lg:grid-cols-3">
                 <div class="rounded-xl border border-slate-400/15 bg-slate-50/70 px-3 py-3">
@@ -105,7 +105,7 @@
                     <div v-for="item in effectiveStockMarketReport.catalystSummary.primary" :key="`primary-${item.title}`" class="text-[0.88rem] leading-6 text-ink-body">
                       <component
                         :is="item.targetThemeId ? 'RouterLink' : 'div'"
-                        :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                        :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('catalysts') } : undefined"
                         :class="item.targetThemeId ? 'font-semibold text-ink-link hover:underline' : 'font-semibold text-ink-heading'"
                       >
                         {{ item.title }}
@@ -121,7 +121,7 @@
                     <div v-for="item in effectiveStockMarketReport.catalystSummary.secondary" :key="`secondary-${item.title}`" class="text-[0.88rem] leading-6 text-ink-body">
                       <component
                         :is="item.targetThemeId ? 'RouterLink' : 'div'"
-                        :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                        :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('catalysts') } : undefined"
                         :class="item.targetThemeId ? 'font-semibold text-ink-link hover:underline' : 'font-semibold text-ink-heading'"
                       >
                         {{ item.title }}
@@ -137,7 +137,7 @@
                     <div v-for="item in effectiveStockMarketReport.catalystSummary.background" :key="`background-${item.title}`" class="text-[0.88rem] leading-6 text-ink-body">
                       <component
                         :is="item.targetThemeId ? 'RouterLink' : 'div'"
-                        :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                        :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('catalysts') } : undefined"
                         :class="item.targetThemeId ? 'font-semibold text-ink-link hover:underline' : 'font-semibold text-ink-heading'"
                       >
                         {{ item.title }}
@@ -164,7 +164,7 @@
                       </span>
                       <RouterLink
                         v-if="item.targetThemeId"
-                        :to="`/workspace/${workspace.id}/topics/${item.targetThemeId}`"
+                        :to="{ path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('evolution') }"
                         class="text-[0.92rem] font-semibold text-ink-link hover:underline"
                       >
                         {{ item.title }}
@@ -225,7 +225,7 @@
                         </span>
                         <component
                           :is="item.targetThemeId ? 'RouterLink' : 'span'"
-                          :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                          :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('movers') } : undefined"
                           :class="item.targetThemeId ? 'text-[0.86rem] font-semibold text-ink-link hover:underline' : 'text-[0.86rem] font-semibold text-ink-heading'"
                         >
                           {{ item.title }}
@@ -246,7 +246,7 @@
                         </span>
                         <component
                           :is="item.targetThemeId ? 'RouterLink' : 'span'"
-                          :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                          :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('movers') } : undefined"
                           :class="item.targetThemeId ? 'text-[0.84rem] font-semibold text-ink-link hover:underline' : 'text-[0.84rem] font-semibold text-ink-heading'"
                         >
                           {{ item.title }}
@@ -258,7 +258,7 @@
                 </div>
               </div>
             </div>
-            <div v-if="effectiveStockMarketReport.sourceClues.length" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
+            <div v-if="effectiveStockMarketReport.sourceClues.length" :ref="setSectionRef('source-clues')" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
               <strong class="block text-ink-heading">来源线索</strong>
               <div class="mt-3 grid gap-2">
                 <div
@@ -272,7 +272,7 @@
                     </span>
                     <component
                       :is="item.targetThemeId ? 'RouterLink' : 'strong'"
-                      :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                      :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('source-clues') } : undefined"
                       :class="item.targetThemeId ? 'text-[0.92rem] font-semibold text-ink-link hover:underline' : 'text-[0.92rem] text-ink-heading'"
                     >
                       {{ item.title }}
@@ -282,7 +282,7 @@
                 </div>
               </div>
             </div>
-            <div v-if="effectiveStockMarketReport.announcementFocus.length" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
+            <div v-if="effectiveStockMarketReport.announcementFocus.length" :ref="setSectionRef('announcements')" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
               <strong class="block text-ink-heading">公告线索</strong>
               <div class="mt-3 grid gap-2">
                 <div
@@ -296,7 +296,7 @@
                     </span>
                     <component
                       :is="item.targetThemeId ? 'RouterLink' : 'strong'"
-                      :to="item.targetThemeId ? `/workspace/${workspace.id}/topics/${item.targetThemeId}` : undefined"
+                      :to="item.targetThemeId ? { path: `/workspace/${workspace.id}/topics/${item.targetThemeId}`, query: buildReportReturnQuery('announcements') } : undefined"
                       :class="item.targetThemeId ? 'text-[0.92rem] font-semibold text-ink-link hover:underline' : 'text-[0.92rem] text-ink-heading'"
                     >
                       {{ item.title }}
@@ -606,6 +606,14 @@ const stockMarketTheme = computed(() => {
 
   return dataset.value.themes.find((theme) => theme.id === "theme-cn-hk-market-overview") ?? null;
 });
+
+function buildReportReturnQuery(focus: string) {
+  return {
+    returnTo: "stock-report",
+    reportDate: selectedReportDate.value,
+    reportFocus: focus,
+  };
+}
 
 const dailyNarrative = computed(() => {
   if (workspaceId.value === "stock-market" && stockMarketOverview.value) {

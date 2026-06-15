@@ -27,7 +27,10 @@
     <article class="card">
       <div class="card-topline">
         <h3>关联主题信号</h3>
-        <RouterLink class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link" :to="{ path: `/themes/${detail.source.themeId}`, query: { section: 'analysis' } }">
+        <RouterLink
+          class="inline-flex items-center gap-1.5 whitespace-nowrap text-[0.92rem] font-semibold text-ink-link"
+          :to="{ path: `/themes/${detail.source.themeId}`, query: { section: 'analysis', ...stockReportQuery } }"
+        >
           查看所属主题
           <span aria-hidden="true" class="text-base leading-none">›</span>
         </RouterLink>
@@ -134,6 +137,7 @@ import StockMarketSignalContextCard from "../../../workspace/components/StockMar
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
 import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, triggerSourceRun, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
+import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
 import {
   eventSignalLabel,
   formatMaybeLabel,
@@ -155,11 +159,25 @@ const stockMarketInvestigationActions = computed<Array<{ label: string; to: Rout
     return [];
   }
 
-  return [
-    { label: "查看盘后报告", to: `/workspace/stock-market/reports` },
+  const actions: Array<{ label: string; to: RouteLocationRaw }> = [
     { label: "返回来源控制台", to: `/workspace/stock-market/sources` },
     { label: "查看所属主题", to: `/workspace/stock-market/topics/${detail.value.source.themeId}` },
   ];
+
+  if (detail.value.source.adapterKey === "eastmoney_market_overview") {
+    actions.unshift({ label: "查看收盘概览", to: { path: "/workspace/stock-market/reports", query: { focus: "snapshot", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    actions.push({ label: "查看板块主线", to: { path: "/workspace/stock-market/reports", query: { focus: "sector", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    return actions;
+  }
+
+  if (detail.value.source.adapterKey === "eastmoney_daily_billboard") {
+    actions.unshift({ label: "查看重点异动对象", to: { path: "/workspace/stock-market/reports", query: { focus: "movers", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    actions.push({ label: "查看来源线索", to: { path: "/workspace/stock-market/reports", query: { focus: "source-clues", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    return actions;
+  }
+
+  actions.unshift({ label: "查看公告线索", to: { path: "/workspace/stock-market/reports", query: { focus: "announcements", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+  return actions;
 });
 const stockMarketSourceContextSummary = computed(() => {
   if (!detail.value) {
@@ -196,8 +214,23 @@ const stockMarketSourceContextBullets = computed(() => {
 
   return bullets.slice(0, 4);
 });
+const stockReportQuery = computed(() => buildStockReportReturnQuery({
+  reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+  reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+}));
 
 function handleBack() {
+  if (isStockMarketWorkspace.value && route.query.returnTo === "stock-report") {
+    void router.push({
+      path: "/workspace/stock-market/reports",
+      query: {
+        date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined,
+        focus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : undefined,
+      },
+    });
+    return;
+  }
+
   if (window.history.length > 1) {
     router.back();
     return;
@@ -329,7 +362,10 @@ const reviewActions = computed(() => {
     return [];
   }
 
-  return buildSourceDetailReviewActions(detail.value);
+  return buildSourceDetailReviewActions(detail.value, {
+    reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+    reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+  });
 });
 
 function runBarClass(status: string) {

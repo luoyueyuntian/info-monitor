@@ -95,6 +95,7 @@ import StockMarketSignalContextCard from "../../../workspace/components/StockMar
 import { buildSingleEventOperationNotice } from "../../components/event-operation-feedback";
 import { fetchEventDetail, type EventDetail, updateEvent, updateEventStatus } from "../../../../lib/api";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";
+import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
 import {
   eventSignalLabel,
   formatMaybeLabel,
@@ -117,11 +118,25 @@ const stockMarketInvestigationActions = computed<Array<{ label: string; to: Rout
     return [];
   }
 
-  return [
-    { label: "查看盘后报告", to: `/workspace/stock-market/reports` },
+  const actions: Array<{ label: string; to: RouteLocationRaw }> = [
     { label: "返回动作台", to: `/workspace/stock-market/actions` },
     { label: "查看关联主题", to: `/workspace/stock-market/topics/${detail.value.themeId}` },
   ];
+
+  if (detail.value.context?.event_class === "daily_billboard") {
+    actions.unshift({ label: "查看重点异动对象", to: { path: "/workspace/stock-market/reports", query: { focus: "movers", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    actions.push({ label: "查看来源线索", to: { path: "/workspace/stock-market/reports", query: { focus: "source-clues", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    return actions;
+  }
+
+  if (detail.value.context?.event_class === "market_overview") {
+    actions.unshift({ label: "查看收盘概览", to: { path: "/workspace/stock-market/reports", query: { focus: "snapshot", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    actions.push({ label: "查看板块主线", to: { path: "/workspace/stock-market/reports", query: { focus: "sector", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+    return actions;
+  }
+
+  actions.unshift({ label: "查看公告线索", to: { path: "/workspace/stock-market/reports", query: { focus: "announcements", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
+  return actions;
 });
 const stockMarketContextSummary = computed(() => {
   if (!detail.value) {
@@ -168,8 +183,23 @@ const stockMarketContextBullets = computed(() => {
 
   return bullets.slice(0, 4);
 });
+const stockReportQuery = computed(() => buildStockReportReturnQuery({
+  reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+  reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+}));
 
 function handleBack() {
+  if (isStockMarketWorkspace.value && route.query.returnTo === "stock-report") {
+    void router.push({
+      path: "/workspace/stock-market/reports",
+      query: {
+        date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined,
+        focus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : undefined,
+      },
+    });
+    return;
+  }
+
   if (window.history.length > 1) {
     router.back();
     return;
@@ -243,7 +273,7 @@ const themeAnalysisTarget = computed(() => {
 
   return {
     path: `/themes/${detail.value.themeId}`,
-    query: { section },
+    query: { section, ...stockReportQuery.value },
   };
 });
 
@@ -258,7 +288,7 @@ const themeQueueTarget = computed(() => {
 
   return {
     path: `/themes/${detail.value.themeId}`,
-    query: { section: "events" },
+    query: { section: "events", ...stockReportQuery.value },
   };
 });
 
@@ -273,7 +303,7 @@ const themeTrendTarget = computed(() => {
 
   return {
     path: `/themes/${detail.value.themeId}`,
-    query: { section: "trend" },
+    query: { section: "trend", ...stockReportQuery.value },
   };
 });
 
@@ -284,7 +314,7 @@ const themeTimelineTarget = computed(() => {
 
   return {
     path: `/themes/${detail.value.themeId}`,
-    query: { section: "timeline" },
+    query: { section: "timeline", ...stockReportQuery.value },
   };
 });
 
@@ -309,7 +339,10 @@ const reviewActions = computed(() => {
     return [];
   }
 
-  return buildEventDetailReviewActions(detail.value);
+  return buildEventDetailReviewActions(detail.value, {
+    reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+    reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+  });
 });
 
 async function handleUpdateStatus(status: string) {
