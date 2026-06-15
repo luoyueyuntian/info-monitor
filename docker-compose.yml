@@ -6,8 +6,6 @@ services:
       POSTGRES_DB: info_monitor
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,15 +15,41 @@ services:
       retries: 10
       start_period: 5s
 
-  app:
-    build: .
-    container_name: info-monitor-app
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: info-monitor-api
     ports:
-      - "3001:3001"
+      - "6780:3001"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
       API_PORT: 3001
       CORS_ORIGIN: "*"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./apps/python-worker
+      dockerfile: Dockerfile
+    container_name: info-monitor-worker
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ./apps/python-scheduler
+      dockerfile: Dockerfile
+    container_name: info-monitor-scheduler
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
     depends_on:
       postgres:
         condition: service_healthy
