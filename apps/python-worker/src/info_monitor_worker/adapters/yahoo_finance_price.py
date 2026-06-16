@@ -1,18 +1,20 @@
-"""Yahoo Finance quote adapter for international stock indices and equities.
+"""International stock/indices price adapter.
 
-Fetches current price and recent history from the Yahoo Finance v8 chart API.
-Supports any symbol recognized by Yahoo Finance (AAPL, ^GSPC, GC=F, CL=F, etc.).
+Fetches international stock and index quotes from Sina Finance's global stock API.
+This replaces Yahoo Finance which blocks non-browser requests.
+
+Sina global stock field format (gb_*):
+  [0] name, [1] price, [2] change%, [3] datetime, [4] change_amount,
+  [5] open, [6] high, [7] low, [8] 52w_high, [9] 52w_low,
+  [10] volume, [11] amount, ..., [26] prev_close
 
 Config keys:
-    symbol: Yahoo Finance ticker symbol (required)
-    interval: candle interval, default "1d" (optional)
-    range: historical range, default "1mo" (optional)
-    currency: display currency, default "USD" (optional)
-    days: fallback range in days when range not set (default: 30)
+    symbol: Sina Finance global quote symbol or Yahoo symbol (auto-mapped) (required)
+    currency: display currency (auto-detected if omitted)
 """
 from __future__ import annotations
 
-import json
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
@@ -22,111 +24,145 @@ from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import TZ_CST, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
-CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+QUOTE_URL = "https://hq.sinajs.cn"
+_TZ_CST = timezone(timedelta(hours=8))
+_LINE_RE = re.compile(r'var hq_str_(\w+)="(.*)";')
 
-# Well-known symbol -> display name overrides
+_YAHOO_TO_SINA: Dict[str, str] = {
+    "^GSPC": "gb_inx",
+    "^DJI": "gb_dji",
+    "^IXIC": "gb_ixic",
+    "^NDX": "gb_ndx",
+    "^FTSE": "gb_ftse",
+    "^GDAXI": "gb_dax",
+    "^N225": "gb_nikkei",
+    "^HSI": "rt_hkHSI",
+    "^HSCEI": "rt_hkHSCEI",
+    "^AXJO": "gb_aord",
+}
+
 _DISPLAY_NAMES: Dict[str, str] = {
+    "gb_inx": "S&P 500",
+    "gb_dji": "道琼斯工业平均",
+    "gb_ixic": "纳斯达克综合",
+    "gb_ndx": "纳斯达克100",
+    "gb_ftse": "富时100",
+    "gb_dax": "德国DAX",
+    "gb_nikkei": "日经225",
+    "gb_aord": "澳大利亚标普200",
+    "rt_hkHSI": "恒生指数",
+    "rt_hkHSCEI": "国企指数",
+    # Yahoo symbol fallbacks
     "^GSPC": "S&P 500",
     "^DJI": "道琼斯工业平均",
     "^IXIC": "纳斯达克综合",
-    "^HSI": "恒生指数",
-    "^HSCEI": "国企指数",
-    "^N225": "日经225",
+    "^NDX": "纳斯达克100",
     "^FTSE": "富时100",
     "^GDAXI": "德国DAX",
-    "GC=F": "COMEX黄金期货",
-    "SI=F": "COMEX白银期货",
-    "CL=F": "WTI原油期货",
-    "BZ=F": "布伦特原油期货",
-    "^TNX": "美国10年期国债收益率",
+    "^N225": "日经225",
+}
+
+_CURRENCY_MAP: Dict[str, str] = {
+    "gb_inx": "USD", "gb_dji": "USD", "gb_ixic": "USD", "gb_ndx": "USD",
+    "gb_ftse": "GBP", "gb_dax": "EUR", "gb_nikkei": "JPY",
+    "gb_aord": "AUD", "rt_hkHSI": "HKD", "rt_hkHSCEI": "HKD",
 }
 
 
 class YahooFinancePriceAdapter(BaseAdapter):
+    """Adapter for international stock/indices via Sina Finance API."""
+
     def fetch(self, theme: ThemeContext, source: SourceContext) -> RawFetchResult:
         symbol = source.config.get("symbol")
         if not symbol:
             raise ValueError("yahoo_finance_price adapter requires config.symbol")
 
-        interval = source.config.get("interval", "1d")
-        range_param = source.config.get("range", "1mo")
-        url = CHART_URL.format(symbol=symbol)
-        params = {
-            "interval": interval,
-            "range": range_param,
-            "includePrePost": "false",
-        }
+        sina_symbol = _YAHOO_TO_SINA.get(str(symbol), str(symbol))
+        url = f"{QUOTE_URL}?list={sina_symbol}"
 
         with httpx.Client(
-            timeout=20.0,
-            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15.0,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"},
         ) as client:
-            response = client.get(url, params=params)
+            response = client.get(url)
             response.raise_for_status()
-            payload = response.json()
+            text = response.text
 
-        return RawFetchResult(payload=payload, metadata={
-            "symbol": symbol,
-            "currency": source.config.get("currency", "USD"),
+        return RawFetchResult(payload=text, metadata={
+            "symbol": sina_symbol,
+            "currency": source.config.get("currency") or _CURRENCY_MAP.get(sina_symbol, "USD"),
         })
 
     def map_to_normalizer_input(self, raw_result: RawFetchResult) -> Any:
-        payload = raw_result.payload
+        text = str(raw_result.payload)
         symbol = str(raw_result.metadata.get("symbol", ""))
         currency = str(raw_result.metadata.get("currency", "USD"))
         fallback_at = now_cst()
 
-        chart = (payload.get("chart") or {}).get("result")
-        if not chart or not isinstance(chart, list):
-            raise ValueError(f"yahoo_finance_price: no chart data for {symbol}")
+        m = _LINE_RE.match(text.strip())
+        if not m or not m.group(2).strip():
+            raise ValueError(f"yahoo_finance_price: no data for {symbol}")
 
-        result_data = chart[0]
-        meta = result_data.get("meta", {})
-        display_name = _DISPLAY_NAMES.get(symbol, str(meta.get("shortName") or meta.get("symbol") or symbol))
+        fields = m.group(2).split(",")
+        # Sina global: [0]=name, [1]=price, [2]=change%, [3]=datetime, ...
+        if len(fields) < 4:
+            raise ValueError(f"yahoo_finance_price: insufficient fields for {symbol}")
 
-        timestamps = result_data.get("timestamp", [])
-        indicators = result_data.get("indicators", {})
-        quote_list = indicators.get("quote", [])
-        if not quote_list:
-            raise ValueError(f"yahoo_finance_price: no quote data for {symbol}")
+        display_name = _DISPLAY_NAMES.get(symbol, fields[0] or symbol)
 
-        quote = quote_list[0]
-        closes = quote.get("close", [])
-        opens = quote.get("open", [])
-        highs = quote.get("high", [])
-        lows = quote.get("low", [])
-        volumes = quote.get("volume", [])
+        try:
+            current_price = float(fields[1])
+        except (ValueError, IndexError):
+            raise ValueError(f"yahoo_finance_price: cannot parse price for {symbol}")
 
-        items: List[Dict[str, Any]] = []
-        for idx, ts in enumerate(timestamps):
-            close_price = closes[idx] if idx < len(closes) else None
-            if close_price is None:
-                continue
+        if current_price <= 0:
+            raise ValueError(f"yahoo_finance_price: invalid price {current_price} for {symbol}")
 
-            occurred_at = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(TZ_CST)
-            occurred_at_str = occurred_at.strftime("%Y-%m-%dT%H:%M:%S+08:00")
+        # Date is at [3]: "2026-06-16 04:40:24"
+        datetime_text = fields[3].strip() if len(fields) > 3 else ""
+        occurred_at = fallback_at
+        if datetime_text and len(datetime_text) >= 10:
+            occurred_at = datetime_text.replace(" ", "T") + "+08:00"
 
-            open_price = opens[idx] if idx < len(opens) and opens[idx] else None
-            high_price = highs[idx] if idx < len(highs) and highs[idx] else None
-            low_price = lows[idx] if idx < len(lows) and lows[idx] else None
-            vol = volumes[idx] if idx < len(volumes) and volumes[idx] else None
+        try:
+            change_pct = float(fields[2]) if len(fields) > 2 and fields[2].strip() else None
+        except ValueError:
+            change_pct = None
 
-            items.append({
-                "title": f"{display_name} daily close",
-                "price": round(float(close_price), 2),
-                "currency": currency,
-                "spec": symbol,
-                "occurred_at": occurred_at_str,
-                "url": f"https://finance.yahoo.com/quote/{symbol}",
-                "symbol": symbol,
-                "display_name": display_name,
-                "open": round(float(open_price), 2) if open_price else None,
-                "high": round(float(high_price), 2) if high_price else None,
-                "low": round(float(low_price), 2) if low_price else None,
-                "volume": int(vol) if vol else None,
-            })
+        try:
+            open_price = float(fields[5]) if len(fields) > 5 and fields[5].strip() else None
+        except ValueError:
+            open_price = None
 
-        if not items:
-            raise ValueError(f"yahoo_finance_price returned no data for {symbol}")
+        try:
+            high_price = float(fields[6]) if len(fields) > 6 and fields[6].strip() else None
+        except ValueError:
+            high_price = None
+
+        try:
+            low_price = float(fields[7]) if len(fields) > 7 and fields[7].strip() else None
+        except ValueError:
+            low_price = None
+
+        try:
+            volume = int(float(fields[10])) if len(fields) > 10 and fields[10].strip() else None
+        except (ValueError, TypeError):
+            volume = None
+
+        items: List[Dict[str, Any]] = [{
+            "title": f"{display_name} ({symbol})",
+            "price": round(current_price, 2),
+            "currency": currency,
+            "spec": symbol,
+            "occurred_at": occurred_at,
+            "url": f"https://finance.sina.com.cn/stock/usstock/{symbol}.shtml",
+            "symbol": symbol,
+            "display_name": display_name,
+            "open": round(open_price, 2) if open_price else None,
+            "high": round(high_price, 2) if high_price else None,
+            "low": round(low_price, 2) if low_price else None,
+            "volume": volume,
+            "change_percent": change_pct,
+        }]
 
         return items

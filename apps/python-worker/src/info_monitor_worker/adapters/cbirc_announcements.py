@@ -1,6 +1,7 @@
-"""CBIRC (China Banking and Insurance Regulatory Commission) announcements adapter.
+"""NFRA (formerly CBIRC) announcements adapter.
 
-Fetches regulatory announcements from the CBIRC public site.
+After the 2023 institutional reform, CBIRC was merged into the National Financial
+Regulatory Administration (NFRA / 国家金融监督管理总局).
 
 Config keys:
     max_items: max items to return (default: 10)
@@ -16,22 +17,28 @@ from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
+# NFRA (formerly CBIRC) public announcement page
 LIST_URL = "https://www.cbirc.gov.cn/cn/view/pages/ItemList.html?itemPId=923&itemId=4115"
+# Fallback: NFRA new domain (may not be publicly accessible from all networks)
+NFRA_LIST_URL = "https://www.nfra.gov.cn/cn/view/pages/ItemList.html?itemPId=923&itemId=4115"
 
 
 class CbircAnnouncementsAdapter(BaseAdapter):
     def fetch(self, theme: ThemeContext, source: SourceContext) -> RawFetchResult:
         max_items = int(source.config.get("max_items", 10))
+        url = str(source.config.get("url") or LIST_URL)
 
-        with httpx.Client(
-            timeout=20.0,
-            headers={"User-Agent": "Mozilla/5.0"},
-        ) as client:
-            response = client.get(LIST_URL)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+
+        with httpx.Client(timeout=20.0, headers=headers, follow_redirects=True) as client:
+            response = client.get(url)
             response.raise_for_status()
             html = response.text
 
-        return RawFetchResult(payload=html, metadata={"max_items": max_items, "list_url": LIST_URL})
+        return RawFetchResult(payload=html, metadata={"max_items": max_items, "list_url": url})
 
     def map_to_normalizer_input(self, raw_result: RawFetchResult) -> Any:
         html = str(raw_result.payload)
@@ -42,7 +49,6 @@ class CbircAnnouncementsAdapter(BaseAdapter):
         soup = BeautifulSoup(html, "html.parser")
         items: List[Dict[str, Any]] = []
 
-        # CBIRC typically uses <a> tags within list containers
         for anchor in soup.select("a[href*='/cn/view/pages/']"):
             title = anchor.get("title") or anchor.get_text(strip=True)
             href = anchor.get("href", "")
@@ -74,7 +80,7 @@ class CbircAnnouncementsAdapter(BaseAdapter):
                 "title": title,
                 "occurred_at": occurred_at,
                 "url": full_url,
-                "publisher": "银保监会",
+                "publisher": "国家金融监督管理总局",
                 "category": "financial_event",
                 "event_class": "regulatory_announcement",
                 "description": title,
@@ -84,6 +90,6 @@ class CbircAnnouncementsAdapter(BaseAdapter):
                 break
 
         if not items:
-            raise ValueError("cbirc_announcements returned no items")
+            raise ValueError("cbirc_announcements returned no items (network may be blocked)")
 
         return items
