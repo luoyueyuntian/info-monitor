@@ -18,6 +18,12 @@ export const DEMO_THEME_IDS = {
   PBC_NEWS: "theme-pbc-news",
   // China / Hong Kong market overview
   CN_HK_MARKET_OVERVIEW: "theme-cn-hk-market-overview",
+  // International gold price
+  INTERNATIONAL_GOLD: "theme-international-gold",
+  // US stock indices (S&P 500)
+  US_SP500: "theme-us-sp500",
+  // GitHub product releases (Vue.js)
+  VUE_RELEASES: "theme-vue-releases",
 };
 
 // ─── Source IDs ────────────────────────────────────────────────────────────────
@@ -39,6 +45,12 @@ export const DEMO_SOURCE_IDS = {
   PBC_NEWS_LIST: "source-pbc-news-list",
   // China / Hong Kong market overview
   CN_HK_MARKET_OVERVIEW: "source-cn-hk-market-overview",
+  // International gold price (Sina)
+  SINA_GOLD: "source-sina-gold",
+  // US stock indices (Yahoo Finance)
+  YAHOO_SP500: "source-yahoo-sp500",
+  // GitHub Vue.js releases
+  GITHUB_VUE_RELEASES: "source-github-vue-releases",
 };
 
 // ─── Event IDs ────────────────────────────────────────────────────────────────
@@ -59,6 +71,12 @@ export const DEMO_EVENT_IDS = {
   STATS_DATA_RELEASE_LATEST: "event-stats-data-release-latest",
   // China / Hong Kong market overview
   CN_HK_MARKET_BULLISH: "event-cn-hk-market-bullish",
+  // International gold
+  GOLD_PRICE_DROP: "event-gold-price-drop",
+  // S&P 500
+  SP500_MILESTONE: "event-sp500-milestone",
+  // Vue.js
+  VUE_RELEASE: "event-vue-release",
 };
 
 // ─── Run IDs ──────────────────────────────────────────────────────────────────
@@ -82,6 +100,12 @@ export const DEMO_RUN_IDS = {
   FIGMA_RELEASE_LATEST: "run-figma-release-latest",
   // China / Hong Kong market overview
   CN_HK_MARKET_OVERVIEW_LATEST: "run-cn-hk-market-overview-latest",
+  // International gold
+  SINA_GOLD_SEED: "run-sina-gold-seed",
+  // US stock indices
+  YAHOO_SP500_SEED: "run-yahoo-sp500-seed",
+  // Vue.js
+  GITHUB_VUE_SEED: "run-github-vue-seed",
 };
 
 // ─── Snapshot IDs ─────────────────────────────────────────────────────────────
@@ -103,6 +127,12 @@ export const DEMO_SNAPSHOT_IDS = {
   FIGMA_RELEASE_LATEST: "snapshot-figma-release-latest",
   // China / Hong Kong market overview
   CN_HK_MARKET_OVERVIEW_LATEST: "snapshot-cn-hk-market-overview-latest",
+  // International gold
+  SINA_GOLD_SEED: "snapshot-sina-gold-seed",
+  // US stock indices
+  YAHOO_SP500_SEED: "snapshot-yahoo-sp500-seed",
+  // Vue.js
+  GITHUB_VUE_SEED: "snapshot-github-vue-seed",
 };
 
 // ─── Record IDs ───────────────────────────────────────────────────────────────
@@ -124,6 +154,12 @@ export const DEMO_RECORD_IDS = {
   FIGMA_RELEASE_LATEST: "record-figma-release-latest",
   // China / Hong Kong market overview
   CN_HK_MARKET_OVERVIEW_LATEST: "record-cn-hk-market-overview-latest",
+  // International gold
+  SINA_GOLD_SEED: "record-sina-gold-seed",
+  // US stock indices
+  YAHOO_SP500_SEED: "record-yahoo-sp500-seed",
+  // Vue.js
+  GITHUB_VUE_SEED: "record-github-vue-seed",
 };
 
 // ─── Change IDs ───────────────────────────────────────────────────────────────
