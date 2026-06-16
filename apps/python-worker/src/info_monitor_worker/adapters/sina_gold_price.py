@@ -42,9 +42,16 @@ _LINE_RE = re.compile(r'var hq_str_(\w+)="(.*)";')
 
 class SinaGoldPriceAdapter(BaseAdapter):
     def fetch(self, theme: ThemeContext, source: SourceContext) -> RawFetchResult:
-        symbols = source.config.get("symbols")
-        if not symbols or not isinstance(symbols, list):
-            raise ValueError("sina_gold_price adapter requires config.symbols (list)")
+        raw_symbols = source.config.get("symbols")
+        if not raw_symbols:
+            raise ValueError("sina_gold_price adapter requires config.symbols")
+        # Accept both list and comma-separated string
+        if isinstance(raw_symbols, str):
+            symbols = [s.strip() for s in raw_symbols.split(",") if s.strip()]
+        elif isinstance(raw_symbols, list):
+            symbols = [str(s).strip() for s in raw_symbols if str(s).strip()]
+        else:
+            raise ValueError("sina_gold_price config.symbols must be a list or comma-separated string")
 
         symbol_str = ",".join(str(s) for s in symbols)
         url = f"{QUOTE_URL}?list={symbol_str}"
