@@ -16,6 +16,8 @@ export const DEMO_THEME_IDS = {
   FIGMA_UPDATES: "theme-figma-updates",
   EASTMONEY_MOUTAI: "theme-eastmoney-moutai",
   PBC_NEWS: "theme-pbc-news",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW: "theme-cn-hk-market-overview",
 };
 
 // ─── Source IDs ────────────────────────────────────────────────────────────────
@@ -35,6 +37,8 @@ export const DEMO_SOURCE_IDS = {
   EASTMONEY_MOUTAI_KLINE: "source-eastmoney-moutai-kline",
   // PBOC News
   PBC_NEWS_LIST: "source-pbc-news-list",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW: "source-cn-hk-market-overview",
 };
 
 // ─── Event IDs ────────────────────────────────────────────────────────────────
@@ -53,6 +57,8 @@ export const DEMO_EVENT_IDS = {
   PBC_NEWS_LATEST: "event-pbc-news-latest",
   // NBS Stats Data Release
   STATS_DATA_RELEASE_LATEST: "event-stats-data-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_BULLISH: "event-cn-hk-market-bullish",
 };
 
 // ─── Run IDs ──────────────────────────────────────────────────────────────────
@@ -74,6 +80,8 @@ export const DEMO_RUN_IDS = {
   STATS_DATA_RELEASE_LATEST: "run-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "run-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "run-cn-hk-market-overview-latest",
 };
 
 // ─── Snapshot IDs ─────────────────────────────────────────────────────────────
@@ -93,6 +101,8 @@ export const DEMO_SNAPSHOT_IDS = {
   STATS_DATA_RELEASE_LATEST: "snapshot-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "snapshot-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "snapshot-cn-hk-market-overview-latest",
 };
 
 // ─── Record IDs ───────────────────────────────────────────────────────────────
@@ -112,6 +122,8 @@ export const DEMO_RECORD_IDS = {
   STATS_DATA_RELEASE_LATEST: "record-stats-data-release-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "record-figma-release-latest",
+  // China / Hong Kong market overview
+  CN_HK_MARKET_OVERVIEW_LATEST: "record-cn-hk-market-overview-latest",
 };
 
 // ─── Change IDs ───────────────────────────────────────────────────────────────
