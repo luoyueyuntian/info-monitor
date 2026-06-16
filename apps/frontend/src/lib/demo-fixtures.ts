@@ -472,6 +472,118 @@ const pbcNewsTheme: DemoThemeFixture = {
   ],
 };
 
+
+const internationalGoldTheme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.INTERNATIONAL_GOLD,
+    name: "国际金价",
+    type: "price",
+    status: "active",
+    latestRunAt: "2026-06-15T09:00:00Z",
+    latestEventAt: "2026-06-15T09:01:00Z",
+    sourceCount: 1,
+    sourceHealth: "healthy",
+    latestEventTitle: "现货黄金 XAU/USD 报 3245.50 USD",
+    latestEventSignal: "30d_low",
+    latestInsight: "3,245.50 USD · 现货黄金",
+  },
+  events: [],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.SINA_GOLD,
+      themeId: DEMO_THEME_IDS.INTERNATIONAL_GOLD,
+      themeName: "国际金价",
+      themeType: "price",
+      latestEventSignal: "30d_low",
+      name: "新浪财经黄金行情",
+      status: "healthy",
+      sourceType: "api",
+      adapterKey: "sina_gold_price",
+      isPaused: false,
+      onboardingStatus: "active",
+      latestRunStatus: "completed",
+      latestRunAt: "2026-06-15T09:00:00Z",
+      latestSuccessAt: "2026-06-15T09:00:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
+const usSp500Theme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.US_SP500,
+    name: "S&P 500 指数",
+    type: "price",
+    status: "active",
+    latestRunAt: "2026-06-15T04:30:00Z",
+    latestEventAt: "2026-06-15T04:31:00Z",
+    sourceCount: 1,
+    sourceHealth: "healthy",
+    latestEventTitle: "S&P 500 收报 5450.20 USD",
+    latestEventSignal: "30d_low",
+    latestInsight: "5,450.20 USD · S&P 500",
+  },
+  events: [],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.YAHOO_SP500,
+      themeId: DEMO_THEME_IDS.US_SP500,
+      themeName: "S&P 500 指数",
+      themeType: "price",
+      latestEventSignal: "30d_low",
+      name: "Yahoo Finance S&P 500",
+      status: "healthy",
+      sourceType: "api",
+      adapterKey: "yahoo_finance_price",
+      isPaused: false,
+      onboardingStatus: "active",
+      latestRunStatus: "completed",
+      latestRunAt: "2026-06-15T04:30:00Z",
+      latestSuccessAt: "2026-06-15T04:30:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
+const vueReleasesTheme: DemoThemeFixture = {
+  theme: {
+    id: DEMO_THEME_IDS.VUE_RELEASES,
+    name: "Vue.js 版本发布",
+    type: "content_update",
+    status: "active",
+    latestRunAt: "2026-06-15T10:00:00Z",
+    latestEventAt: "2026-06-10T12:00:00Z",
+    sourceCount: 1,
+    sourceHealth: "healthy",
+    latestEventTitle: "Vue.js v3.5.0 发布",
+    latestEventSignal: "content_update",
+    latestInsight: "feature_release · Vue.js",
+  },
+  events: [],
+  sources: [
+    {
+      id: DEMO_SOURCE_IDS.GITHUB_VUE_RELEASES,
+      themeId: DEMO_THEME_IDS.VUE_RELEASES,
+      themeName: "Vue.js 版本发布",
+      themeType: "content_update",
+      latestEventSignal: "content_update",
+      name: "GitHub vuejs/core Releases",
+      status: "healthy",
+      sourceType: "api",
+      adapterKey: "github_releases",
+      isPaused: false,
+      onboardingStatus: "active",
+      latestRunStatus: "completed",
+      latestRunAt: "2026-06-15T10:00:00Z",
+      latestSuccessAt: "2026-06-15T10:00:00Z",
+      latestFailureAt: null,
+      lastErrorMessage: null,
+    },
+  ],
+};
+
 export const demoFixtures: DemoThemeFixture[] = [
   surfaceTheme,
   pbcTheme,
@@ -480,6 +592,9 @@ export const demoFixtures: DemoThemeFixture[] = [
   eastmoneyTheme,
   cnHkMarketTheme,
   pbcNewsTheme,
+  internationalGoldTheme,
+  usSp500Theme,
+  vueReleasesTheme,
 ];
 
 export const fallbackThemes = demoFixtures.map((fixture) => fixture.theme);
