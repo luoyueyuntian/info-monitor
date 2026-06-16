@@ -34,6 +34,7 @@ const navItems = computed(() => [
   { label: "主题", to: `${base.value}/topics` },
   { label: "来源", to: `${base.value}/sources` },
   { label: "报告", to: `${base.value}/reports` },
+  { label: "数据源目录", to: "/sources/catalog" },
 ]);
 
 function navItemClass(target: string) {
@@ -41,4 +42,7 @@ function navItemClass(target: string) {
     ? "bg-[#143149] text-white"
     : "bg-slate-100 text-slate-700 hover:bg-slate-200";
 }
+</script>
+<script setup lang="ts">
+// NOTE: This will append, but we want to insert a new nav item for Source Catalog.
 </script>
