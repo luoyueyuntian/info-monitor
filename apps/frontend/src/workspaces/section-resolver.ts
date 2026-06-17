@@ -10,6 +10,8 @@ export type WorkspaceSectionViewId =
   | "shared/topics"
   | "competitor-watch/actions"
   | "competitor-watch/dashboard"
+  | "competitor-watch/reports"
+  | "competitor-watch/sources"
   | "competitor-watch/topics"
   | "stock-market/actions"
   | "stock-market/dashboard"
@@ -20,6 +22,8 @@ const workspaceSectionOverrides: Partial<Record<WorkspaceId, Partial<Record<Work
   "competitor-watch": {
     actions: "competitor-watch/actions",
     dashboard: "competitor-watch/dashboard",
+    reports: "competitor-watch/reports",
+    sources: "competitor-watch/sources",
     topics: "competitor-watch/topics",
   },
   "stock-market": {
@@ -48,6 +52,8 @@ const sectionComponents: Record<WorkspaceSectionViewId, Component> = {
   "shared/topics": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/topics/components/WorkspaceTopicsBoard.vue")),
   "competitor-watch/actions": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/actions/components/CompetitorWatchActionsBoard.vue")),
   "competitor-watch/dashboard": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/dashboard/components/CompetitorWatchDashboardBoard.vue")),
+  "competitor-watch/reports": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/reports/components/CompetitorWatchReportsBoard.vue")),
+  "competitor-watch/sources": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/sources/components/CompetitorWatchSourcesBoard.vue")),
   "competitor-watch/topics": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/topics/components/CompetitorWatchTopicsBoard.vue")),
   "stock-market/actions": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/actions/components/StockMarketActionsBoard.vue")),
   "stock-market/dashboard": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/dashboard/components/StockMarketDashboardBoard.vue")),

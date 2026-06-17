@@ -13,7 +13,8 @@ describe("workspace section resolver", () => {
     expect(resolveWorkspaceSectionViewId("competitor-watch", "dashboard")).toBe("competitor-watch/dashboard");
     expect(resolveWorkspaceSectionViewId("competitor-watch", "actions")).toBe("competitor-watch/actions");
     expect(resolveWorkspaceSectionViewId("competitor-watch", "topics")).toBe("competitor-watch/topics");
-    expect(resolveWorkspaceSectionViewId("competitor-watch", "sources")).toBe("shared/sources");
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "sources")).toBe("competitor-watch/sources");
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "reports")).toBe("competitor-watch/reports");
   });
 
   it("falls back to shared views for other generic workspaces", () => {
