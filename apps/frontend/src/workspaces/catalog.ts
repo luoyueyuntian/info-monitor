@@ -110,6 +110,32 @@ export const workspaceModulesCatalog: WorkspaceModule[] = [
   },
   {
     definition: workspaceDefinitions[3],
-    sections: createGenericSections(workspaceDefinitions[3].label),
+    sections: {
+      dashboard: {
+        id: "dashboard",
+        label: "大盘",
+        description: "竞品工作区的动作雷达、活跃对象和优先级总览。",
+      },
+      actions: {
+        id: "actions",
+        label: "动作",
+        description: "竞品工作区的分诊台，用来先判断变化类型和影响范围。",
+      },
+      topics: {
+        id: "topics",
+        label: "主题",
+        description: "竞品工作区的画像墙，按对象沉淀长期观察脉络。",
+      },
+      sources: {
+        id: "sources",
+        label: "来源",
+        description: "竞品工作区的来源台，优先识别哪些渠道需要先验证。",
+      },
+      reports: {
+        id: "reports",
+        label: "报告",
+        description: "竞品工作区的情报摘要与阶段性动作复盘。",
+      },
+    },
   },
 ];

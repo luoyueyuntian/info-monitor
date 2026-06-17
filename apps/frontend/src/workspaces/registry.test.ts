@@ -19,7 +19,8 @@ describe("workspace registry", () => {
   it("exposes section metadata without route-level conditionals", () => {
     expect(getWorkspaceSectionMeta("stock-market", "reports")?.label).toBe("报告");
     expect(getWorkspaceSectionMeta("stock-market", "reports")?.description).toContain("盘后");
-    expect(getWorkspaceSectionMeta("competitor-watch", "actions")?.description).toContain("动作");
+    expect(getWorkspaceSectionMeta("competitor-watch", "actions")?.description).toContain("分诊");
+    expect(getWorkspaceSectionMeta("competitor-watch", "reports")?.description).toContain("情报摘要");
   });
 
   it("returns null for unknown workspaces", () => {
