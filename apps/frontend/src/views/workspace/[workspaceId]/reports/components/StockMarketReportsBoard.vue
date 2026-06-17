@@ -398,6 +398,8 @@
         </article>
       </aside>
     </section>
+
+    <TechnicalIndicatorsPanel :indicators="latestPriceIndicators" />
   </div>
 </template>
 
@@ -419,10 +421,22 @@ import {
 } from "../../../../../lib/stock-market-report-state";
 import { buildWorkspaceSummary, sortWorkspaceEvents, type WorkspaceId } from "../../../../../lib/workspaces";
 import { useWorkspaceData } from "../../../shared/useWorkspaceData";
+import TechnicalIndicatorsPanel from "./TechnicalIndicatorsPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
 const workspaceId = computed(() => "stock-market" as WorkspaceId);
+
+const latestPriceIndicators = computed(() => {
+  const records = stockMarketThemeDetail.value?.records ?? [];
+  for (const record of records) {
+    const indicators = record.content?.indicators;
+    if (indicators && typeof indicators === "object" && Object.keys(indicators).length > 0) {
+      return indicators as Record<string, unknown>;
+    }
+  }
+  return null;
+});
 const { workspace, dataset, referenceNow, load } = useWorkspaceData(workspaceId);
 const stockMarketThemeDetail = ref<ThemeDetail | null>(null);
 const {
