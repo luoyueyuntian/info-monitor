@@ -6,7 +6,12 @@ from typing import Any, Dict
 from info_monitor_worker.adapters.registry import get_adapter
 from info_monitor_worker.db import create_db_engine
 from info_monitor_worker.detectors import get_detector
+from info_monitor_worker.event_rules.boll_signal import BOLLSignalRule
 from info_monitor_worker.event_rules.financial_direction import FinancialDirectionRule
+from info_monitor_worker.event_rules.kdj_signal import KDJSignalRule
+from info_monitor_worker.event_rules.macd_signal import MACDSignalRule
+from info_monitor_worker.event_rules.moving_average_signal import MovingAverageSignalRule
+from info_monitor_worker.event_rules.rsi_signal import RSISignalRule
 from info_monitor_worker.event_rules.price_30d_low import ThirtyDayLowRule
 from info_monitor_worker.models import SourceContext, ThemeContext
 from info_monitor_worker.normalizers.registry import get_normalizer
@@ -34,7 +39,11 @@ class WorkerService:
         self.engine = create_db_engine()
         self.price_low_rule = ThirtyDayLowRule()
         self.financial_direction_rule = FinancialDirectionRule()
-
+        self.rsi_signal_rule = RSISignalRule()
+        self.macd_signal_rule = MACDSignalRule()
+        self.kdj_signal_rule = KDJSignalRule()
+        self.boll_signal_rule = BOLLSignalRule()
+        self.ma_signal_rule = MovingAverageSignalRule()
     def run_once(self) -> int:
         processed = 0
 
@@ -213,6 +222,38 @@ class WorkerService:
                     occurred_at=normalized_record.occurred_at,
                     evidence=rule_result.evidence,
                 )
+
+            # Evaluate technical indicator signal rules
+            indicators = normalized_record.content.get("indicators")
+            if indicators:
+                indicator_rules = [
+                    ("rsi_signal", "rsi_signal", self.rsi_signal_rule),
+                    ("macd_signal", "macd_signal", self.macd_signal_rule),
+                    ("kdj_signal", "kdj_signal", self.kdj_signal_rule),
+                    ("boll_signal", "boll_signal", self.boll_signal_rule),
+                    ("ma_signal", "ma_signal", self.ma_signal_rule),
+                ]
+                for event_type, event_key_suffix, rule in indicator_rules:
+                    rule_result = rule.evaluate(normalized_record)
+                    if rule_result.triggered:
+                        indicator_event_key = (
+                            f"{theme.theme_id}:{source.source_id}:{event_key_suffix}:"
+                            f"{record_identity}:{normalized_record.occurred_at}"
+                        )
+                        self._emit_event_with_notification(
+                            connection=connection,
+                            run_id=run_id,
+                            theme_id=theme.theme_id,
+                            source_id=source.source_id,
+                            change_id=change_id,
+                            event_key=indicator_event_key,
+                            event_type=event_type,
+                            signal=rule_result.signal,
+                            title=rule_result.title,
+                            summary=rule_result.summary,
+                            occurred_at=normalized_record.occurred_at,
+                            evidence=rule_result.evidence,
+                        )
 
         elif info_type == "news_announcement":
             if self._should_check_latest_only(normalized_record, latest_occurred_at):
