@@ -9,8 +9,15 @@ describe("workspace section resolver", () => {
     expect(resolveWorkspaceSectionViewId("stock-market", "sources")).toBe("shared/sources");
   });
 
-  it("falls back to shared views for other workspaces", () => {
+  it("resolves competitor-watch sections to competitor-specific views where registered", () => {
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "dashboard")).toBe("competitor-watch/dashboard");
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "actions")).toBe("competitor-watch/actions");
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "topics")).toBe("competitor-watch/topics");
+    expect(resolveWorkspaceSectionViewId("competitor-watch", "sources")).toBe("shared/sources");
+  });
+
+  it("falls back to shared views for other generic workspaces", () => {
     expect(resolveWorkspaceSectionViewId("market-impact", "dashboard")).toBe("shared/dashboard");
-    expect(resolveWorkspaceSectionViewId("competitor-watch", "topics")).toBe("shared/topics");
+    expect(resolveWorkspaceSectionViewId("goods-supply", "topics")).toBe("shared/topics");
   });
 });

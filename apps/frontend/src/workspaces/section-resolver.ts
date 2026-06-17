@@ -8,12 +8,20 @@ export type WorkspaceSectionViewId =
   | "shared/reports"
   | "shared/sources"
   | "shared/topics"
+  | "competitor-watch/actions"
+  | "competitor-watch/dashboard"
+  | "competitor-watch/topics"
   | "stock-market/actions"
   | "stock-market/dashboard"
   | "stock-market/reports"
   | "stock-market/topics";
 
 const workspaceSectionOverrides: Partial<Record<WorkspaceId, Partial<Record<WorkspaceSectionId, WorkspaceSectionViewId>>>> = {
+  "competitor-watch": {
+    actions: "competitor-watch/actions",
+    dashboard: "competitor-watch/dashboard",
+    topics: "competitor-watch/topics",
+  },
   "stock-market": {
     actions: "stock-market/actions",
     dashboard: "stock-market/dashboard",
@@ -38,6 +46,9 @@ const sectionComponents: Record<WorkspaceSectionViewId, Component> = {
   "shared/reports": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/reports/components/WorkspaceReportsBoard.vue")),
   "shared/sources": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/sources/components/WorkspaceSourcesBoard.vue")),
   "shared/topics": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/topics/components/WorkspaceTopicsBoard.vue")),
+  "competitor-watch/actions": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/actions/components/WorkspaceActionsBoard.vue")),
+  "competitor-watch/dashboard": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/dashboard/components/WorkspaceDashboardBoard.vue")),
+  "competitor-watch/topics": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/topics/components/WorkspaceTopicsBoard.vue")),
   "stock-market/actions": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/actions/components/StockMarketActionsBoard.vue")),
   "stock-market/dashboard": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/dashboard/components/StockMarketDashboardBoard.vue")),
   "stock-market/reports": defineAsyncComponent(() => import("../views/workspace/[workspaceId]/reports/components/StockMarketReportsBoard.vue")),
