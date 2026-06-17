@@ -35,6 +35,8 @@ export function useWorkspaceData(workspaceId: WorkspaceId | Ref<WorkspaceId>) {
   return {
     workspace,
     dataset,
+    allSources: sources,
+    allThemes: themes,
     referenceNow,
     loading,
     load,

@@ -44,6 +44,7 @@ export async function registerThemeRoutes(app: FastifyInstance) {
 
   app.post("/api/themes", async (request, reply) => {
     const body = request.body as {
+      id?: string;
       name?: string;
       themeType?: string;
       infoType?: string;
@@ -63,6 +64,7 @@ export async function registerThemeRoutes(app: FastifyInstance) {
     }
 
     const created = await createTheme({
+      id: body.id,
       name: body.name,
       themeType: body.themeType,
       infoType: body.infoType,

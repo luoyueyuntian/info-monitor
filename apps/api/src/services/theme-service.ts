@@ -7,6 +7,7 @@ import { createId } from "../lib/ids.js";
 import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
 
 type ThemeInput = {
+  id?: string;
   name: string;
   themeType: string;
   infoType: string;
@@ -1662,7 +1663,7 @@ async function getThemeDetailFromDb(db: Kysely<Database>, themeId: string) {
 
 async function createThemeInDb(db: Kysely<Database>, input: ThemeInput): Promise<ThemeCreateResult> {
   const now = new Date().toISOString();
-  const themeId = createId("theme");
+  const themeId = input.id?.trim() || createId("theme");
   const sourceIds: string[] = [];
 
   await db
@@ -2239,7 +2240,7 @@ export async function createTheme(input: ThemeInput) {
   const db = getDatabase();
 
   if (!db) {
-    const themeId = createId("theme");
+    const themeId = input.id?.trim() || createId("theme");
     const sourceIds: string[] = [];
     mockThemes.unshift({
       id: themeId,
