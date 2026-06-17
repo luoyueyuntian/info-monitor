@@ -102,7 +102,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import type { RouteLocationRaw } from "vue-router";
 
 import SourceDetailAnalysisCard from "./SourceDetailAnalysisCard.vue";
 import SourceConfigHistoryCard from "./SourceConfigHistoryCard.vue";
@@ -119,9 +118,10 @@ import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
 import SourceDetailTestRunCard from "./SourceDetailTestRunCard.vue";
 import SourceReplayComparisonCard from "./SourceReplayComparisonCard.vue";
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
-import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, triggerSourceRun, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
+import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";
-import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
+import { resolveWorkspaceDetailBackNavigation } from "../../../../workspaces/navigation";
+import { buildStockReportReturnQuery } from "../../../../workspaces/stock-market/navigation";
 import {
   eventSignalLabel,
   formatMaybeLabel,
@@ -137,104 +137,31 @@ const healthExplanation = ref<SourceHealthExplanation | null>(null);
 const rerunningRunId = ref<string | null>(null);
 const replayingSnapshotId = ref<string | null>(null);
 const replayComparison = ref<SourceReplayComparison | null>(null);
-const isStockMarketWorkspace = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
-const stockMarketInvestigationActions = computed<Array<{ label: string; to: RouteLocationRaw }>>(() => {
-  if (!detail.value || !isStockMarketWorkspace.value) {
-    return [];
-  }
-
-  const actions: Array<{ label: string; to: RouteLocationRaw }> = [
-    { label: "返回来源控制台", to: `/workspace/stock-market/sources` },
-    { label: "查看所属主题", to: `/workspace/stock-market/topics/${detail.value.source.themeId}` },
-  ];
-
-  if (detail.value.source.adapterKey === "eastmoney_market_overview") {
-    actions.unshift({ label: "查看收盘概览", to: { path: "/workspace/stock-market/reports", query: { focus: "snapshot", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    actions.push({ label: "查看板块主线", to: { path: "/workspace/stock-market/reports", query: { focus: "sector", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    return actions;
-  }
-
-  if (detail.value.source.adapterKey === "eastmoney_daily_billboard") {
-    actions.unshift({ label: "查看重点异动对象", to: { path: "/workspace/stock-market/reports", query: { focus: "movers", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    actions.push({ label: "查看来源线索", to: { path: "/workspace/stock-market/reports", query: { focus: "source-clues", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    return actions;
-  }
-
-  actions.unshift({ label: "查看公告线索", to: { path: "/workspace/stock-market/reports", query: { focus: "announcements", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-  return actions;
-});
-const stockMarketSourceContextSummary = computed(() => {
-  if (!detail.value) {
-    return "";
-  }
-
-  if (detail.value.source.adapterKey === "eastmoney_market_overview") {
-    return "这个来源是股市盘后报告的核心总览来源，一旦异常，收盘概览、主催化和连续复盘都会直接受影响。";
-  }
-
-  if (detail.value.source.adapterKey === "eastmoney_daily_billboard") {
-    return "这个来源主要负责提供龙虎榜异动线索，适合重点查看它最近是否在支持重点异动对象的判断。";
-  }
-
-  return "这个来源已经进入股市工作区，适合作为盘后报告里的公告或线索补充来源来复核。";
-});
-const stockMarketSourceContextBullets = computed(() => {
-  if (!detail.value) {
-    return [];
-  }
-
-  const bullets: string[] = [];
-
-  bullets.push(`适配器: ${formatMaybeLabel(detail.value.source.adapterKey)}`);
-  bullets.push(`关联主题: ${detail.value.source.themeName}`);
-
-  if (detail.value.events.length) {
-    bullets.push(`关联事件数: ${detail.value.events.length}`);
-  }
-
-  if (detail.value.runs.length) {
-    bullets.push(`运行记录数: ${detail.value.runs.length}`);
-  }
-
-  return bullets.slice(0, 4);
-});
 const stockReportQuery = computed(() => buildStockReportReturnQuery({
   reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
   reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
 }));
 
 function handleBack() {
-  if (isStockMarketWorkspace.value && route.query.returnTo === "stock-report") {
-    void router.push({
-      path: "/workspace/stock-market/reports",
-      query: {
-        date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined,
-        focus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : undefined,
-      },
-    });
-    return;
-  }
+  const navigation = resolveWorkspaceDetailBackNavigation({
+    historyLength: window.history.length,
+    workspaceId: typeof route.params.workspaceId === "string" ? route.params.workspaceId : null,
+    fallbackSection: "sources",
+    returnTo: typeof route.query.returnTo === "string" ? route.query.returnTo : null,
+    reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+    reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+    sourceThemeId: detail.value?.source.themeId ?? null,
+  });
 
-  if (window.history.length > 1) {
+  if (navigation.useBrowserBack) {
     router.back();
     return;
   }
 
-  const workspaceId = route.params.workspaceId;
-  if (typeof workspaceId === "string") {
-    void router.push(`/workspace/${workspaceId}/sources`);
-    return;
-  }
-
-  if (detail.value) {
-    void router.push({ path: "/sources/status", query: { themeId: detail.value.source.themeId } });
-    return;
-  }
-
-  void router.push("/sources/status");
+  void router.push(navigation.target);
 }
 
-function handleTestCompleted(result: { success: boolean; runId: string }) {
+function handleTestCompleted() {
   // Refresh the detail view to pick up any new runs/records
   if (detail.value) {
     void loadSourceDetail(detail.value.source.id);

@@ -10,6 +10,17 @@
 /** The four supported information types for normalization. */
 export type InfoType = "price" | "content_update" | "news_announcement" | "financial_event";
 
+// ─── Workspaces ───────────────────────────────────────────────────────────────
+
+export const WORKSPACE_IDS = [
+  "market-impact",
+  "stock-market",
+  "goods-supply",
+  "competitor-watch",
+] as const;
+
+export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
+
 // ─── Event Signals ────────────────────────────────────────────────────────────
 
 /** Recognized event signal types emitted by the worker. */

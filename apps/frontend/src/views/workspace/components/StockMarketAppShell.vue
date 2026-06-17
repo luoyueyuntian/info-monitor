@@ -88,12 +88,6 @@ const currentSection = computed(() => {
   };
 });
 
-function workspaceSwitchClass(workspaceId: string) {
-  return workspaceId === currentWorkspaceId.value
-    ? "bg-[#143149] text-white"
-    : "bg-white/88 text-slate-700 hover:bg-white";
-}
-
 function sectionNavClass(target: string) {
   return route.path === target || route.path.startsWith(`${target}/`)
     ? "bg-[#143149] text-white"

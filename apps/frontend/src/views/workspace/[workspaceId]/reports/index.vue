@@ -1,7 +1,6 @@
 <template>
   <section class="page">
-    <StockMarketReportsBoard v-if="isStockMarket" />
-    <WorkspaceReportsBoard v-else />
+    <component :is="boardComponent" />
   </section>
 </template>
 
@@ -9,9 +8,13 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 
-import StockMarketReportsBoard from "./components/StockMarketReportsBoard.vue";
-import WorkspaceReportsBoard from "./components/WorkspaceReportsBoard.vue";
+import { resolveWorkspaceSectionComponent } from "../../../../workspaces/section-resolver";
 
 const route = useRoute();
-const isStockMarket = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
+const boardComponent = computed(() =>
+  resolveWorkspaceSectionComponent(
+    typeof route.params.workspaceId === "string" ? route.params.workspaceId : null,
+    "reports",
+  ),
+);
 </script>

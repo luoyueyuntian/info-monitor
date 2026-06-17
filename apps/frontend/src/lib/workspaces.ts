@@ -1,56 +1,10 @@
 import type { EventSummary, SourceStatus, ThemeSummary } from "./api";
 import { eventImpactTone } from "./impact";
+import { workspaceDefinitions } from "../workspaces/catalog";
+import type { WorkspaceDefinition, WorkspaceId } from "../workspaces/types";
 
-export type WorkspaceId = "market-impact" | "stock-market" | "goods-supply" | "competitor-watch";
-
-export type WorkspaceDefinition = {
-  id: WorkspaceId;
-  label: string;
-  shortLabel: string;
-  description: string;
-  summary: string;
-  emptyTitle: string;
-  emptyBody: string;
-};
-
-export const workspaceDefinitions: WorkspaceDefinition[] = [
-  {
-    id: "market-impact",
-    label: "金融市场影响",
-    shortLabel: "金融",
-    description: "跟踪宏观数据、官方公告、政策与市场价格联动，帮助你判断对股市和资产定价的影响。",
-    summary: "宏观数据、官方公告、政策与市场联动",
-    emptyTitle: "这个工作区还没有接入金融类主题",
-    emptyBody: "接入统计局、央行、交易所、行情和政策类来源后，这里会形成完整的金融市场工作台。",
-  },
-  {
-    id: "stock-market",
-    label: "股市",
-    shortLabel: "股市",
-    description: "集中查看 A股、港股、指数、个股价格和跨境资金流向，形成独立的日度行情工作区。",
-    summary: "A股、港股、指数、个股价格与资金流向",
-    emptyTitle: "这个工作区还没有接入股市主题",
-    emptyBody: "接入 A股、港股、指数、个股和资金流来源后，这里会成为你的独立股市工作台。",
-  },
-  {
-    id: "goods-supply",
-    label: "商品价格与供需",
-    shortLabel: "商品",
-    description: "跟踪新品、二手商品、库存与供给变化，帮助你把价格和供需信号收敛成一套稳定工作流。",
-    summary: "新品、二手、库存、价格波动与供需变化",
-    emptyTitle: "这个工作区还没有接入商品价格主题",
-    emptyBody: "接入电商、二手平台和库存来源后，这里会沉淀价格波动、供需异常和买卖窗口。",
-  },
-  {
-    id: "competitor-watch",
-    label: "竞品与产品动作",
-    shortLabel: "竞品",
-    description: "实时跟踪竞品的功能更新、发版、活动与内容动作，帮助产品和运营团队及时做出反应。",
-    summary: "竞品发版、功能、活动、内容与渠道动作",
-    emptyTitle: "这个工作区还没有接入竞品主题",
-    emptyBody: "接入官网、社媒、Release Notes 和社区来源后，这里会成为你的竞品行动雷达。",
-  },
-];
+export type { WorkspaceDefinition, WorkspaceId };
+export { workspaceDefinitions };
 
 export type WorkspaceDataset = {
   workspace: WorkspaceDefinition;

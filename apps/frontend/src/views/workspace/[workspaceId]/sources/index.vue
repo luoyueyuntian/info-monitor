@@ -1,9 +1,20 @@
 <template>
   <section class="page">
-    <WorkspaceSourcesBoard />
+    <component :is="boardComponent" />
   </section>
 </template>
 
 <script setup lang="ts">
-import WorkspaceSourcesBoard from "./components/WorkspaceSourcesBoard.vue";
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
+import { resolveWorkspaceSectionComponent } from "../../../../workspaces/section-resolver";
+
+const route = useRoute();
+const boardComponent = computed(() =>
+  resolveWorkspaceSectionComponent(
+    typeof route.params.workspaceId === "string" ? route.params.workspaceId : null,
+    "sources",
+  ),
+);
 </script>

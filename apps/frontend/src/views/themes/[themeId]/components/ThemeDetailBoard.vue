@@ -198,7 +198,7 @@ import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
 import ThemeDetailWeeklyReviewCard from "./ThemeDetailWeeklyReviewCard.vue";
 import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
-import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
+import { resolveWorkspaceDetailBackNavigation } from "../../../../workspaces/navigation";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";
 import { buildThemeSourceCompareData, buildContinuousSnapshotCompareData } from "./theme-detail-source-compare";
 import { buildFinancialRhythmData } from "./theme-detail-financial-rhythm";
@@ -245,77 +245,6 @@ const operationMessage = ref<{
   actions: Array<{ label: string; to: RouteLocationRaw }>;
 } | null>(null);
 const themeFormStatus = ref("");
-const isStockMarketWorkspace = computed(() => String(route.params.workspaceId ?? "") === "stock-market");
-const stockMarketInvestigationActions = computed<Array<{ label: string; to: RouteLocationRaw }>>(() => {
-  if (!detail.value || !isStockMarketWorkspace.value) {
-    return [];
-  }
-
-  const actions: Array<{ label: string; to: RouteLocationRaw }> = [
-    { label: "查看动作台", to: `/workspace/stock-market/actions` },
-    { label: "查看来源控制台", to: `/workspace/stock-market/sources` },
-  ];
-
-  if (detail.value.marketOverview) {
-    actions.unshift({ label: "查看收盘概览", to: { path: "/workspace/stock-market/reports", query: { focus: "snapshot", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    actions.push({ label: "查看连续复盘", to: { path: "/workspace/stock-market/reports", query: { focus: "evolution", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    return actions;
-  }
-
-  if (detail.value.theme.type === "news_announcement") {
-    actions.unshift({ label: "查看公告线索", to: { path: "/workspace/stock-market/reports", query: { focus: "announcements", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    actions.push({ label: "查看催化归并", to: { path: "/workspace/stock-market/reports", query: { focus: "catalysts", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-    return actions;
-  }
-
-  actions.unshift({ label: "查看重点异动对象", to: { path: "/workspace/stock-market/reports", query: { focus: "movers", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-  actions.push({ label: "查看来源线索", to: { path: "/workspace/stock-market/reports", query: { focus: "source-clues", date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined } } });
-  return actions;
-});
-const stockMarketThemeContextSummary = computed(() => {
-  if (!detail.value) {
-    return "";
-  }
-
-  if (detail.value.marketOverview) {
-    return "这是股市工作区里的核心复盘主题，适合优先结合市场总览、板块资金流、重点异动对象和连续复盘一起看。";
-  }
-
-  if (detail.value.theme.type === "news_announcement") {
-    return "这个主题更像公告和线索资产，适合作为盘后报告里异动对象的解释来源，而不是单独脱离市场总览来看。";
-  }
-
-  return "这个主题已经进入股市工作区，适合放回盘后报告和动作台里一起判断它在当前市场故事中的位置。";
-});
-const stockMarketThemeContextBullets = computed(() => {
-  if (!detail.value) {
-    return [];
-  }
-
-  const bullets: string[] = [];
-
-  if (detail.value.marketOverview?.snapshots.length) {
-    bullets.push(`已覆盖市场快照: ${detail.value.marketOverview.snapshots.map((item) => item.marketLabel).join("、")}`);
-  }
-
-  if (marketStructureTrendData.value?.leaders.length) {
-    bullets.push(`当前板块主线: ${marketStructureTrendData.value.leaders[0].label}`);
-  }
-
-  if (detail.value.events.length) {
-    bullets.push(`主题事件数: ${detail.value.events.length}，最近优先复盘最新事件和时间线`);
-  }
-
-  if (detail.value.sources.length) {
-    bullets.push(`关联来源数: ${detail.value.sources.length}`);
-  }
-
-  return bullets.slice(0, 4);
-});
-const stockReportQuery = computed(() => buildStockReportReturnQuery({
-  reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
-  reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
-}));
 const shortDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
   month: "2-digit",
@@ -349,24 +278,21 @@ async function focusRequestedSection() {
 }
 
 function handleBack() {
-  if (isStockMarketWorkspace.value && route.query.returnTo === "stock-report") {
-    void router.push({
-      path: "/workspace/stock-market/reports",
-      query: {
-        date: typeof route.query.reportDate === "string" ? route.query.reportDate : undefined,
-        focus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : undefined,
-      },
-    });
-    return;
-  }
+  const navigation = resolveWorkspaceDetailBackNavigation({
+    historyLength: window.history.length,
+    workspaceId: typeof route.params.workspaceId === "string" ? route.params.workspaceId : null,
+    fallbackSection: "topics",
+    returnTo: typeof route.query.returnTo === "string" ? route.query.returnTo : null,
+    reportDate: typeof route.query.reportDate === "string" ? route.query.reportDate : null,
+    reportFocus: typeof route.query.reportFocus === "string" ? route.query.reportFocus : null,
+  });
 
-  if (window.history.length > 1) {
+  if (navigation.useBrowserBack) {
     router.back();
     return;
   }
 
-  const workspaceId = route.params.workspaceId;
-  void router.push(typeof workspaceId === "string" ? `/workspace/${workspaceId}/topics` : "/themes");
+  void router.push(navigation.target);
 }
 
 function toggleEditThemeForm() {
