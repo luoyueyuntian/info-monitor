@@ -22,7 +22,13 @@ export type EventSignal =
   | "new_financial_event"
   | "neutral"
   | "liquidity_injection"
-  | "liquidity_withdrawal";
+  | "liquidity_withdrawal"
+  | "overbought"
+  | "oversold"
+  | "golden_cross"
+  | "death_cross"
+  | "bullish_alignment"
+  | "bearish_alignment";
 
 // ─── Event Status ─────────────────────────────────────────────────────────────
 
@@ -194,6 +200,46 @@ export type InboxSectionCounts = Record<
   InboxSectionId,
   { total: number; recent: number }
 >;
+
+// ─── Technical Indicators ─────────────────────────────────────────────────────
+
+export type MACDIndicator = {
+  dif?: number | null;
+  dea?: number | null;
+  hist?: number | null;
+  signal?: string | null;
+};
+
+export type KDJIndicator = {
+  k?: number | null;
+  d?: number | null;
+  j?: number | null;
+  signal?: string | null;
+};
+
+export type BOLLIndicator = {
+  upper?: number | null;
+  middle?: number | null;
+  lower?: number | null;
+  position?: string | null;
+  currentPrice?: number | null;
+};
+
+export type MAIndicator = {
+  ma5?: number | null;
+  ma10?: number | null;
+  ma20?: number | null;
+  ma60?: number | null;
+  trend?: string | null;
+};
+
+export type TechnicalIndicators = {
+  rsi14?: number | null;
+  macd?: MACDIndicator | null;
+  kdj?: KDJIndicator | null;
+  boll?: BOLLIndicator | null;
+  ma?: MAIndicator | null;
+};
 
 // ─── Theme Detail ─────────────────────────────────────────────────────────────
 
