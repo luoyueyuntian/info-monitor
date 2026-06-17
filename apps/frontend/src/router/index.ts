@@ -32,7 +32,6 @@ export const router = createRouter({
     { path: "/events/:eventId", name: "event-detail", component: () => import("../views/events/[eventId]/index.vue") },
     { path: "/sources/health", name: "source-health", component: () => import("../views/sources/health.vue") },
     { path: "/sources/status", name: "source-status", component: () => import("../views/sources/status/index.vue") },
-    { path: "/sources/catalog", name: "source-catalog", component: () => import("../views/sources/catalog/index.vue") },
 
     { path: "/sources/:sourceId", name: "source-detail", component: () => import("../views/sources/[sourceId]/index.vue") },
     { path: "/weekly-review", name: "weekly-review", component: () => import("../views/weekly-review/index.vue") },

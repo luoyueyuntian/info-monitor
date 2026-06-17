@@ -77,10 +77,10 @@ describe("theme-detail-analysis-actions", () => {
     );
 
     expect(actions).toEqual([
-      { label: "先处理待处理事件", to: { path: "/themes/theme_1", query: { section: "events" } } },
-      { label: "优先回看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline" } } },
-      { label: "查看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline" } } },
-      { label: "查看跨来源快照", to: { path: "/themes/theme_1", query: { section: "compare" } } },
+      { label: "先处理待处理事件", to: { path: "/themes/theme_1", query: { section: "events", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "优先回看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "查看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "查看跨来源快照", to: { path: "/themes/theme_1", query: { section: "compare", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
     ]);
   });
 
@@ -101,7 +101,7 @@ describe("theme-detail-analysis-actions", () => {
 
     expect(actions[1]).toEqual({
       label: "先检查来源状态",
-      to: { path: "/themes/theme_1", query: { section: "sources" } },
+      to: { path: "/themes/theme_1", query: { section: "sources", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } },
     });
   });
 });

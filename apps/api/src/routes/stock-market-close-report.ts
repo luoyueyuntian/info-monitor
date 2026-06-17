@@ -6,6 +6,7 @@ import {
   getStockMarketCloseReportHistory,
   saveStockMarketCloseReportSnapshot,
   saveTodayStockMarketCloseReportIfNeeded,
+  diagnoseStockMarketCloseReport,
 } from "../services/stock-market-close-report-service.js";
 import {
   deliverStockMarketCloseReport,
@@ -20,12 +21,15 @@ export async function registerStockMarketCloseReportRoutes(app: FastifyInstance)
     const report = await getStockMarketCloseReport();
 
     if (!report) {
+      const diagnosis = await diagnoseStockMarketCloseReport();
       reply.code(404);
-      return { message: "Stock market close report not available" };
+      return { message: "Stock market close report not available", diagnosis };
     }
 
     return report;
   });
+
+  app.get("/api/stock-market-report/diagnose", async () => diagnoseStockMarketCloseReport());
 
   app.get("/api/stock-market-report/history", async (request) => {
     const query = request.query as { limit?: string };

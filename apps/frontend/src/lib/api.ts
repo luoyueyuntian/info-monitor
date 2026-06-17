@@ -1,3 +1,5 @@
+import type { SourcePreset, SourcePresetFieldType } from "../views/sources/components/source-presets";
+
 import type {
   DailySummary,
   DailySummaryItem,
@@ -1461,8 +1463,8 @@ export async function fetchSourceDetail(sourceId: string) {
   });
 }
 
-export async function fetchSourcePresets() {
-  const fallback: Array<{
+export async function fetchSourcePresets(): Promise<SourcePreset[]> {
+  type RawPreset = {
     id: string;
     label: string;
     description: string;
@@ -1472,8 +1474,17 @@ export async function fetchSourcePresets() {
     fields: Array<{ key: string; label: string; type: string; placeholder?: string; required?: boolean }>;
     defaultConfig: Record<string, string | number | boolean>;
     help?: string;
-  }> = [];
-  return requestJson("/sources/presets", fallback);
+  };
+  const fallback: RawPreset[] = [];
+  const raw = await requestJson("/sources/presets", fallback);
+  // Cast field.type from string to the union type — the backend always returns valid values
+  return raw.map((preset) => ({
+    ...preset,
+    fields: preset.fields.map((field) => ({
+      ...field,
+      type: field.type as SourcePresetFieldType,
+    })),
+  }));
 }
 
 export async function validateSourceConfig(input: {

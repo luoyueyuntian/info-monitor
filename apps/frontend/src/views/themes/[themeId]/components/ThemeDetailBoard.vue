@@ -8,20 +8,6 @@
       :on-back="handleBack"
     />
 
-    <StockMarketInvestigationCard
-      v-if="isStockMarketWorkspace"
-      title="股市复盘快捷区"
-      summary="围绕当前主题快速跳回盘后报告、动作台或来源控制台，保持在股市板块内完成复盘与调查。"
-      :actions="stockMarketInvestigationActions"
-    />
-
-    <StockMarketSignalContextCard
-      v-if="isStockMarketWorkspace"
-      title="股市主题上下文"
-      :summary="stockMarketThemeContextSummary"
-      :bullets="stockMarketThemeContextBullets"
-    />
-
     <ThemeDetailActionsBar
       :running-all-sources="runningAllSources"
       :saving-theme-archive="savingThemeArchive"
@@ -93,6 +79,7 @@
       v-if="showAddSourceForm"
       :saving="addingSource"
       :status-message="sourceFormStatus"
+      :info-type="detail.theme.infoType"
       @submit="handleAddSource"
     />
 
@@ -210,8 +197,6 @@ import ThemeDetailSourcesCard from "./ThemeDetailSourcesCard.vue";
 import ThemeDetailTimelineCard from "./ThemeDetailTimelineCard.vue";
 import ThemeDetailTrendCard from "./ThemeDetailTrendCard.vue";
 import ThemeDetailWeeklyReviewCard from "./ThemeDetailWeeklyReviewCard.vue";
-import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
-import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import { buildSingleEventOperationNotice } from "../../../events/components/event-operation-feedback";
 import { buildStockReportReturnQuery } from "../../../../lib/stock-market-report-navigation";
 import { buildThemeDetailAnalysisActions } from "./theme-detail-analysis-actions";

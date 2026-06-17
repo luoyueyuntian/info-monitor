@@ -10,7 +10,8 @@
         <!-- Step 1: Choose preset -->
         <fieldset class="grid gap-2">
           <legend class="font-semibold">来源类型</legend>
-          <div class="grid gap-2 sm:grid-cols-2">
+          <div v-if="presetsLoading" class="text-sm text-ink-body">加载中...</div>
+          <div v-else class="grid gap-2 sm:grid-cols-2">
             <button
               v-for="preset in presetOptions"
               :key="preset.id"
@@ -155,13 +156,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed } from "vue";
-import { sourcePresetOptions, getSourcePresetById, buildSourceConfigFromPreset } from "../../../sources/components/source-presets";
-import { validateSourceConfig } from "../../../../lib/api";
+import { reactive, ref, computed, onMounted } from "vue";
+import type { SourcePreset } from "../../../sources/components/source-presets";
+import { fetchSourcePresets, validateSourceConfig } from "../../../../lib/api";
 
 const props = defineProps<{
   saving: boolean;
   statusMessage: string;
+  infoType?: string;
 }>();
 
 const emit = defineEmits<{
@@ -177,11 +179,31 @@ const emit = defineEmits<{
   ];
 }>();
 
-const presetOptions = sourcePresetOptions;
+const presetOptions = ref<SourcePreset[]>([]);
+const presetsLoading = ref(true);
+
+function getPresetById(id: string): SourcePreset | undefined {
+  return presetOptions.value.find((p) => p.id === id);
+}
+
+function buildConfigFromPreset(presetId: string, configValues: Record<string, string | number | boolean>): Record<string, unknown> {
+  const preset = getPresetById(presetId);
+  if (!preset) throw new Error(`Unknown preset: ${presetId}`);
+  if (presetId === "custom") return {};
+  const config: Record<string, string | number | boolean> = {};
+  for (const field of preset.fields) {
+    const rawValue = configValues[field.key];
+    if (rawValue === "" || rawValue === null || rawValue === undefined) continue;
+    if (field.type === "number") { config[field.key] = Number(rawValue); continue; }
+    if (field.type === "boolean") { config[field.key] = Boolean(rawValue); continue; }
+    config[field.key] = String(rawValue);
+  }
+  return config;
+}
 
 const selectedPresetId = ref<string>("");
 const selectedPreset = computed(() =>
-  selectedPresetId.value ? getSourcePresetById(selectedPresetId.value) : null,
+  selectedPresetId.value ? getPresetById(selectedPresetId.value) : null,
 );
 
 const form = reactive({
@@ -199,7 +221,7 @@ const validationResult = ref<{ valid: boolean; errors: string[]; warnings: strin
 
 function selectPreset(presetId: string) {
   selectedPresetId.value = presetId;
-  const preset = getSourcePresetById(presetId);
+  const preset = getPresetById(presetId);
   if (!preset) return;
   form.configValues = { ...preset.defaultConfig };
   form.name = "";
@@ -223,7 +245,7 @@ async function runValidation() {
       sourceType = form.customSourceType;
       config = JSON.parse(form.customConfigJson || "{}");
     } else {
-      config = buildSourceConfigFromPreset(selectedPresetId.value, form.configValues);
+      config = buildConfigFromPreset(selectedPresetId.value, form.configValues);
     }
 
     const result = await validateSourceConfig({
@@ -274,7 +296,7 @@ function submitForm() {
       return;
     }
   } else {
-    config = buildSourceConfigFromPreset(selectedPresetId.value, form.configValues);
+    config = buildConfigFromPreset(selectedPresetId.value, form.configValues);
   }
 
   emit("submit", {
@@ -286,4 +308,17 @@ function submitForm() {
     onboardingStatus: form.onboardingStatus,
   });
 }
+
+onMounted(async () => {
+  try {
+    const allPresets = await fetchSourcePresets();
+    presetOptions.value = props.infoType
+      ? allPresets.filter((p) => p.infoType === props.infoType)
+      : allPresets;
+  } catch (e) {
+    console.error("Failed to load source presets:", e);
+  } finally {
+    presetsLoading.value = false;
+  }
+});
 </script>

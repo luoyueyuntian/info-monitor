@@ -32,7 +32,8 @@ describe("workspace classification", () => {
     expect(stock.themes.map((theme) => theme.name)).toContain("A股与港股每日市场概览");
     expect(goods.themes.map((theme) => theme.name)).toContain("Surface Pro 8 16G + 512G Price");
     expect(goods.themes.map((theme) => theme.name)).not.toContain("PBOC Open Market Operations");
-    expect(competitor.themes.map((theme) => theme.name)).toEqual(["Figma Product Updates"]);
+    expect(competitor.themes.map((theme) => theme.name)).toContain("Figma Product Updates");
+    expect(competitor.themes.map((theme) => theme.name)).toContain("Vue.js 版本发布");
   });
 
   it("produces a meaningful workspace summary", () => {

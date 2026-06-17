@@ -10,20 +10,6 @@
       :handle-back="handleBack"
     />
 
-    <StockMarketInvestigationCard
-      v-if="isStockMarketWorkspace"
-      title="股市来源调查快捷区"
-      summary="快速回到股市盘后报告、来源控制台和所属主题，方便在来源质量与主题判断之间切换。"
-      :actions="stockMarketInvestigationActions"
-    />
-
-    <StockMarketSignalContextCard
-      v-if="isStockMarketWorkspace"
-      title="股市来源上下文"
-      :summary="stockMarketSourceContextSummary"
-      :bullets="stockMarketSourceContextBullets"
-    />
-
     <article class="card">
       <div class="card-topline">
         <h3>关联主题信号</h3>
@@ -132,8 +118,6 @@ import SourceDetailSnapshotsCard from "./SourceDetailSnapshotsCard.vue";
 import SourceDetailStatsGrid from "./SourceDetailStatsGrid.vue";
 import SourceDetailTestRunCard from "./SourceDetailTestRunCard.vue";
 import SourceReplayComparisonCard from "./SourceReplayComparisonCard.vue";
-import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
-import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import SourceHealthExplanationCard from "../../../../components/SourceHealthExplanationCard.vue";
 import { fetchSourceDetail, fetchSourceHealthExplanation, fetchSourceReplayComparison, retrySourceAfterFailure, triggerSourceReplay, triggerSourceRun, type SourceDetail, type SourceHealthExplanation, type SourceReplayComparison } from "../../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../../lib/impact";

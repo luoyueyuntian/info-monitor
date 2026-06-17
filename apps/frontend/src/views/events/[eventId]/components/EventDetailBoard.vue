@@ -6,20 +6,6 @@
       :handle-back="handleBack"
     />
 
-    <StockMarketInvestigationCard
-      v-if="isStockMarketWorkspace"
-      title="股市调查快捷区"
-      summary="从这里快速切到盘后报告、动作台和关联主题，保持在股市板块内完成调查闭环。"
-      :actions="stockMarketInvestigationActions"
-    />
-
-    <StockMarketSignalContextCard
-      v-if="isStockMarketWorkspace"
-      title="股市事件上下文"
-      :summary="stockMarketContextSummary"
-      :bullets="stockMarketContextBullets"
-    />
-
     <EventDetailSummaryCard :detail="detail" />
 
     <EventDetailStatusCard
@@ -90,8 +76,6 @@ import EventDetailStatusCard from "./EventDetailStatusCard.vue";
 import EventDetailSummaryCard from "./EventDetailSummaryCard.vue";
 import EventDetailThemeCard from "./EventDetailThemeCard.vue";
 import EventDetailTriggerReasonCard from "./EventDetailTriggerReasonCard.vue";
-import StockMarketInvestigationCard from "../../../workspace/components/StockMarketInvestigationCard.vue";
-import StockMarketSignalContextCard from "../../../workspace/components/StockMarketSignalContextCard.vue";
 import { buildSingleEventOperationNotice } from "../../components/event-operation-feedback";
 import { fetchEventDetail, type EventDetail, updateEvent, updateEventStatus } from "../../../../lib/api";
 import { recordRecentEventOperation } from "../../../../lib/recent-event-operation";

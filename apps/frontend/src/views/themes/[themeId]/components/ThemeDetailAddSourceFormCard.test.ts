@@ -1,9 +1,39 @@
 // @vitest-environment jsdom
 
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 
 import ThemeDetailAddSourceFormCard from "./ThemeDetailAddSourceFormCard.vue";
+
+vi.mock("../../../../lib/api", () => ({
+  fetchSourcePresets: vi.fn().mockResolvedValue([
+    {
+      id: "pbc-news",
+      label: "PBOC News Releases",
+      description: "Official news from the People's Bank of China.",
+      sourceType: "page_list",
+      adapterKey: "pbc_news_list",
+      infoType: "news_announcement",
+      fields: [
+        { key: "path", label: "List Path", type: "text", placeholder: "/goutongjiaoliu/113456/113469/index.html", required: true },
+        { key: "schedule_interval_seconds", label: "Schedule Interval (s)", type: "number", placeholder: "21600" },
+      ],
+      defaultConfig: { path: "/goutongjiaoliu/113456/113469/index.html", schedule_interval_seconds: 21600 },
+    },
+    {
+      id: "custom",
+      label: "Custom",
+      description: "Manual configuration.",
+      sourceType: "page_list",
+      adapterKey: "",
+      infoType: "price",
+      fields: [],
+      defaultConfig: {},
+    },
+  ]),
+  validateSourceConfig: vi.fn().mockResolvedValue({ valid: true, errors: [], warnings: [] }),
+}));
 
 describe("ThemeDetailAddSourceFormCard", () => {
   it("emits form values on submit after selecting a preset", async () => {
@@ -13,6 +43,10 @@ describe("ThemeDetailAddSourceFormCard", () => {
         statusMessage: "",
       },
     });
+
+    // Wait for presets to load from API
+    await nextTick();
+    await nextTick();
 
     // Select a preset (PBOC News)
     const presetButtons = wrapper.findAll("button[type='button']");
@@ -58,6 +92,10 @@ describe("ThemeDetailAddSourceFormCard", () => {
         statusMessage: "",
       },
     });
+
+    // Wait for presets to load from API
+    await nextTick();
+    await nextTick();
 
     // Select a preset first
     const presetButtons = wrapper.findAll("button[type='button']");

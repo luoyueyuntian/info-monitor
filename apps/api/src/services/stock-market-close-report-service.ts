@@ -519,6 +519,66 @@ export async function getStockMarketCloseReport(): Promise<StockMarketCloseRepor
   return buildReportFromThemeDetail(detail, announcements, supportingEvents);
 }
 
+export async function diagnoseStockMarketCloseReport() {
+  const db = getDatabase();
+  const mode = db ? "db" : "mock";
+
+  try {
+    const detail = await getThemeDetail(STOCK_MARKET_THEME_ID);
+
+    if (!detail) {
+      return {
+        mode,
+        stage: "theme_not_found",
+        message: `Theme "${STOCK_MARKET_THEME_ID}" does not exist. Create an eastmoney-market-overview source first.`,
+      };
+    }
+
+    const sourceCount = detail.sources?.length ?? 0;
+    const recordCount = detail.records?.length ?? 0;
+    const hasMarketOverview = Boolean(detail.marketOverview);
+
+    if (!hasMarketOverview) {
+      return {
+        mode,
+        stage: "market_overview_missing",
+        message: `Theme exists (${sourceCount} sources, ${recordCount} records) but no records with event_class="market_overview" found. The eastmoney_market_overview adapter may not have run yet, or its normalizer output lacks the event_class field.`,
+        sourceCount,
+        recordCount,
+      };
+    }
+
+    const report = await getStockMarketCloseReport();
+
+    if (!report) {
+      return {
+        mode,
+        stage: "report_build_failed",
+        message: "Market overview data exists but report construction failed.",
+        sourceCount,
+        recordCount,
+        hasMarketOverview,
+      };
+    }
+
+    return {
+      mode,
+      stage: "ok",
+      message: "Report is available.",
+      sourceCount,
+      recordCount,
+      hasMarketOverview,
+      reportDate: report.date,
+    };
+  } catch (error) {
+    return {
+      mode,
+      stage: "error",
+      message: `Diagnosis failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 export async function getStockMarketCloseReportHistory(limit: number = 7): Promise<StockMarketCloseReportSnapshot[]> {
   const db = getDatabase();
 

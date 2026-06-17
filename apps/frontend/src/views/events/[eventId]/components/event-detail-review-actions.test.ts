@@ -30,10 +30,10 @@ describe("event-detail-review-actions", () => {
     const actions = buildEventDetailReviewActions(makeDetail());
 
     expect(actions).toEqual([
-      { label: "处理所属主题事件队列", to: { path: "/themes/theme_1", query: { section: "events" } } },
-      { label: "优先回看主题分析", to: { path: "/themes/theme_1", query: { section: "analysis" } } },
-      { label: "查看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline" } } },
-      { label: "查看所属主题", to: { path: "/themes/theme_1", query: { section: "analysis" } } },
+      { label: "处理所属主题事件队列", to: { path: "/themes/theme_1", query: { section: "events", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "优先回看主题分析", to: { path: "/themes/theme_1", query: { section: "analysis", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "查看主题时间线", to: { path: "/themes/theme_1", query: { section: "timeline", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
+      { label: "查看所属主题", to: { path: "/themes/theme_1", query: { section: "analysis", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } } },
     ]);
   });
 
@@ -47,11 +47,11 @@ describe("event-detail-review-actions", () => {
 
     expect(actions).toContainEqual({
       label: "确认价格趋势是否成立",
-      to: { path: "/themes/theme_1", query: { section: "trend" } },
+      to: { path: "/themes/theme_1", query: { section: "trend", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } },
     });
     expect(actions).toContainEqual({
       label: "查看所属主题趋势",
-      to: { path: "/themes/theme_1", query: { section: "trend" } },
+      to: { path: "/themes/theme_1", query: { section: "trend", returnTo: "stock-report", reportDate: undefined, reportFocus: undefined } },
     });
   });
 });
