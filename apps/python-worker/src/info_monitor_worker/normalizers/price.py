@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, Dict, List
 
+from info_monitor_worker.indicators import TechnicalIndicators
 from info_monitor_worker.models import NormalizedRecord
 from info_monitor_worker.normalizers.base import BaseNormalizer
 
@@ -94,6 +95,19 @@ class PriceNormalizer(BaseNormalizer):
             # Compute trust indicators
             trust_score, trust_factors, risk_level = _compute_trust_score(item)
 
+            # Compute technical indicators for kline data
+            indicators: Dict[str, Any] = {}
+            close_prices = item.get("close_prices")  # Historical close prices from adapter
+            high_prices = item.get("high_prices")
+            low_prices = item.get("low_prices")
+
+            if close_prices and len(close_prices) >= 2:
+                indicators = TechnicalIndicators.calculate_all(
+                    closes=close_prices,
+                    highs=high_prices,
+                    lows=low_prices,
+                )
+
             records.append(
                 NormalizedRecord(
                     record_type="price",
@@ -120,6 +134,8 @@ class PriceNormalizer(BaseNormalizer):
                         "trust_score": trust_score,
                         "trust_factors": trust_factors,
                         "risk_level": risk_level,
+                        # Technical indicators (only for kline data)
+                        "indicators": indicators if indicators else None,
                     },
                 )
             )

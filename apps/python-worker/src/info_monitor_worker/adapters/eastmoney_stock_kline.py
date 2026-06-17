@@ -57,8 +57,22 @@ class EastmoneyStockKlineAdapter(BaseAdapter):
         currency = "CNY"
         items: List[Dict[str, Any]] = []
 
+        opens: List[float] = []
+        closes: List[float] = []
+        highs: List[float] = []
+        lows: List[float] = []
+
         for line in data["klines"]:
             date_text, open_price, close_price, high_price, low_price, volume, amount, amplitude = line.split(",")
+            opens.append(float(open_price))
+            closes.append(float(close_price))
+            highs.append(float(high_price))
+            lows.append(float(low_price))
+
+        # Build reverse-cumulative history lists for each snapshot
+        for index, line in enumerate(data["klines"]):
+            date_text, open_price, close_price, high_price, low_price, volume, amount, amplitude = line.split(",")
+
             items.append(
                 {
                     "title": f"{name} daily close",
@@ -75,6 +89,9 @@ class EastmoneyStockKlineAdapter(BaseAdapter):
                     "amplitude": float(amplitude),
                     "symbol": code,
                     "display_name": name,
+                    "close_prices": closes[: index + 1],
+                    "high_prices": highs[: index + 1],
+                    "low_prices": lows[: index + 1],
                 }
             )
 
