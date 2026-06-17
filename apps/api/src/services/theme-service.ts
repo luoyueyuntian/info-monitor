@@ -72,6 +72,22 @@ function signalLabel(signal?: string | null) {
       return "流动性回笼";
     case "neutral":
       return "中性";
+    case "bullish":
+      return "看涨";
+    case "bearish":
+      return "看跌";
+    case "overbought":
+      return "超买";
+    case "oversold":
+      return "超卖";
+    case "golden_cross":
+      return "金叉";
+    case "death_cross":
+      return "死叉";
+    case "bullish_alignment":
+      return "多头排列";
+    case "bearish_alignment":
+      return "空头排列";
     default:
       return signal ?? null;
   }

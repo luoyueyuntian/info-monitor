@@ -192,38 +192,7 @@ class WorkerService:
         info_type = theme.info_type
 
         if info_type == "price":
-            if not self._should_check_latest_only(normalized_record, latest_occurred_at):
-                return
-
-            historical_min = find_min_price_in_last_30_days(
-                connection=connection,
-                theme_id=theme.theme_id,
-                spec=normalized_record.content.get("spec"),
-                occurred_at=normalized_record.occurred_at,
-            )
-            rule_result = self.price_low_rule.evaluate(normalized_record, historical_min)
-
-            if rule_result.triggered:
-                event_key = (
-                    f"{theme.theme_id}:{source.source_id}:price_low:"
-                    f"{record_identity}:{normalized_record.occurred_at}"
-                )
-                self._emit_event_with_notification(
-                    connection=connection,
-                    run_id=run_id,
-                    theme_id=theme.theme_id,
-                    source_id=source.source_id,
-                    change_id=change_id,
-                    event_key=event_key,
-                    event_type="price_low",
-                    signal=rule_result.signal,
-                    title=rule_result.title,
-                    summary=rule_result.summary,
-                    occurred_at=normalized_record.occurred_at,
-                    evidence=rule_result.evidence,
-                )
-
-            # Evaluate technical indicator signal rules
+            # Always evaluate technical indicator rules (independent of latest-only check)
             indicators = normalized_record.content.get("indicators")
             if indicators:
                 indicator_rules = [
@@ -254,6 +223,37 @@ class WorkerService:
                             occurred_at=normalized_record.occurred_at,
                             evidence=rule_result.evidence,
                         )
+
+            if not self._should_check_latest_only(normalized_record, latest_occurred_at):
+                return
+
+            historical_min = find_min_price_in_last_30_days(
+                connection=connection,
+                theme_id=theme.theme_id,
+                spec=normalized_record.content.get("spec"),
+                occurred_at=normalized_record.occurred_at,
+            )
+            rule_result = self.price_low_rule.evaluate(normalized_record, historical_min)
+
+            if rule_result.triggered:
+                event_key = (
+                    f"{theme.theme_id}:{source.source_id}:price_low:"
+                    f"{record_identity}:{normalized_record.occurred_at}"
+                )
+                self._emit_event_with_notification(
+                    connection=connection,
+                    run_id=run_id,
+                    theme_id=theme.theme_id,
+                    source_id=source.source_id,
+                    change_id=change_id,
+                    event_key=event_key,
+                    event_type="price_low",
+                    signal=rule_result.signal,
+                    title=rule_result.title,
+                    summary=rule_result.summary,
+                    occurred_at=normalized_record.occurred_at,
+                    evidence=rule_result.evidence,
+                )
 
         elif info_type == "news_announcement":
             if self._should_check_latest_only(normalized_record, latest_occurred_at):
