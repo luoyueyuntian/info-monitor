@@ -75,6 +75,8 @@
         </div>
       </article>
 
+      <TechnicalIndicatorsPanel :indicators="latestPriceIndicators" />
+
       <aside class="grid gap-4">
         <article v-if="effectiveStockMarketReport" :ref="setSectionRef('snapshot')" class="card">
           <div class="card-topline">
@@ -398,8 +400,6 @@
         </article>
       </aside>
     </section>
-
-    <TechnicalIndicatorsPanel :indicators="latestPriceIndicators" />
   </div>
 </template>
 

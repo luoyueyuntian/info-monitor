@@ -135,6 +135,7 @@ class PriceNormalizer(BaseNormalizer):
                         "trust_factors": trust_factors,
                         "risk_level": risk_level,
                         # Technical indicators (only for kline data)
+                        # close/high/low_prices are not persisted — only used for calculation
                         "indicators": indicators if indicators else None,
                     },
                 )

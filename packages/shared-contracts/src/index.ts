@@ -245,7 +245,7 @@ export type MAIndicator = {
 };
 
 export type TechnicalIndicators = {
-  rsi14?: number | null;
+  rsi_14?: number | null;
   macd?: MACDIndicator | null;
   kdj?: KDJIndicator | null;
   boll?: BOLLIndicator | null;
