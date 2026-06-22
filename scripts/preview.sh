@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+COMPOSE_CMD="$ROOT_DIR/scripts/docker-compose.sh"
 cd "$ROOT_DIR"
 
 PREPARE_ONLY=0
@@ -116,7 +117,7 @@ wait_for_postgres() {
   local retries=30
   local count=0
 
-  until docker compose exec -T postgres pg_isready -U postgres -d info_monitor >/dev/null 2>&1; do
+  until "$COMPOSE_CMD" exec -T postgres pg_isready -U postgres -d info_monitor >/dev/null 2>&1; do
     count=$((count + 1))
     if [[ "$count" -ge "$retries" ]]; then
       log "PostgreSQL did not become ready in time"

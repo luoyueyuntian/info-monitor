@@ -6,7 +6,8 @@
 
 ### Docker Compose（推荐）
 
-最简单的部署方式是使用 Docker Compose，它会启动所有服务：
+最简单的部署方式是使用 Docker Compose，它会启动所有服务。仓库脚本会自动兼容
+`docker compose` 和 `docker-compose` 两种命令形式：
 
 ```bash
 # 复制并编辑环境变量
@@ -14,10 +15,10 @@ cp .env.example .env
 # 编辑 .env 填入必要配置
 
 # 启动所有服务
-docker compose up -d
+npm run docker:up
 
 # 查看日志
-docker compose logs -f
+npm run docker:logs
 ```
 
 服务启动后：
@@ -32,7 +33,7 @@ docker compose logs -f
 npm install
 
 # 启动 PostgreSQL（需要本地安装或使用 Docker）
-docker compose up -d postgres
+npm run db:up
 
 # 运行数据库迁移
 npm run db:migrate

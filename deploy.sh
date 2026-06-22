@@ -11,6 +11,7 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_CMD="$ROOT_DIR/scripts/docker-compose.sh"
 cd "$ROOT_DIR"
 
 NO_CACHE=""
@@ -44,12 +45,12 @@ echo ""
 
 # 1. 确保 postgres 在运行
 echo "▶  确保 PostgreSQL 运行中..."
-docker compose up -d postgres
+"$COMPOSE_CMD" up -d postgres
 
 # 2. 等待 postgres 健康
 echo "⏳ 等待 PostgreSQL 就绪..."
 timeout=30
-until docker compose exec -T postgres pg_isready -U postgres -d info_monitor >/dev/null 2>&1; do
+until "$COMPOSE_CMD" exec -T postgres pg_isready -U postgres -d info_monitor >/dev/null 2>&1; do
   timeout=$((timeout - 1))
   if [[ $timeout -le 0 ]]; then
     echo "❌ PostgreSQL 未就绪，超时退出"
@@ -66,13 +67,13 @@ echo "   ✓ 迁移完成"
 
 # 4. 停止目标容器
 echo "⏹  停止旧容器: ${TARGETS[*]}..."
-docker compose stop "${TARGETS[@]}" 2>/dev/null || true
-docker compose rm -f "${TARGETS[@]}" 2>/dev/null || true
+"$COMPOSE_CMD" stop "${TARGETS[@]}" 2>/dev/null || true
+"$COMPOSE_CMD" rm -f "${TARGETS[@]}" 2>/dev/null || true
 
 # 5. 删除旧镜像
 echo "🗑  删除旧镜像..."
 for svc in "${TARGETS[@]}"; do
-  image=$(docker compose images "$svc" -q 2>/dev/null)
+  image=$("$COMPOSE_CMD" images "$svc" -q 2>/dev/null)
   if [[ -n "$image" ]]; then
     docker rmi -f "$image" 2>/dev/null || true
   fi
@@ -80,11 +81,11 @@ done
 
 # 6. 构建新镜像
 echo "🔨 构建镜像: ${TARGETS[*]}..."
-docker compose build $NO_CACHE "${TARGETS[@]}"
+"$COMPOSE_CMD" build $NO_CACHE "${TARGETS[@]}"
 
 # 7. 启动容器
 echo "▶  启动容器: ${TARGETS[*]}..."
-docker compose up -d "${TARGETS[@]}"
+"$COMPOSE_CMD" up -d "${TARGETS[@]}"
 
 # 8. 等待服务就绪
 echo "⏳ 等待服务启动..."
@@ -93,13 +94,13 @@ sleep 3
 # 9. 检查状态
 echo ""
 echo "📊 容器状态:"
-docker compose ps "${TARGETS[@]}" postgres
+"$COMPOSE_CMD" ps "${TARGETS[@]}" postgres
 
 # 10. 健康检查
 echo ""
 echo "🔍 健康检查:"
 for svc in "${TARGETS[@]}"; do
-  status=$(docker compose ps "$svc" --format "{{.State}}" 2>/dev/null)
+  status=$("$COMPOSE_CMD" ps "$svc" --format "{{.State}}" 2>/dev/null)
   if [[ "$status" == "running" ]]; then
     echo "   ✓ $svc: running"
   else
@@ -110,4 +111,4 @@ done
 echo ""
 echo "✅ 部署完成！"
 echo "   API 地址: http://localhost:6780"
-echo "   查看日志: docker compose logs -f ${TARGETS[*]}"
+echo "   查看日志: $COMPOSE_CMD logs -f ${TARGETS[*]}"
