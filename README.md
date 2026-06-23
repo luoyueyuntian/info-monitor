@@ -153,7 +153,7 @@ npm run db:enqueue:pbc-open-market-demo
 ## What Exists Today
 
 - Vue 3 frontend skeleton with inbox, themes, theme detail, event detail, source status, and theme creation views
-- Node.js API skeleton with real route structure and a database-backed service layer that falls back to mock data when `DATABASE_URL` is not configured
+- Node.js API skeleton with real route structure and a database-backed service layer that falls back to mock data for local development when `DATABASE_URL` is not configured
 - Notification flow now spans worker -> API -> frontend, including a notification center and read-state updates
 - Shared PostgreSQL migration for core entities such as themes, sources, runs, raw snapshots, normalized records, changes, and events
 - Python worker skeleton with a first demo price-feed adapter, price normalizer, and 30-day low event rule

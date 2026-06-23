@@ -119,6 +119,11 @@ PUT  /api/channels/:channel/rate-limit  -- 更新限流配置
 DATABASE_URL="" npm run dev
 ```
 
+注意：
+- Docker 镜像默认设置 `REQUIRE_DATABASE=true`
+- 因此容器环境下如果没有提供 `DATABASE_URL`，API 会直接启动失败，而不会回退到 Mock 模式
+- Mock 模式现在主要保留给本地非 Docker 开发和测试
+
 ## 生产部署建议
 
 ### 安全

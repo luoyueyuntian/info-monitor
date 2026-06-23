@@ -16,6 +16,7 @@ services:
       start_period: 5s
 
   api:
+    image: info-monitor-api:latest
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -32,6 +33,7 @@ services:
     restart: unless-stopped
 
   worker:
+    image: info-monitor-worker:latest
     build:
       context: ./apps/python-worker
       dockerfile: Dockerfile
@@ -44,6 +46,7 @@ services:
     restart: unless-stopped
 
   scheduler:
+    image: info-monitor-scheduler:latest
     build:
       context: ./apps/python-scheduler
       dockerfile: Dockerfile

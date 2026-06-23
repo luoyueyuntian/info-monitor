@@ -10,6 +10,10 @@ export function getDatabase(): Kysely<Database> | null {
   const config = getConfig();
 
   if (!config.databaseUrl) {
+    if (config.requireDatabase) {
+      throw new Error("DATABASE_URL is required when REQUIRE_DATABASE=true. Mock mode is disabled.");
+    }
+
     return null;
   }
 

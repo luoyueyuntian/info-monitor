@@ -1,10 +1,11 @@
 import { buildApp } from "./app.js";
-import { getConfig } from "./config.js";
+import { assertConfigValid, getConfig } from "./config.js";
 import { startDailySummaryScheduler } from "./services/daily-summary-scheduler.js";
 import { startStockMarketCloseReportScheduler } from "./services/stock-market-close-report-scheduler.js";
 import { startStockMarketCloseReportDeliveryScheduler } from "./services/stock-market-close-report-delivery-scheduler.js";
 
 async function main() {
+  assertConfigValid();
   const config = getConfig();
   const app = await buildApp();
 
