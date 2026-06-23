@@ -36,6 +36,13 @@ export const DEMO_THEME_IDS = {
   SURFACE_PRO_8: "theme-surface-pro-8",
   PBC_OPEN_MARKET: "theme-pbc-open-market",
   STATS_CPI_RELEASES: "theme-stats-cpi-releases",
+  STATS_MACRO_RELEASES: "theme-stats-macro-releases",
+  CSRC_ANNOUNCEMENTS: "theme-csrc-announcements",
+  NFRA_ANNOUNCEMENTS: "theme-nfra-announcements",
+  NDRC_ANNOUNCEMENTS: "theme-ndrc-announcements",
+  SSE_ANNOUNCEMENTS: "theme-sse-announcements",
+  SZSE_ANNOUNCEMENTS: "theme-szse-announcements",
+  HKEX_ANNOUNCEMENTS: "theme-hkex-announcements",
   FIGMA_UPDATES: "theme-figma-updates",
   EASTMONEY_MOUTAI: "theme-eastmoney-moutai",
   PBC_NEWS: "theme-pbc-news",
@@ -59,6 +66,15 @@ export const DEMO_SOURCE_IDS = {
   PBC_OPEN_MARKET_HISTORY: "source-pbc-open-market-history",
   // NBS CPI
   STATS_CPI_RELEASE: "source-stats-cpi-release",
+  STATS_MACRO_RELEASE: "source-stats-macro-release",
+  // CSRC / NFRA / NDRC
+  CSRC_ANNOUNCEMENTS: "source-csrc-announcements",
+  NFRA_ANNOUNCEMENTS: "source-nfra-announcements",
+  NDRC_ANNOUNCEMENTS: "source-ndrc-announcements",
+  // Exchanges
+  SSE_ANNOUNCEMENTS: "source-sse-announcements",
+  SZSE_ANNOUNCEMENTS: "source-szse-announcements",
+  HKEX_ANNOUNCEMENTS: "source-hkex-announcements",
   // Figma
   FIGMA_RELEASE_NOTES: "source-figma-release-notes",
   // Eastmoney Moutai
@@ -85,6 +101,15 @@ export const DEMO_EVENT_IDS = {
   PBC_INJECTION: "event-pbc-injection",
   // NBS CPI
   CPI_RELEASE: "event-cpi-release",
+  STATS_MACRO_RELEASE_LATEST: "event-stats-macro-release-latest",
+  // CSRC / NFRA / NDRC
+  CSRC_ANNOUNCEMENT_LATEST: "event-csrc-announcement-latest",
+  NFRA_ANNOUNCEMENT_LATEST: "event-nfra-announcement-latest",
+  NDRC_ANNOUNCEMENT_LATEST: "event-ndrc-announcement-latest",
+  // Exchanges
+  SSE_ANNOUNCEMENT_LATEST: "event-sse-announcement-latest",
+  SZSE_ANNOUNCEMENT_LATEST: "event-szse-announcement-latest",
+  HKEX_ANNOUNCEMENT_LATEST: "event-hkex-announcement-latest",
   // Figma
   FIGMA_RELEASE: "event-figma-release",
   // PBOC News
@@ -118,6 +143,13 @@ export const DEMO_RUN_IDS = {
   PBC_NEWS_LATEST: "run-pbc-news-latest",
   // NBS Stats Data Release
   STATS_DATA_RELEASE_LATEST: "run-stats-data-release-latest",
+  STATS_MACRO_RELEASE_LATEST: "run-stats-macro-release-latest",
+  CSRC_ANNOUNCEMENT_LATEST: "run-csrc-announcement-latest",
+  NFRA_ANNOUNCEMENT_LATEST: "run-nfra-announcement-latest",
+  NDRC_ANNOUNCEMENT_LATEST: "run-ndrc-announcement-latest",
+  SSE_ANNOUNCEMENT_LATEST: "run-sse-announcement-latest",
+  SZSE_ANNOUNCEMENT_LATEST: "run-szse-announcement-latest",
+  HKEX_ANNOUNCEMENT_LATEST: "run-hkex-announcement-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "run-figma-release-latest",
   // China / Hong Kong market overview
@@ -145,6 +177,13 @@ export const DEMO_SNAPSHOT_IDS = {
   PBC_NEWS_LATEST: "snapshot-pbc-news-latest",
   // NBS Stats Data Release
   STATS_DATA_RELEASE_LATEST: "snapshot-stats-data-release-latest",
+  STATS_MACRO_RELEASE_LATEST: "snapshot-stats-macro-release-latest",
+  CSRC_ANNOUNCEMENT_LATEST: "snapshot-csrc-announcement-latest",
+  NFRA_ANNOUNCEMENT_LATEST: "snapshot-nfra-announcement-latest",
+  NDRC_ANNOUNCEMENT_LATEST: "snapshot-ndrc-announcement-latest",
+  SSE_ANNOUNCEMENT_LATEST: "snapshot-sse-announcement-latest",
+  SZSE_ANNOUNCEMENT_LATEST: "snapshot-szse-announcement-latest",
+  HKEX_ANNOUNCEMENT_LATEST: "snapshot-hkex-announcement-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "snapshot-figma-release-latest",
   // China / Hong Kong market overview
@@ -172,6 +211,13 @@ export const DEMO_RECORD_IDS = {
   PBC_NEWS_LATEST: "record-pbc-news-latest",
   // NBS Stats Data Release
   STATS_DATA_RELEASE_LATEST: "record-stats-data-release-latest",
+  STATS_MACRO_RELEASE_LATEST: "record-stats-macro-release-latest",
+  CSRC_ANNOUNCEMENT_LATEST: "record-csrc-announcement-latest",
+  NFRA_ANNOUNCEMENT_LATEST: "record-nfra-announcement-latest",
+  NDRC_ANNOUNCEMENT_LATEST: "record-ndrc-announcement-latest",
+  SSE_ANNOUNCEMENT_LATEST: "record-sse-announcement-latest",
+  SZSE_ANNOUNCEMENT_LATEST: "record-szse-announcement-latest",
+  HKEX_ANNOUNCEMENT_LATEST: "record-hkex-announcement-latest",
   // Figma
   FIGMA_RELEASE_LATEST: "record-figma-release-latest",
   // China / Hong Kong market overview
@@ -238,6 +284,55 @@ export const DEMO_THEMES: Record<string, DemoThemeDefinition> = {
     type: "news_announcement",
     status: "active",
     description: "Official CPI release list from the National Bureau of Statistics",
+  },
+  STATS_MACRO_RELEASES: {
+    id: DEMO_THEME_IDS.STATS_MACRO_RELEASES,
+    name: "NBS Macro Releases",
+    type: "news_announcement",
+    status: "active",
+    description: "Official macro release list from the National Bureau of Statistics",
+  },
+  CSRC_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.CSRC_ANNOUNCEMENTS,
+    name: "CSRC Announcements",
+    type: "financial_event",
+    status: "active",
+    description: "Official CSRC announcement list for market supervision and securities regulation",
+  },
+  NFRA_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.NFRA_ANNOUNCEMENTS,
+    name: "NFRA Announcements",
+    type: "financial_event",
+    status: "active",
+    description: "Official NFRA announcement list for banking and insurance supervision",
+  },
+  NDRC_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.NDRC_ANNOUNCEMENTS,
+    name: "NDRC Price Guidance",
+    type: "financial_event",
+    status: "active",
+    description: "Official NDRC price and policy guidance announcements",
+  },
+  SSE_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.SSE_ANNOUNCEMENTS,
+    name: "SSE Announcements",
+    type: "news_announcement",
+    status: "active",
+    description: "Official listed-company announcement feed from the Shanghai Stock Exchange",
+  },
+  SZSE_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.SZSE_ANNOUNCEMENTS,
+    name: "SZSE Announcements",
+    type: "news_announcement",
+    status: "active",
+    description: "Official listed-company announcement feed from the Shenzhen Stock Exchange",
+  },
+  HKEX_ANNOUNCEMENTS: {
+    id: DEMO_THEME_IDS.HKEX_ANNOUNCEMENTS,
+    name: "HKEX Announcements",
+    type: "news_announcement",
+    status: "active",
+    description: "Official listed-company announcement feed from HKEXnews",
   },
   FIGMA_UPDATES: {
     id: DEMO_THEME_IDS.FIGMA_UPDATES,
@@ -345,6 +440,69 @@ export const DEMO_SOURCES: Record<string, DemoSourceDefinition> = {
     name: "NBS CPI Release List",
     sourceType: "page_list",
     adapterKey: "stats_data_release_list",
+    status: "healthy",
+    isPaused: false,
+  },
+  STATS_MACRO_RELEASE: {
+    id: DEMO_SOURCE_IDS.STATS_MACRO_RELEASE,
+    themeId: DEMO_THEME_IDS.STATS_MACRO_RELEASES,
+    name: "NBS Macro Release List",
+    sourceType: "page_list",
+    adapterKey: "stats_data_release_list",
+    status: "healthy",
+    isPaused: false,
+  },
+  CSRC_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.CSRC_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.CSRC_ANNOUNCEMENTS,
+    name: "CSRC Announcement List",
+    sourceType: "page_list",
+    adapterKey: "csrc_announcements",
+    status: "healthy",
+    isPaused: false,
+  },
+  NFRA_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.NFRA_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.NFRA_ANNOUNCEMENTS,
+    name: "NFRA Announcement List",
+    sourceType: "page_list",
+    adapterKey: "cbirc_announcements",
+    status: "healthy",
+    isPaused: false,
+  },
+  NDRC_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.NDRC_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.NDRC_ANNOUNCEMENTS,
+    name: "NDRC Announcement List",
+    sourceType: "page_list",
+    adapterKey: "ndrc_announcements",
+    status: "warning",
+    isPaused: false,
+  },
+  SSE_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.SSE_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.SSE_ANNOUNCEMENTS,
+    name: "SSE Announcement Feed",
+    sourceType: "api",
+    adapterKey: "sse_announcements",
+    status: "healthy",
+    isPaused: false,
+  },
+  SZSE_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.SZSE_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.SZSE_ANNOUNCEMENTS,
+    name: "SZSE Announcement Feed",
+    sourceType: "api",
+    adapterKey: "szse_announcements",
+    status: "healthy",
+    isPaused: false,
+  },
+  HKEX_ANNOUNCEMENTS: {
+    id: DEMO_SOURCE_IDS.HKEX_ANNOUNCEMENTS,
+    themeId: DEMO_THEME_IDS.HKEX_ANNOUNCEMENTS,
+    name: "HKEXnews Announcement Feed",
+    sourceType: "api",
+    adapterKey: "hkex_announcements",
     status: "healthy",
     isPaused: false,
   },

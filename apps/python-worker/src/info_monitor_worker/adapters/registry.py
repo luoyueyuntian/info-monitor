@@ -17,6 +17,7 @@ from info_monitor_worker.adapters.generic_news_announcement_list import (
 )
 from info_monitor_worker.adapters.generic_price_list import GenericPriceListAdapter
 from info_monitor_worker.adapters.github_releases import GithubReleasesAdapter
+from info_monitor_worker.adapters.hkex_announcements import HkexAnnouncementsAdapter
 from info_monitor_worker.adapters.ndrc_announcements import NdrcAnnouncementsAdapter
 from info_monitor_worker.adapters.pbc_news_list import PbcNewsListAdapter
 from info_monitor_worker.adapters.pbc_open_market_announcements import (
@@ -26,7 +27,9 @@ from info_monitor_worker.adapters.pbc_treasury_yield import PbcTreasuryYieldAdap
 from info_monitor_worker.adapters.rss_feed import RssFeedAdapter
 from info_monitor_worker.adapters.sina_gold_price import SinaGoldPriceAdapter
 from info_monitor_worker.adapters.sina_stock_price import SinaStockPriceAdapter
+from info_monitor_worker.adapters.sse_announcements import SseAnnouncementsAdapter
 from info_monitor_worker.adapters.stats_data_release_list import StatsDataReleaseListAdapter
+from info_monitor_worker.adapters.szse_announcements import SzseAnnouncementsAdapter
 from info_monitor_worker.adapters.yahoo_finance_price import YahooFinancePriceAdapter
 
 ADAPTERS: dict[str, BaseAdapter] = {
@@ -42,6 +45,7 @@ ADAPTERS: dict[str, BaseAdapter] = {
     "generic_news_announcement_list": GenericNewsAnnouncementListAdapter(),
     "generic_price_list": GenericPriceListAdapter(),
     "github_releases": GithubReleasesAdapter(),
+    "hkex_announcements": HkexAnnouncementsAdapter(),
     "ndrc_announcements": NdrcAnnouncementsAdapter(),
     "pbc_news_list": PbcNewsListAdapter(),
     "pbc_open_market_announcements": PbcOpenMarketAnnouncementsAdapter(),
@@ -49,7 +53,9 @@ ADAPTERS: dict[str, BaseAdapter] = {
     "rss_feed": RssFeedAdapter(),
     "sina_gold_price": SinaGoldPriceAdapter(),
     "sina_stock_price": SinaStockPriceAdapter(),
+    "sse_announcements": SseAnnouncementsAdapter(),
     "stats_data_release_list": StatsDataReleaseListAdapter(),
+    "szse_announcements": SzseAnnouncementsAdapter(),
     "yahoo_finance_price": YahooFinancePriceAdapter(),
 }
 

@@ -773,3 +773,36 @@ export type StockMarketCloseReportSnapshot = {
   report: StockMarketCloseReport;
   createdAt: string;
 };
+
+export type StockMarketAuthoritySectionId = "policy" | "macro" | "regulatory" | "exchange";
+
+export type StockMarketAuthorityBriefItem = {
+  key: string;
+  title: string;
+  summary: string;
+  occurredAt: string;
+  themeId: string;
+  themeName: string;
+  signal: string | null;
+  sourceNames: string[];
+  authorityLabels: string[];
+  mergedCount: number;
+  sourceHealth: "healthy" | "warning" | "mixed" | "unknown";
+};
+
+export type StockMarketAuthorityBriefSection = {
+  id: StockMarketAuthoritySectionId;
+  label: string;
+  summary: string;
+  items: StockMarketAuthorityBriefItem[];
+};
+
+export type StockMarketAuthorityBrief = {
+  generatedAt: string;
+  summary: string;
+  highlights: string[];
+  mergedItemCount: number;
+  trackedSourceCount: number;
+  warningSourceCount: number;
+  sections: StockMarketAuthorityBriefSection[];
+};

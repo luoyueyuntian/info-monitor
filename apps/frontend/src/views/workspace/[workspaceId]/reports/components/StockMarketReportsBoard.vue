@@ -72,6 +72,62 @@
               </ul>
             </div>
           </div>
+          <div v-if="authorityBrief.sections.length" class="rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-4">
+            <div class="card-topline">
+              <h3>权威站点归并</h3>
+              <span class="text-[0.88rem] text-ink-secondary">去重后 {{ authorityBrief.mergedItemCount }} 条</span>
+            </div>
+            <div class="rounded-2xl bg-slate-50/90 px-4 py-4 text-[0.92rem] leading-7 text-ink-body">
+              {{ authorityBrief.summary }}
+            </div>
+            <div v-if="authorityBrief.highlights.length" class="mt-3 flex flex-wrap gap-2">
+              <span
+                v-for="item in authorityBrief.highlights"
+                :key="item"
+                class="inline-flex items-center rounded-full border border-slate-300/70 bg-white px-3 py-1 text-[0.8rem] font-semibold text-slate-700"
+              >
+                {{ item }}
+              </span>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <div
+                v-for="section in authorityBrief.sections"
+                :key="section.id"
+                class="rounded-2xl border border-slate-400/15 bg-slate-50/70 px-4 py-4"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <strong class="text-ink-heading">{{ section.label }}</strong>
+                  <span class="text-[0.82rem] text-ink-secondary">{{ section.items.length }} 条</span>
+                </div>
+                <div class="mt-2 text-[0.86rem] leading-6 text-ink-secondary">{{ section.summary }}</div>
+                <div class="mt-3 grid gap-2">
+                  <div
+                    v-for="item in section.items.slice(0, 3)"
+                    :key="item.key"
+                    class="rounded-xl border border-slate-400/15 bg-white/85 px-3 py-3"
+                  >
+                    <div class="flex flex-wrap items-center gap-2">
+                      <RouterLink
+                        :to="{ path: `/themes/${item.themeId}`, query: buildReportReturnQuery('authorities') }"
+                        class="text-[0.9rem] font-semibold text-ink-link hover:underline"
+                      >
+                        {{ item.title }}
+                      </RouterLink>
+                      <span
+                        class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[0.76rem] font-semibold text-slate-600"
+                      >
+                        {{ item.mergedCount > 1 ? `已合并 ${item.mergedCount} 条` : item.authorityLabels[0] }}
+                      </span>
+                    </div>
+                    <div class="mt-2 text-[0.84rem] leading-6 text-ink-body">{{ item.summary }}</div>
+                    <div class="mt-2 text-[0.78rem] leading-5 text-ink-secondary">
+                      来源：{{ item.sourceNames.join(" / ") }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </article>
 
@@ -408,18 +464,19 @@ import { computed, nextTick, onMounted, ref, watch, type ComponentPublicInstance
 import { useRoute, useRouter } from "vue-router";
 
 import {
+  fetchStockMarketAuthorityBrief,
   fetchThemeDetail,
+  type StockMarketAuthorityBrief,
   type ThemeDetail,
 } from "../../../../../lib/api";
 import { formatSmartDateTimeLabel } from "../../../../../lib/presentation";
 import { buildStockMarketCloseReport } from "../../../../../lib/stock-market-report";
 import {
-  clearSelectedStockMarketReportDate,
   refreshStockMarketReportState,
   selectStockMarketReportDate,
   useStockMarketReportState,
 } from "../../../../../lib/stock-market-report-state";
-import { buildWorkspaceSummary, sortWorkspaceEvents, type WorkspaceId } from "../../../../../lib/workspaces";
+import { buildWorkspaceSummary, type WorkspaceId } from "../../../../../lib/workspaces";
 import { useWorkspaceData } from "../../../shared/useWorkspaceData";
 import TechnicalIndicatorsPanel from "./TechnicalIndicatorsPanel.vue";
 
@@ -439,6 +496,15 @@ const latestPriceIndicators = computed(() => {
 });
 const { workspace, dataset, referenceNow, load } = useWorkspaceData(workspaceId);
 const stockMarketThemeDetail = ref<ThemeDetail | null>(null);
+const authorityBrief = ref<StockMarketAuthorityBrief>({
+  generatedAt: new Date().toISOString(),
+  summary: "当前还没有可用于股市复盘的权威站点线索。",
+  highlights: [],
+  mergedItemCount: 0,
+  trackedSourceCount: 0,
+  warningSourceCount: 0,
+  sections: [],
+});
 const {
   report: savedStockMarketReport,
   history: stockMarketReportHistory,
@@ -449,7 +515,6 @@ const selectedReportDate = ref(typeof route.query.date === "string" ? route.quer
 const sectionRefs = ref<Record<string, HTMLElement | null>>({});
 
 const summary = computed(() => buildWorkspaceSummary(dataset.value));
-const sortedEvents = computed(() => sortWorkspaceEvents(dataset.value.events));
 
 const stockMarketOverview = computed(() => stockMarketThemeDetail.value?.marketOverview ?? null);
 const stockMarketReport = computed(() => buildStockMarketCloseReport(stockMarketThemeDetail.value));
@@ -688,6 +753,10 @@ async function loadStockMarketThemeDetail() {
   stockMarketThemeDetail.value = await fetchThemeDetail(stockMarketTheme.value.id);
 }
 
+async function loadAuthorityBrief() {
+  authorityBrief.value = await fetchStockMarketAuthorityBrief();
+}
+
 async function persistTodayStockMarketReport() {
   await refreshStockMarketReportState({ historyLimit: 5, saveToday: true });
 }
@@ -706,6 +775,7 @@ watch(
   () => stockMarketTheme.value?.id,
   async () => {
     await loadStockMarketThemeDetail();
+    await loadAuthorityBrief();
     await refreshStockMarketReportState({ historyLimit: 5 });
     await persistTodayStockMarketReport();
     await loadSelectedStockMarketReport();

@@ -8,6 +8,7 @@ import {
   saveTodayStockMarketCloseReportIfNeeded,
   diagnoseStockMarketCloseReport,
 } from "../services/stock-market-close-report-service.js";
+import { getStockMarketAuthorityBrief } from "../services/stock-market-authority-brief-service.js";
 import {
   deliverStockMarketCloseReport,
   getStockMarketCloseReportDeliveryConfig,
@@ -28,6 +29,8 @@ export async function registerStockMarketCloseReportRoutes(app: FastifyInstance)
 
     return report;
   });
+
+  app.get("/api/stock-market-report/authorities", async () => getStockMarketAuthorityBrief());
 
   app.get("/api/stock-market-report/diagnose", async () => diagnoseStockMarketCloseReport());
 

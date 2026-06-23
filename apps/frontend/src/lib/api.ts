@@ -14,6 +14,10 @@ import type {
   NotificationPreferenceInput,
   RuleConfiguration,
   RuleConfigurationInput,
+  StockMarketAuthorityBrief,
+  StockMarketAuthorityBriefItem,
+  StockMarketAuthorityBriefSection,
+  StockMarketAuthoritySectionId,
   StockMarketCloseReport,
   StockMarketCloseReportSnapshot,
   SourceDetail,
@@ -26,6 +30,7 @@ import type {
 } from "@info-monitor/shared-contracts";
 
 import { fallbackEvents, fallbackNotifications, fallbackSources, fallbackThemes } from "./demo-fixtures";
+import { buildStockMarketAuthorityBrief } from "../workspaces/stock-market/authority-brief";
 import { buildStockMarketCloseReport } from "./stock-market-report";
 
 export type {
@@ -38,6 +43,10 @@ export type {
   NotificationPreferenceInput,
   RuleConfiguration,
   RuleConfigurationInput,
+  StockMarketAuthorityBrief,
+  StockMarketAuthorityBriefItem,
+  StockMarketAuthorityBriefSection,
+  StockMarketAuthoritySectionId,
   StockMarketCloseReport,
   StockMarketCloseReportSnapshot,
   SourceDetail,
@@ -2441,9 +2450,22 @@ function buildFallbackStockMarketCloseReport(): StockMarketCloseReport | null {
   return buildStockMarketCloseReport(detail);
 }
 
+function buildFallbackStockMarketAuthorityBrief(): StockMarketAuthorityBrief {
+  return buildStockMarketAuthorityBrief({
+    themes: fallbackThemes,
+    events: fallbackEvents,
+    sources: fallbackSources,
+  });
+}
+
 export async function fetchStockMarketCloseReport(): Promise<StockMarketCloseReport | null> {
   const fallback = buildFallbackStockMarketCloseReport();
   return requestJson("/stock-market-report", fallback);
+}
+
+export async function fetchStockMarketAuthorityBrief(): Promise<StockMarketAuthorityBrief> {
+  const fallback = buildFallbackStockMarketAuthorityBrief();
+  return requestJson("/stock-market-report/authorities", fallback);
 }
 
 export async function fetchStockMarketCloseReportHistory(limit: number = 7): Promise<StockMarketCloseReportSnapshot[]> {
