@@ -1,0 +1,7 @@
+FROM info-monitor-api:latest
+
+WORKDIR /app
+
+EXPOSE 3001
+
+CMD ["sh", "-lc", "API_PORT=3001 npx tsx apps/api/src/index.ts"]
