@@ -18,7 +18,6 @@ def fetch_schedulable_sources(connection: Connection) -> List[Dict[str, Any]]:
               s.latest_success_at as latest_success_at
             from sources s
             where s.is_paused = false
-              and s.status = 'active'
             order by s.created_at asc
             """
         )
