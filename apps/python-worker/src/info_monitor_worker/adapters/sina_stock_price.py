@@ -17,7 +17,7 @@ from typing import Any, Dict, List
 import httpx
 
 from info_monitor_worker.adapters.base import BaseAdapter
-from info_monitor_worker.adapters.time_utils import TZ_CST, now_cst
+from info_monitor_worker.adapters.time_utils import TZ_CST, ensure_iso_with_tz, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 QUOTE_URL = "https://hq.sinajs.cn"
@@ -78,7 +78,13 @@ class SinaStockPriceAdapter(BaseAdapter):
                     current_price = float(fields[6])
                 except (ValueError, IndexError):
                     continue
-                occurred_at = f"{fields[17]}T{fields[18]}:00+08:00" if len(fields) > 18 else fallback_at
+                date_text = fields[17] if len(fields) > 17 else ""
+                time_text = fields[18] if len(fields) > 18 else ""
+                occurred_at = (
+                    ensure_iso_with_tz(f"{date_text} {time_text}".strip(), fallback=fallback_at)
+                    if date_text and time_text
+                    else fallback_at
+                )
                 currency = "HKD"
             else:
                 if len(fields) < 32:

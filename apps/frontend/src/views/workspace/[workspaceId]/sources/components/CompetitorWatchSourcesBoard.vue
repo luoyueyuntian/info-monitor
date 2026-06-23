@@ -40,6 +40,15 @@
       </article>
     </section>
 
+    <WorkspaceSourceCatalogCard
+      :workspace-id="workspaceId"
+      :workspace-themes="dataset.themes"
+      :workspace-sources="dataset.sources"
+      :all-sources="allSources"
+      :all-themes="allThemes"
+      :load="load"
+    />
+
     <section class="grid gap-4 xl:grid-cols-2">
       <article class="card">
         <div class="card-topline">
@@ -112,12 +121,13 @@ import {
 } from "../../../../../lib/presentation";
 import type { SourceStatus, ThemeSummary } from "../../../../../lib/api";
 import { type WorkspaceId } from "../../../../../lib/workspaces";
+import WorkspaceSourceCatalogCard from "./WorkspaceSourceCatalogCard.vue";
 import { useWorkspaceData } from "../../../shared/useWorkspaceData";
 
 const route = useRoute();
 const router = useRouter();
 const workspaceId = computed(() => String(route.params.workspaceId ?? "") as WorkspaceId);
-const { workspace, dataset, referenceNow, load } = useWorkspaceData(workspaceId);
+const { workspace, dataset, allSources, allThemes, referenceNow, load } = useWorkspaceData(workspaceId);
 
 const themesById = computed(() => new Map(dataset.value.themes.map((theme) => [theme.id, theme])));
 

@@ -45,6 +45,22 @@ export async function registerSourceRoutes(app: FastifyInstance) {
       return { message: "themeId, name, sourceType, and adapterKey are required" };
     }
 
+    const validation = validateSourceConfig({
+      name: body.name,
+      sourceType: body.sourceType,
+      adapterKey: body.adapterKey,
+      config: body.config,
+    });
+
+    if (!validation.valid) {
+      reply.code(400);
+      return {
+        message: "Invalid source config",
+        errors: validation.errors,
+        warnings: validation.warnings,
+      };
+    }
+
     const created = await createSource({
       themeId: body.themeId,
       name: body.name,

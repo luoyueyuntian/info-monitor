@@ -5,6 +5,7 @@ import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js"
 import type { Database } from "../db/schema.js";
 import { createId } from "../lib/ids.js";
 import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
+import { assertValidSourceConfig } from "./source-service.js";
 
 type ThemeInput = {
   id?: string;
@@ -2253,6 +2254,15 @@ function buildMockThemeBreakdown(
 }
 
 export async function createTheme(input: ThemeInput) {
+  input.sources?.forEach((source) => {
+    assertValidSourceConfig({
+      name: source.name,
+      sourceType: source.sourceType,
+      adapterKey: source.adapterKey,
+      config: source.config,
+    });
+  });
+
   const db = getDatabase();
 
   if (!db) {

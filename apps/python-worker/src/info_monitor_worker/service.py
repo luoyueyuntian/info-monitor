@@ -12,6 +12,7 @@ from info_monitor_worker.event_rules.kdj_signal import KDJSignalRule
 from info_monitor_worker.event_rules.macd_signal import MACDSignalRule
 from info_monitor_worker.event_rules.moving_average_signal import MovingAverageSignalRule
 from info_monitor_worker.event_rules.rsi_signal import RSISignalRule
+from info_monitor_worker.info_types import canonicalize_info_type
 from info_monitor_worker.event_rules.price_30d_low import ThirtyDayLowRule
 from info_monitor_worker.models import SourceContext, ThemeContext
 from info_monitor_worker.normalizers.registry import get_normalizer
@@ -332,7 +333,7 @@ class WorkerService:
         theme = ThemeContext(
             theme_id=run["theme_id"],
             theme_name=run["theme_name"],
-            info_type=run["info_type"],
+            info_type=canonicalize_info_type(run["info_type"]),
         )
         source = SourceContext(
             source_id=run["source_id"],
@@ -520,4 +521,4 @@ class WorkerService:
         except Exception as error:
             with self.engine.begin() as connection:
                 mark_run_failed(connection, run_id, source.source_id, str(error), is_test=is_test)
-            raise
+            print(f"Run {run_id} failed for source {source.source_id}: {error}")

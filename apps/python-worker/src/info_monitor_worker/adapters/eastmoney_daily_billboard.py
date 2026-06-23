@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any, Dict, List
 
 import httpx
@@ -37,37 +37,77 @@ def _to_direction(net_amount_billion: float | None) -> tuple[str, str]:
     return "neutral", "龙虎榜净额接近零，说明席位分歧较大。"
 
 
+def build_billboard_query_params(today: datetime, page_size: int, days: int) -> Dict[str, str]:
+    start_date = (today - timedelta(days=max(days - 1, 0))).strftime("%Y-%m-%d")
+    end_date = today.strftime("%Y-%m-%d")
+
+    return {
+        "reportName": "RPT_DAILYBILLBOARD_PROFILE",
+        "columns": "ALL",
+        "filter": f"(TRADE_DATE>='{start_date}')(TRADE_DATE<='{end_date}')",
+        "pageNumber": "1",
+        "pageSize": str(page_size),
+        "sortTypes": "-1,-1",
+        "sortColumns": "TRADE_DATE,BILLBOARD_NET_AMT",
+        "source": "WEB",
+        "client": "WEB",
+    }
+
+
+def _parse_run_after_time(value: str | None) -> time | None:
+    if not value:
+        return None
+
+    try:
+        return time.fromisoformat(value.strip())
+    except ValueError:
+        return None
+
+
+def _should_allow_empty_result(fetched_at: datetime, run_after_time_local: str | None) -> bool:
+    run_after_time = _parse_run_after_time(run_after_time_local)
+    if run_after_time is None:
+        return False
+
+    return fetched_at.astimezone(timezone(timedelta(hours=8))).time() < run_after_time
+
+
 class EastmoneyDailyBillboardAdapter(BaseAdapter):
     def fetch(self, theme: ThemeContext, source: SourceContext) -> RawFetchResult:
         page_size = int(source.config.get("page_size", 20))
         days = int(source.config.get("days", 1))
 
         today = datetime.now(timezone(timedelta(hours=8)))
-        start_date = (today - timedelta(days=max(days - 1, 0))).strftime("%Y-%m-%d")
-        end_date = today.strftime("%Y-%m-%d")
-
-        params = {
-            "reportName": "RPT_DAILYBILLBOARD_PROFILE",
-            "columns": "ALL",
-            "filter": f'(TRADE_DATE>="{start_date}")(TRADE_DATE<="{end_date}")',
-            "pageNumber": "1",
-            "pageSize": str(page_size),
-            "sortTypes": "-1",
-            "sortColumns": "TRADE_DATE,BILLBOARD_NET_AMT",
-            "source": "WEB",
-            "client": "WEB",
-        }
+        run_after_time_local = (
+            str(source.config.get("run_after_time_local"))
+            if source.config.get("run_after_time_local")
+            else None
+        )
+        params = build_billboard_query_params(today=today, page_size=page_size, days=days)
 
         with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
             response = client.get(DATA_URL, params=params)
             response.raise_for_status()
             payload = response.json()
 
-        return RawFetchResult(payload=payload, metadata={"params": params})
+        if payload.get("success") is False:
+            message = str(payload.get("message") or "unknown upstream error")
+            if message == "返回数据为空" and _should_allow_empty_result(today, run_after_time_local):
+                return RawFetchResult(
+                    payload={"result": {"data": []}},
+                    metadata={
+                        "params": params,
+                        "allow_empty_result": True,
+                    },
+                )
+            raise ValueError(f"eastmoney_daily_billboard upstream error: {message}")
+
+        return RawFetchResult(payload=payload, metadata={"params": params, "allow_empty_result": False})
 
     def map_to_normalizer_input(self, raw_result: RawFetchResult) -> Any:
         payload = raw_result.payload
         rows = ((payload.get("result") or {}).get("data") or [])
+        allow_empty_result = bool(raw_result.metadata.get("allow_empty_result"))
 
         items: List[Dict[str, Any]] = []
 
@@ -118,6 +158,8 @@ class EastmoneyDailyBillboardAdapter(BaseAdapter):
             )
 
         if not items:
+            if allow_empty_result:
+                return []
             raise ValueError("eastmoney_daily_billboard returned no valid billboard rows")
 
         return items

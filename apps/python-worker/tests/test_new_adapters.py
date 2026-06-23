@@ -87,6 +87,18 @@ class TestSinaStockPriceMapToNormalizerInput:
         assert len(items) == 1
         assert items[0]["price"] == 380.00
         assert items[0]["currency"] == "HKD"
+        assert items[0]["occurred_at"] == "2026-06-15T16:08:00+08:00"
+
+    def test_parses_hk_format_with_day_first_dash_date(self):
+        fields = ["TENCENT", "腾讯控股", "", "", "", "", "380.00",
+                   "385", "378", "1000000", "380000000"] + [""] * 8 + ["18-06-2026", "16:08:08"]
+        raw = RawFetchResult(
+            payload=f'var hq_str_rt_hk00700="{",".join(fields)}";\n',
+            metadata={"symbols": ["rt_hk00700"]},
+        )
+        items = self.adapter.map_to_normalizer_input(raw)
+        assert len(items) == 1
+        assert items[0]["occurred_at"] == "2026-06-18T16:08:08+08:00"
 
 
 # ─── YahooFinancePrice (now uses Sina global stock API) ─────────────────────

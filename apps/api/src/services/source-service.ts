@@ -1202,6 +1202,34 @@ export type SourceValidationResult = {
   presetId?: string;
 };
 
+const adapterRequiredConfigKeys: Record<string, string[]> = {
+  generic_content_update_list: ["url", "item_selector", "title_selector"],
+  generic_announcement_list: ["url"],
+  generic_news_announcement_list: ["url"],
+  generic_price_list: ["url"],
+  generic_html_price_list: ["url", "item_selector", "title_selector", "price_selector"],
+};
+
+function appendMissingRequiredConfigErrors(
+  errors: string[],
+  adapterKey: string | undefined,
+  config: Record<string, unknown>,
+) {
+  if (!adapterKey) {
+    return;
+  }
+
+  for (const key of adapterRequiredConfigKeys[adapterKey] ?? []) {
+    const value = config[key];
+    if (value === undefined || value === null || value === "") {
+      const message = `Missing required field: ${key}`;
+      if (!errors.includes(message)) {
+        errors.push(message);
+      }
+    }
+  }
+}
+
 export function validateSourceConfig(input: {
   presetId?: string;
   adapterKey?: string;
@@ -1239,8 +1267,8 @@ export function validateSourceConfig(input: {
   }
 
   // Validate required fields from preset
+  const config = input.config ?? {};
   if (preset && preset.id !== "custom") {
-    const config = input.config ?? {};
     for (const field of preset.fields) {
       if (field.required) {
         const value = config[field.key];
@@ -1251,12 +1279,13 @@ export function validateSourceConfig(input: {
     }
   }
 
+  appendMissingRequiredConfigErrors(errors, adapterKey, config);
+
   // Validate adapterKey is known (if not custom)
   if (preset && preset.id !== "custom" && adapterKey !== preset.adapterKey) {
     warnings.push(`adapterKey "${adapterKey}" does not match preset "${preset.id}" expected value "${preset.adapterKey}".`);
   }
 
-  const config = input.config ?? {};
   const urlValue = typeof config.url === "string" ? config.url : "";
   if (urlValue && directRetailDomains.some((domain) => urlValue.includes(domain))) {
     warnings.push("Detected a direct official retail URL. These sites often enable anti-bot checks, so a proxy/API or mirrored page is usually more reliable.");
@@ -1278,7 +1307,27 @@ export function validateSourceConfig(input: {
   };
 }
 
+export function assertValidSourceConfig(input: {
+  name: string;
+  sourceType: string;
+  adapterKey: string;
+  config?: Record<string, unknown>;
+}) {
+  const result = validateSourceConfig(input);
+
+  if (!result.valid) {
+    throw new Error(result.errors.join("; "));
+  }
+}
+
 export async function createSource(input: SourceInput) {
+  assertValidSourceConfig({
+    name: input.name,
+    sourceType: input.sourceType,
+    adapterKey: input.adapterKey,
+    config: input.config,
+  });
+
   const db = getDatabase();
   const now = new Date().toISOString();
   const onboardingStatus = input.onboardingStatus ?? "draft";

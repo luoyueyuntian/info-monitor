@@ -11,7 +11,7 @@ import {
   updateTheme,
   updateThemeReviewNote,
 } from "../services/theme-service.js";
-import { enqueueManualSourceRun } from "../services/source-service.js";
+import { enqueueManualSourceRun, validateSourceConfig } from "../services/source-service.js";
 
 export async function registerThemeRoutes(app: FastifyInstance) {
   app.get("/api/themes", async () => listThemes());
@@ -61,6 +61,24 @@ export async function registerThemeRoutes(app: FastifyInstance) {
     if (!body?.name || !body.themeType || !body.infoType) {
       reply.code(400);
       return { message: "name, themeType, and infoType are required" };
+    }
+
+    for (const source of body.sources ?? []) {
+      const validation = validateSourceConfig({
+        name: source.name,
+        sourceType: source.sourceType,
+        adapterKey: source.adapterKey,
+        config: source.config,
+      });
+
+      if (!validation.valid) {
+        reply.code(400);
+        return {
+          message: `Invalid source config for ${source.name}`,
+          errors: validation.errors,
+          warnings: validation.warnings,
+        };
+      }
     }
 
     const created = await createTheme({

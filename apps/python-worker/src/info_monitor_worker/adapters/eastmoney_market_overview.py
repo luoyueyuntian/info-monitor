@@ -293,7 +293,11 @@ class EastmoneyMarketOverviewAdapter(BaseAdapter):
             "po": "0",
         }
 
-        with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
+        with httpx.Client(
+            timeout=20.0,
+            headers={"User-Agent": "info-monitor/0.0.1"},
+            follow_redirects=True,
+        ) as client:
             quote_response = client.get(INDEX_QUOTE_URL, params=quote_params)
             quote_response.raise_for_status()
             flow_response = client.get(FLOW_URL, params=flow_params)
