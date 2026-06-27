@@ -8,9 +8,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.time_utils import ensure_iso_with_tz
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
@@ -40,13 +39,10 @@ class SzseAnnouncementsAdapter(BaseAdapter):
         }
         headers = {
             "Referer": "https://www.szse.cn/disclosure/listed/notice/index.html",
-            "User-Agent": "Mozilla/5.0",
         }
 
-        with httpx.Client(timeout=20.0, headers=headers) as client:
-            response = client.get(SZSE_QUERY_URL, params=params)
-            response.raise_for_status()
-            payload = response.json()
+        response = get_http_client().get(SZSE_QUERY_URL, params=params, headers=headers)
+        payload = response.json()
 
         return RawFetchResult(
             payload=payload,

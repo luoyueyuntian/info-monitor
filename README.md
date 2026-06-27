@@ -13,12 +13,12 @@ change detection, and high-signal alerts.
 - `db/migrations`: shared SQL migrations
 - `docs`: product and architecture documents
 
-## Planned Runtime Roles
+## Runtime Roles
 
-1. `frontend`
-2. `api`
-3. `python-scheduler`
-4. `python-worker`
+1. `frontend` — Vue 3 + Vite + TypeScript
+2. `api` — Fastify + Kysely (PostgreSQL)
+3. `python-scheduler` — polls DB for pending runs, enqueues them on schedule
+4. `python-worker` — executes runs: adapters → normalizers → detectors → event rules → notifications
 
 ## First Run Checklist
 
@@ -152,23 +152,51 @@ npm run db:enqueue:pbc-open-market-demo
 
 ## What Exists Today
 
-- Vue 3 frontend skeleton with inbox, themes, theme detail, event detail, source status, and theme creation views
-- Node.js API skeleton with real route structure and a database-backed service layer that falls back to mock data for local development when `DATABASE_URL` is not configured
-- Notification flow now spans worker -> API -> frontend, including a notification center and read-state updates
-- Shared PostgreSQL migration for core entities such as themes, sources, runs, raw snapshots, normalized records, changes, and events
-- Python worker skeleton with a first demo price-feed adapter, price normalizer, and 30-day low event rule
-- Python scheduler skeleton that can enqueue pending source runs for active sources
-- Real demo path verified: seeded theme -> queued run -> normalized records -> 30-day low event
-- First real-source adapter verified: Eastmoney stock kline -> normalized daily price records
-- Official source adapter verified: PBOC news list -> normalized news/announcement records
-- Structured financial-event adapter verified: PBOC open market announcements -> normalized financial_event records
-- Official-source event flow verified: `new_announcement` and `new_financial_event` can now reach the dashboard
-- Recent operation feedback now flows across event detail, event workbench, theme detail, inbox, and theme center
-- Local demo data now includes price, content update, open market operation, and official release scenarios in both fallback and seeded paths
+### Frontend
+
+- **Workspace system** — workspace switcher (home), workspace-scoped dashboard/actions/topics/sources/reports, with specialized board components for three workspace types: generic Workspace, StockMarket, CompetitorWatch
+- **Legacy views** — inbox, themes (list/detail/create), events (list/detail), sources (detail/health/status), notifications (list/audit/timeline), watchlist, weekly review, settings
+- **Event feedback** — inline feedback cards on events, feedback stats
+- **Source health** — health explanations, operational metrics
+- **Stock market close report** — authority aggregation, report history, per-date view, config
+- **Daily summary / Weekly summary** — delivery, history, comparison, config, export
+- **Notification management** — audit log, timeline, preferences, batch operations, retry
+- **User preferences** — theme favorites, saved views
+- **Frontend fallback** — `requestJson(path, fallback)` with hardcoded fallback data in `api.ts`
+
+### API (Fastify + Kysely)
+
+- 15 route modules covering: health, dashboard, events (incl. feedback), themes (incl. daily-activity, price-comparison, review-note), sources (incl. presets, validate, test-run, replay, config-history, config-rollback, health), notifications (incl. batch ops, retry, send, coalesce), notification-audit, notification-preferences, rule-configurations, daily-summary, weekly-summary, stock-market-close-report, channel-config, user-preferences
+- Database-backed service layer with mock/DB dual mode (see CLAUDE.md)
+- 23 shared PostgreSQL migrations covering all core entities
+- 14 service test files (run in mock mode)
+
+### Python Worker
+
+- **28 adapters** — demo price feed, Eastmoney (stock kline, daily billboard, market overview), Sina (stock price, gold price), Yahoo Finance, PBC (news, open market, treasury yield), CSRC/CBIRC/NDRC/SSE/SZSE/HKEX announcements, stats data release, GitHub releases, RSS feed, generic scrapers (price list, HTML price list, announcement list, news announcement list, content update list)
+- **5 normalizers** — price, news announcement, financial event, content update
+- **12 detectors** — price_30d_low, price_breakout, consecutive_movement, keyword_match, financial_direction, macro_deviation, RSI/MACD/KDJ/Bollinger/moving-average signals
+- **2 event rules** — record_change (generic), plus detector-driven rules
+
+### Python Scheduler
+
+- Polls DB for pending source runs, respects holiday calendars
+- Enqueues runs on configurable schedule via `SCHEDULER_POLL_SECONDS`
+
+### Verified End-to-End Flows
+
+- Price monitoring: seeded theme → queued run → Eastmoney kline → normalized price records → 30-day low event
+- Official announcements: PBC news list → normalized news/announcement records → `new_announcement` event
+- Structured financial events: PBC open market announcements → normalized financial_event records → `new_financial_event` event
+- Stock market close report: authority aggregation → report generation → delivery
+- Notification flow: worker → API → frontend notification center, including audit log and retry
+- Recent operation feedback flows across event detail, event workbench, theme detail, inbox, and theme center
+- Local demo data covers price, content update, open market operation, and official release scenarios in both fallback and seeded paths
 
 ## Current Status
 
-The repository is now past pure scaffolding and contains the first verified
-vertical slice for the price-monitoring scenario. The next most useful step is
-to deepen event logic for investment information themes and add a first
-structured official macro data source.
+The project has a fully functional vertical slice across all four runtime roles
+(frontend, API, python-scheduler, python-worker). The workspace system supports
+multiple monitoring paradigms (generic, stock market, competitor watch). Next
+steps include deepening event logic for investment themes, expanding technical
+indicator detectors, and productizing the weekly review flow.

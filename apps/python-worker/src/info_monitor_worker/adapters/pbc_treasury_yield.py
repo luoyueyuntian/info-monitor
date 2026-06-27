@@ -11,11 +11,11 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import TZ_CST, now_cst
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 # ChinaBond yield curve page
@@ -45,14 +45,11 @@ class PbcTreasuryYieldAdapter(BaseAdapter):
         max_items = int(source.config.get("max_items", 30))
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
             "Accept": "text/html,application/xhtml+xml",
         }
 
-        with httpx.Client(timeout=20.0, headers=headers, follow_redirects=True) as client:
-            response = client.get(YIELD_URL)
-            response.raise_for_status()
-            html = response.text
+        response = get_http_client().get(YIELD_URL, headers=headers, follow_redirects=True)
+        html = response.text
 
         return RawFetchResult(payload=html, metadata={"max_items": max_items})
 

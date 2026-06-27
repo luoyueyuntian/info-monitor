@@ -32,6 +32,8 @@ from info_monitor_worker.repositories import (
     mark_run_running,
     update_normalized_record,
 )
+from info_monitor_worker.enrichment import enrich_record_sync
+from info_monitor_worker.search_indexer import index_event, index_normalized_record, index_notification
 from info_monitor_worker.utils import create_id, fingerprint_for_value, to_json
 
 
@@ -76,10 +78,11 @@ class WorkerService:
         event_title: str,
         event_summary: str,
         signal: str,
-    ) -> None:
+    ) -> str:
+        notification_id = create_id("notification")
         insert_notification(
             connection=connection,
-            notification_id=create_id("notification"),
+            notification_id=notification_id,
             event_id=event_id,
             channel="in_app",
             status="pending",
@@ -91,6 +94,7 @@ class WorkerService:
                 }
             ),
         )
+        return notification_id
 
     def _emit_event_with_notification(
         self,
@@ -123,13 +127,35 @@ class WorkerService:
             occurred_at=occurred_at,
             evidence_json=to_json(evidence),
         )
-        self._create_notification(
+        notification_id = self._create_notification(
             connection=connection,
             event_id=event_id,
             event_title=title,
             event_summary=summary,
             signal=signal,
         )
+        # Index for search (best-effort, non-blocking)
+        try:
+            index_event({
+                "id": event_id,
+                "title": title,
+                "summary": summary,
+                "signal": signal,
+                "evidence": evidence,
+                "themeId": theme_id,
+                "occurredAt": occurred_at,
+                "status": "open",
+            })
+            index_notification({
+                "id": notification_id,
+                "title": title,
+                "summary": summary,
+                "signal": signal,
+                "eventId": event_id,
+                "status": "pending",
+            })
+        except Exception:
+            pass  # Search indexing is best-effort
 
     def _emit_new_release_event(
         self,
@@ -416,6 +442,21 @@ class WorkerService:
                     detector = get_detector(theme.info_type)
 
                     for normalized_record in normalized_records:
+                        # LLM enrichment (graceful no-op when provider is None)
+                        enrichment = enrich_record_sync(
+                            title=normalized_record.title,
+                            content=normalized_record.content,
+                            info_type=theme.info_type,
+                            source_name=source.source_name,
+                        )
+                        if enrichment and enrichment.summary:
+                            normalized_record.content["_enrichment"] = {
+                                "summary": enrichment.summary,
+                                "sentiment": enrichment.sentiment,
+                                "impact": enrichment.impact,
+                                "entities": enrichment.entities,
+                            }
+
                         logical_key = normalized_record.logical_key
                         fingerprint = fingerprint_for_value(
                             {
@@ -479,6 +520,19 @@ class WorkerService:
                                 fingerprint=fingerprint,
                                 content_json=to_json(normalized_record.content),
                             )
+
+                        # Index for search (best-effort)
+                        try:
+                            index_normalized_record({
+                                "id": change_result.record_id,
+                                "title": normalized_record.title,
+                                "content": str(normalized_record.content),
+                                "infoType": theme.info_type,
+                                "themeId": theme.theme_id,
+                                "sourceId": source.source_id,
+                            })
+                        except Exception:
+                            pass
 
                         # Record the change
                         record_identity = logical_key or fingerprint

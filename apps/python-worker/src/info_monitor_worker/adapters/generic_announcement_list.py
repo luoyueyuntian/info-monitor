@@ -21,9 +21,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.field_utils import resolve_field as _resolve_field
 from info_monitor_worker.adapters.time_utils import ensure_iso_with_tz, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
@@ -72,15 +71,13 @@ class GenericAnnouncementListAdapter(BaseAdapter):
         if not title_field:
             raise ValueError("generic_announcement_list adapter requires config.title_field")
 
-        headers = {"User-Agent": "info-monitor/0.0.1"}
+        headers: dict[str, str] = {}
         config_headers = source.config.get("headers")
         if isinstance(config_headers, dict):
             headers.update(config_headers)
 
-        with httpx.Client(timeout=20.0, headers=headers) as client:
-            response = client.get(str(url))
-            response.raise_for_status()
-            payload = response.json()
+        response = get_http_client().get(str(url), headers=headers or None)
+        payload = response.json()
 
         return RawFetchResult(
             payload=payload,

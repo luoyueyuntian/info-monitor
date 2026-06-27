@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 DATA_URL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
@@ -85,10 +84,8 @@ class EastmoneyDailyBillboardAdapter(BaseAdapter):
         )
         params = build_billboard_query_params(today=today, page_size=page_size, days=days)
 
-        with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
-            response = client.get(DATA_URL, params=params)
-            response.raise_for_status()
-            payload = response.json()
+        response = get_http_client().get(DATA_URL, params=params)
+        payload = response.json()
 
         if payload.get("success") is False:
             message = str(payload.get("message") or "unknown upstream error")

@@ -8,11 +8,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import TZ_CST
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 HKEX_SEARCH_URL = "https://www1.hkexnews.hk/search/titlesearch.xhtml"
@@ -61,12 +61,9 @@ class HkexAnnouncementsAdapter(BaseAdapter):
 
         headers = {
             "Referer": "https://www.hkexnews.hk/index_c.htm",
-            "User-Agent": "Mozilla/5.0",
         }
 
-        with httpx.Client(timeout=20.0, headers=headers, follow_redirects=True) as client:
-            response = client.get(HKEX_SEARCH_URL, params=params)
-            response.raise_for_status()
+        response = get_http_client().get(HKEX_SEARCH_URL, params=params, headers=headers, follow_redirects=True)
 
         return RawFetchResult(
             payload=response.text,

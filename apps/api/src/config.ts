@@ -17,6 +17,8 @@ export function getConfig() {
     corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
     databaseUrl: process.env.DATABASE_URL ?? "",
     requireDatabase: readBooleanEnv(process.env.REQUIRE_DATABASE),
+    meiliHost: process.env.MEILI_HOST ?? "",
+    meiliApiKey: process.env.MEILI_API_KEY ?? "",
   };
 }
 

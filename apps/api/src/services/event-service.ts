@@ -8,6 +8,7 @@ import { INBOX_SECTION_IDS } from "@info-monitor/shared-contracts";
 
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
+import { emitSSE } from "./event-bus.js";
 import { mockEventFeedback, mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
 
 export const inboxSectionIds = INBOX_SECTION_IDS;
@@ -691,7 +692,7 @@ export async function updateEventState(
       .execute();
   }
 
-  return {
+  const result = {
     id: eventId,
     status: typeof input.status === "string" ? input.status : existing.status,
     isRead: typeof input.isRead === "boolean" ? input.isRead : existing.isRead,
@@ -703,6 +704,10 @@ export async function updateEventState(
           : null
         : toIsoTimestamp(existing.bookmarkedAt),
   };
+
+  emitSSE("event_status_changed", { eventId, ...result });
+
+  return result;
 }
 
 export async function updateEventStatus(eventId: string, status: string) {

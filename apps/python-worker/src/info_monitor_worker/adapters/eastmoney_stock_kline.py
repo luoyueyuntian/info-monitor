@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 
@@ -38,10 +37,8 @@ class EastmoneyStockKlineAdapter(BaseAdapter):
             "end": end_date,
         }
 
-        with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
-            response = client.get(self.BASE_URL, params=params)
-            response.raise_for_status()
-            payload = response.json()
+        response = get_http_client().get(self.BASE_URL, params=params)
+        payload = response.json()
 
         return RawFetchResult(payload=payload, metadata={"params": params})
 

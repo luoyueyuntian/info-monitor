@@ -32,6 +32,19 @@
     </div>
 
     <div v-else class="grid gap-4">
+      <article v-if="weeks.length >= 2" class="card">
+        <div class="card-topline">
+          <h3>周度事件趋势</h3>
+          <span class="text-[0.88rem] text-ink-secondary">最近 {{ weeks.length }} 周总事件数变化</span>
+        </div>
+        <PriceLineChart
+          :labels="weeks.map((w) => weekLabel(w))"
+          :values="weeks.map((w) => w.totalEvents)"
+          :height="200"
+          color="#3b82f6"
+        />
+      </article>
+
       <article
         v-for="(week, index) in weeks"
         :key="week.weekStart"
@@ -162,19 +175,11 @@
           <!-- Daily Trend -->
           <div class="mb-4">
             <h4 class="mb-2 text-[0.88rem] font-semibold text-slate-700">每日趋势</h4>
-            <div class="flex items-end gap-1">
-              <div
-                v-for="(day, dayIndex) in week.dayLabels"
-                :key="day"
-                class="flex flex-1 flex-col items-center"
-              >
-                <div
-                  class="w-full rounded-t bg-blue-400"
-                  :style="{ height: `${trendBarHeight(week, dayIndex)}px` }"
-                ></div>
-                <span class="mt-1 text-[0.7rem] text-slate-500">{{ dayLabel(day) }}</span>
-              </div>
-            </div>
+            <BarChart
+              :labels="week.dayLabels.map(dayLabel)"
+              :values="week.items[0]?.dailyTrend ?? []"
+              :height="160"
+            />
           </div>
         </div>
       </article>
@@ -184,6 +189,9 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+
+import BarChart from "../../components/charts/BarChart.vue";
+import PriceLineChart from "../../components/charts/PriceLineChart.vue";
 
 type WeeklySummary = {
   generatedAt: string;

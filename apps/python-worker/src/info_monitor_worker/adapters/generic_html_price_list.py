@@ -4,10 +4,10 @@ import re
 from typing import Any, Dict, List
 from urllib.parse import urljoin
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.generic_price_list import (
     _matches_keyword_policy,
     _normalize_keywords,
@@ -62,15 +62,13 @@ class GenericHtmlPriceListAdapter(BaseAdapter):
                 "generic_html_price_list adapter requires config.item_selector, config.title_selector, and config.price_selector"
             )
 
-        headers = {"User-Agent": "info-monitor/0.0.1"}
+        headers: dict[str, str] = {}
         config_headers = source.config.get("headers")
         if isinstance(config_headers, dict):
             headers.update(config_headers)
 
-        with httpx.Client(timeout=20.0, headers=headers) as client:
-            response = client.get(str(page_url))
-            response.raise_for_status()
-            html = response.text
+        response = get_http_client().get(str(page_url), headers=headers or None)
+        html = response.text
 
         return RawFetchResult(
             payload=html,

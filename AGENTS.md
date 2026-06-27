@@ -4,7 +4,8 @@
 
 - **Frontend**: Vue 3 + Vite + TypeScript, `apps/frontend/`
 - **API**: Fastify + Kysely (PostgreSQL), `apps/api/`
-- **Python Worker**: Adapters + Normalizers + Event Rules, `apps/python-worker/`
+- **Python Worker**: Adapters + Normalizers + Detectors + Event Rules, `apps/python-worker/`
+- **Python Scheduler**: Polls DB for pending runs, enqueues them on schedule, `apps/python-scheduler/`
 - **Shared Contracts**: TypeScript types in `packages/shared-contracts/`
 
 ## Key Pattern: Mock vs DB Dual Mode
@@ -23,11 +24,11 @@ Product uses Asia/Shanghai (UTC+8). All user-facing dates must be in this timezo
 
 ## Python Dependencies
 
-Explicit deps in `apps/python-worker/pyproject.toml`. If you import a package, declare it there — don't rely on transitive deps.
+Explicit deps in `apps/python-worker/pyproject.toml` and `apps/python-scheduler/pyproject.toml`. If you import a package, declare it in the relevant `pyproject.toml` — don't rely on transitive deps.
 
 ## Code Review
 
-Use the code-review skill at `~/.Codex/skills/code-review.md` for systematic reviews. It includes a blind-spot checklist derived from past review failures.
+Use the code-review skill at `~/.claude/skills/code-review.md` for systematic reviews. It includes a blind-spot checklist derived from past review failures.
 
 ## Verification Commands
 
@@ -36,4 +37,5 @@ npm run typecheck          # All workspaces
 npm run build              # All workspaces
 npm --workspace @info-monitor/api test
 npm --workspace @info-monitor/frontend test
+npm run test:python-worker # Python worker pytest
 ```

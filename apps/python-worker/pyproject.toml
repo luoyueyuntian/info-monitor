@@ -19,6 +19,9 @@ info-monitor-worker = "info_monitor_worker.main:main"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
+search = ["meilisearch>=0.31.0"]
+llm-claude = ["anthropic>=0.40.0"]
+llm-openai = ["openai>=1.50.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

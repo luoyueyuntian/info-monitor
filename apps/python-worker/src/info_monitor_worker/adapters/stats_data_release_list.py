@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from urllib.parse import urljoin
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import normalize_pub_date
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 
@@ -48,17 +48,15 @@ class StatsDataReleaseListAdapter(BaseAdapter):
         list_url = urljoin(self.BASE_URL, str(path))
         max_items = int(source.config.get("max_items", 8))
 
-        with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
-            list_response = client.get(list_url)
-            list_response.raise_for_status()
+        client = get_http_client()
+        list_response = client.get(list_url)
 
-            links = self._extract_links(list_response.text, list_url, max_items=max_items)
-            items = []
+        links = self._extract_links(list_response.text, list_url, max_items=max_items)
+        items = []
 
-            for link in links:
-                detail_response = client.get(link["url"])
-                detail_response.raise_for_status()
-                items.append(self._extract_detail(detail_response.text, link["url"]))
+        for link in links:
+            detail_response = client.get(link["url"])
+            items.append(self._extract_detail(detail_response.text, link["url"]))
 
         return RawFetchResult(payload=items, metadata={"list_url": list_url})
 

@@ -15,6 +15,7 @@ import { logAuditEvent } from "./notification-audit-service.js";
 import { checkRateLimit, releaseLastSlot } from "./rate-limiter.js";
 import { getEffectivePreference, isInQuietHours, checkFrequencyGuard } from "./notification-preference-service.js";
 import { getEffectiveRuleConfig } from "./rule-config-service.js";
+import { emitSSE } from "./event-bus.js";
 
 // ─── Retry Configuration ─────────────────────────────────────────────────────
 
@@ -438,10 +439,9 @@ export async function markNotificationStatus(
     notification.status = status;
     notification.sentAt = status === "sent" ? new Date().toISOString() : null;
 
-    return {
-      id: notificationId,
-      status,
-    };
+    const result = { id: notificationId, status };
+    emitSSE("new_notification", { notificationId, status });
+    return result;
   }
 
   const existing = await db
@@ -468,10 +468,9 @@ export async function markNotificationStatus(
     .where("id", "=", notificationId)
     .execute();
 
-  return {
-    id: notificationId,
-    status,
-  };
+  const result = { id: notificationId, status };
+  emitSSE("new_notification", { notificationId, status });
+  return result;
 }
 
 export async function batchMarkNotificationsRead(

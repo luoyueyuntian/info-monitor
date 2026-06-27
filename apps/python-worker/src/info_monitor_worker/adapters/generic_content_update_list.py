@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from urllib.parse import urljoin
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import TZ_CST, ensure_iso_with_tz, now_cst
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 
@@ -55,10 +55,8 @@ class GenericContentUpdateListAdapter(BaseAdapter):
                 "generic_content_update_list adapter requires config.item_selector and config.title_selector"
             )
 
-        with httpx.Client(timeout=20.0, headers={"User-Agent": "info-monitor/0.0.1"}) as client:
-            response = client.get(str(page_url))
-            response.raise_for_status()
-            html = response.text
+        response = get_http_client().get(str(page_url))
+        html = response.text
 
         return RawFetchResult(
             payload=html,

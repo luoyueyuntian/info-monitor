@@ -9,9 +9,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.time_utils import TZ_CST, ensure_iso_with_tz
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
@@ -63,12 +62,9 @@ class SseAnnouncementsAdapter(BaseAdapter):
         }
         headers = {
             "Referer": SSE_REFERER,
-            "User-Agent": "Mozilla/5.0",
         }
 
-        with httpx.Client(timeout=20.0, headers=headers) as client:
-            response = client.get(SSE_QUERY_URL, params=params)
-            response.raise_for_status()
+        response = get_http_client().get(SSE_QUERY_URL, params=params, headers=headers)
 
         return RawFetchResult(
             payload=_extract_jsonp_payload(response.text),

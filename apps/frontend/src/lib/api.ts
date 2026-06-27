@@ -2803,3 +2803,84 @@ function getSavedFilterViewsLocal(): SavedFilterView[] {
     return [];
   }
 }
+
+// ─── Search API ──────────────────────────────────────────────────────────────
+
+export type SearchHit = {
+  id: string;
+  type: "event" | "notification" | "theme" | "record";
+  title: string;
+  summary?: string;
+  themeId?: string;
+  themeName?: string;
+  signal?: string;
+  infoType?: string;
+  updatedAt?: string;
+};
+
+export type SearchResult = {
+  hits: SearchHit[];
+  query: string;
+  processingTimeMs: number;
+};
+
+export async function searchQuery(
+  query: string,
+  options?: { type?: string; themeId?: string },
+): Promise<SearchResult> {
+  const params = new URLSearchParams({ q: query });
+  if (options?.type) params.set("type", options.type);
+  if (options?.themeId) params.set("themeId", options.themeId);
+
+  return requestJson<SearchResult>(`/search?${params.toString()}`, {
+    hits: [],
+    query,
+    processingTimeMs: 0,
+  });
+}
+
+// ─── Backtest API ────────────────────────────────────────────────────────────
+
+export type BacktestResult = {
+  sourceId: string;
+  themeId: string;
+  startDate: string;
+  endDate: string;
+  totalRecords: number;
+  hypotheticalEvents: Array<{
+    event_type: string;
+    signal: string;
+    title: string;
+    summary: string;
+    occurred_at: string;
+    evidence: string[];
+  }>;
+  signalDistribution: Record<string, number>;
+  timeline: Array<{
+    recordId: string;
+    occurredAt: string;
+    title: string;
+    eventCount: number;
+    signals: string[];
+  }>;
+};
+
+export async function triggerBacktest(
+  sourceId: string,
+  startDate: string,
+  endDate: string,
+  detectorConfig?: Record<string, unknown>,
+): Promise<BacktestResult> {
+  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/backtest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ startDate, endDate, detectorConfig }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `Backtest failed (${response.status})`);
+  }
+
+  return (await response.json()) as BacktestResult;
+}

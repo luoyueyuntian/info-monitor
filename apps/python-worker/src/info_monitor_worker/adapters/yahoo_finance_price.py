@@ -18,9 +18,8 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.time_utils import TZ_CST, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
@@ -80,13 +79,8 @@ class YahooFinancePriceAdapter(BaseAdapter):
         sina_symbol = _YAHOO_TO_SINA.get(str(symbol), str(symbol))
         url = f"{QUOTE_URL}?list={sina_symbol}"
 
-        with httpx.Client(
-            timeout=15.0,
-            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"},
-        ) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            text = response.text
+        response = get_http_client().get(url, headers={"Referer": "https://finance.sina.com.cn"})
+        text = response.text
 
         return RawFetchResult(payload=text, metadata={
             "symbol": sina_symbol,

@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 INDEX_CODES = {
@@ -293,25 +292,14 @@ class EastmoneyMarketOverviewAdapter(BaseAdapter):
             "po": "0",
         }
 
-        with httpx.Client(
-            timeout=20.0,
-            headers={"User-Agent": "info-monitor/0.0.1"},
-            follow_redirects=True,
-        ) as client:
-            quote_response = client.get(INDEX_QUOTE_URL, params=quote_params)
-            quote_response.raise_for_status()
-            flow_response = client.get(FLOW_URL, params=flow_params)
-            flow_response.raise_for_status()
-            sector_response = client.get(CLIST_URL, params=sector_params)
-            sector_response.raise_for_status()
-            a_share_movers_response = client.get(CLIST_URL, params=a_share_movers_params)
-            a_share_movers_response.raise_for_status()
-            a_share_decliners_response = client.get(CLIST_URL, params=a_share_decliners_params)
-            a_share_decliners_response.raise_for_status()
-            hk_movers_response = client.get(CLIST_URL, params=hk_movers_params)
-            hk_movers_response.raise_for_status()
-            hk_decliners_response = client.get(CLIST_URL, params=hk_decliners_params)
-            hk_decliners_response.raise_for_status()
+        client = get_http_client()
+        quote_response = client.get(INDEX_QUOTE_URL, params=quote_params, follow_redirects=True)
+        flow_response = client.get(FLOW_URL, params=flow_params, follow_redirects=True)
+        sector_response = client.get(CLIST_URL, params=sector_params, follow_redirects=True)
+        a_share_movers_response = client.get(CLIST_URL, params=a_share_movers_params, follow_redirects=True)
+        a_share_decliners_response = client.get(CLIST_URL, params=a_share_decliners_params, follow_redirects=True)
+        hk_movers_response = client.get(CLIST_URL, params=hk_movers_params, follow_redirects=True)
+        hk_decliners_response = client.get(CLIST_URL, params=hk_decliners_params, follow_redirects=True)
 
         return RawFetchResult(
             payload={

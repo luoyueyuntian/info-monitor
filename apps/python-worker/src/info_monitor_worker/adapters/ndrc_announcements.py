@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import httpx
 from bs4 import BeautifulSoup
 
 from info_monitor_worker.adapters.base import BaseAdapter
 from info_monitor_worker.adapters.time_utils import now_cst
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
 # NDRC price monitoring center announcement list
@@ -28,13 +28,8 @@ class NdrcAnnouncementsAdapter(BaseAdapter):
         max_items = int(source.config.get("max_items", 10))
         list_url = source.config.get("url", PRICE_LIST_URL)
 
-        with httpx.Client(
-            timeout=20.0,
-            headers={"User-Agent": "Mozilla/5.0"},
-        ) as client:
-            response = client.get(str(list_url))
-            response.raise_for_status()
-            html = response.text
+        response = get_http_client().get(str(list_url))
+        html = response.text
 
         return RawFetchResult(payload=html, metadata={"max_items": max_items, "list_url": list_url})
 

@@ -21,6 +21,9 @@ import { registerDailySummaryRoutes } from "./routes/daily-summary.js";
 import { registerWeeklySummaryRoutes } from "./routes/weekly-summary.js";
 import { registerUserPreferencesRoutes } from "./routes/user-preferences.js";
 import { registerStockMarketCloseReportRoutes } from "./routes/stock-market-close-report.js";
+import { registerEventStreamRoutes } from "./routes/events-stream.js";
+import { registerSearchRoutes } from "./routes/search.js";
+import { registerBacktestRoutes } from "./routes/backtest.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +52,9 @@ export async function buildApp() {
   await registerWeeklySummaryRoutes(app);
   await registerStockMarketCloseReportRoutes(app);
   await registerUserPreferencesRoutes(app);
+  await registerEventStreamRoutes(app);
+  await registerSearchRoutes(app);
+  await registerBacktestRoutes(app);
 
   // Serve frontend static files
   // __dirname is /app/apps/api/src

@@ -806,3 +806,13 @@ export type StockMarketAuthorityBrief = {
   warningSourceCount: number;
   sections: StockMarketAuthorityBriefSection[];
 };
+
+// ─── SSE (Server-Sent Events) ──────────────────────────────────────────────────
+
+export type SSEEventType = "new_notification" | "event_status_changed" | "new_event";
+
+export type SSEMessage = {
+  type: SSEEventType;
+  payload: Record<string, unknown>;
+  timestamp: string;
+};

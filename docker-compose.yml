@@ -27,9 +27,12 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
       API_PORT: 3001
       CORS_ORIGIN: "*"
+      MEILI_HOST: http://meilisearch:7700
     depends_on:
       postgres:
         condition: service_healthy
+      meilisearch:
+        condition: service_started
     restart: unless-stopped
 
   worker:
@@ -40,9 +43,12 @@ services:
     container_name: info-monitor-worker
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
+      MEILI_HOST: http://meilisearch:7700
     depends_on:
       postgres:
         condition: service_healthy
+      meilisearch:
+        condition: service_started
     restart: unless-stopped
 
   scheduler:
@@ -58,5 +64,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    container_name: info-monitor-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data:/meili_data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  meilisearch_data:

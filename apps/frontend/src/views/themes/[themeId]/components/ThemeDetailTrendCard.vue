@@ -9,24 +9,11 @@
 
     <template v-if="themeType === 'price' && priceTrendPoints.length > 1">
       <div class="mt-3 rounded-2xl border border-slate-400/15 bg-white/75 p-3">
-        <svg viewBox="0 0 320 160" class="block h-auto w-full" role="img" aria-label="价格趋势图">
-          <polyline
-            :points="priceTrendPolyline"
-            fill="none"
-            stroke="#475569"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <circle
-            v-for="point in priceTrendPoints"
-            :key="`${point.label}-${point.value}`"
-            :cx="point.x"
-            :cy="point.y"
-            r="3"
-            fill="#475569"
-          />
-        </svg>
+        <PriceLineChart
+          :labels="priceTrendPoints.map((p) => p.label)"
+          :values="priceTrendPoints.map((p) => p.value)"
+          :height="220"
+        />
       </div>
       <div class="mt-3 flex flex-wrap gap-3">
         <span class="text-[0.88rem] text-ink-secondary">最低: {{ formatMaybeLabel(priceTrendMin) }}</span>
@@ -46,15 +33,6 @@
           <strong>样本振幅</strong>
           <div class="text-[1.35rem] font-bold text-[#3f311d]">{{ priceRangeLabel }}</div>
         </div>
-      </div>
-      <div class="mt-2.5 flex justify-between gap-2">
-        <span
-          v-for="point in priceTrendPoints"
-          :key="`axis-${point.label}`"
-          class="text-[0.82rem] text-slate-500"
-        >
-          {{ point.label }}
-        </span>
       </div>
     </template>
 
@@ -78,6 +56,7 @@
 
 <script setup lang="ts">
 import { formatMaybeLabel } from "../../../../lib/presentation";
+import PriceLineChart from "../../../../components/charts/PriceLineChart.vue";
 
 defineProps<{
   themeType: string;

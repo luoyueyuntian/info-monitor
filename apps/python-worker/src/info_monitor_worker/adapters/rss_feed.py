@@ -14,9 +14,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.time_utils import ensure_iso_with_tz, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
@@ -29,15 +28,13 @@ class RssFeedAdapter(BaseAdapter):
 
         max_items = int(source.config.get("max_items", 20))
 
-        headers = {"User-Agent": "info-monitor/0.0.1"}
+        headers: dict[str, str] = {}
         config_headers = source.config.get("headers")
         if isinstance(config_headers, dict):
             headers.update(config_headers)
 
-        with httpx.Client(timeout=20.0, headers=headers, follow_redirects=True) as client:
-            response = client.get(str(url))
-            response.raise_for_status()
-            xml_text = response.text
+        response = get_http_client().get(str(url), headers=headers or None, follow_redirects=True)
+        xml_text = response.text
 
         return RawFetchResult(payload=xml_text, metadata={
             "url": str(url),

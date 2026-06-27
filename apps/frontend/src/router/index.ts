@@ -35,5 +35,7 @@ export const router = createRouter({
 
     { path: "/sources/:sourceId", name: "source-detail", component: () => import("../views/sources/[sourceId]/index.vue") },
     { path: "/weekly-review", name: "weekly-review", component: () => import("../views/weekly-review/index.vue") },
+    { path: "/search", name: "search", component: () => import("../views/search/index.vue") },
+    { path: "/backtest", name: "backtest", component: () => import("../views/backtest/index.vue") },
   ],
 });

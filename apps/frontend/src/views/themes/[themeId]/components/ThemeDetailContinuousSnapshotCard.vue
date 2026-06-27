@@ -100,28 +100,12 @@
     <div v-if="data.rounds.length >= 2" class="mt-4 rounded-2xl border border-slate-400/15 bg-white/70 px-4 py-3.5">
       <strong class="text-[0.92rem] text-ink-heading">价差变化趋势</strong>
       <div class="mt-3">
-        <svg :viewBox="`0 0 ${spreadChartWidth} 80`" class="h-20 w-full">
-          <polyline
-            :points="spreadTrendPoints"
-            fill="none"
-            stroke="#8a5b1f"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2.5"
-          />
-          <circle
-            v-for="(point, index) in spreadTrendData"
-            :key="index"
-            :cx="point.x"
-            :cy="point.y"
-            r="3"
-            fill="#8a5b1f"
-          />
-        </svg>
-        <div class="mt-1 flex items-center justify-between text-[0.78rem] text-ink-secondary">
-          <span>{{ formatShortDate(spreadTrendData[0]?.occurredAt) }}</span>
-          <span>{{ formatShortDate(spreadTrendData[spreadTrendData.length - 1]?.occurredAt) }}</span>
-        </div>
+        <PriceLineChart
+          :labels="spreadTrendData.map((d) => formatShortDate(d.occurredAt))"
+          :values="spreadTrendData.map((d) => d.spread)"
+          :height="120"
+          color="#8a5b1f"
+        />
       </div>
     </div>
   </article>
@@ -129,6 +113,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import PriceLineChart from "../../../../components/charts/PriceLineChart.vue";
 import type { ContinuousSnapshotCompareData, SnapshotRound } from "./theme-detail-source-compare";
 
 const props = defineProps<{

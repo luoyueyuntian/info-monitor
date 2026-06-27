@@ -14,9 +14,8 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-import httpx
-
 from info_monitor_worker.adapters.base import BaseAdapter
+from info_monitor_worker.http_client import get_http_client
 from info_monitor_worker.adapters.time_utils import TZ_CST, now_cst
 from info_monitor_worker.models import RawFetchResult, SourceContext, ThemeContext
 
@@ -37,7 +36,6 @@ class GithubReleasesAdapter(BaseAdapter):
         params = {"per_page": min(max_items * 2, 30)}  # fetch extra to allow filtering
 
         headers = {
-            "User-Agent": "info-monitor/0.0.1",
             "Accept": "application/vnd.github+json",
         }
 
@@ -46,10 +44,8 @@ class GithubReleasesAdapter(BaseAdapter):
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        with httpx.Client(timeout=20.0, headers=headers) as client:
-            response = client.get(url, params=params)
-            response.raise_for_status()
-            payload = response.json()
+        response = get_http_client().get(url, params=params, headers=headers)
+        payload = response.json()
 
         return RawFetchResult(payload=payload, metadata={
             "owner": owner,
