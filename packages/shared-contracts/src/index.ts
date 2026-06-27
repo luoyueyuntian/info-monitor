@@ -809,7 +809,7 @@ export type StockMarketAuthorityBrief = {
 
 // ─── SSE (Server-Sent Events) ──────────────────────────────────────────────────
 
-export type SSEEventType = "new_notification" | "event_status_changed" | "new_event";
+export type SSEEventType = "new_notification" | "notification_status_changed" | "event_status_changed" | "new_event";
 
 export type SSEMessage = {
   type: SSEEventType;

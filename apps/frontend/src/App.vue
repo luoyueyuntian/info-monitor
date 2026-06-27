@@ -115,6 +115,10 @@ const { isDesktop } = useBreakpoint();
 useSSE((event) => {
   if (event.type === "new_notification") {
     console.info("[SSE] new notification:", event.payload);
+  } else if (event.type === "notification_status_changed") {
+    console.info("[SSE] notification status changed:", event.payload);
+  } else if (event.type === "event_status_changed") {
+    console.info("[SSE] event status changed:", event.payload);
   }
 });
 

@@ -440,7 +440,7 @@ export async function markNotificationStatus(
     notification.sentAt = status === "sent" ? new Date().toISOString() : null;
 
     const result = { id: notificationId, status };
-    emitSSE("new_notification", { notificationId, status });
+    emitSSE("notification_status_changed", { notificationId, status });
     return result;
   }
 
@@ -469,7 +469,7 @@ export async function markNotificationStatus(
     .execute();
 
   const result = { id: notificationId, status };
-  emitSSE("new_notification", { notificationId, status });
+  emitSSE("notification_status_changed", { notificationId, status });
   return result;
 }
 

@@ -629,13 +629,15 @@ export async function updateEventState(
       event.bookmarkedAt = input.isBookmarked ? new Date().toISOString() : null;
     }
 
-    return {
+    const result = {
       id: eventId,
       status: event.status ?? "open",
       isRead: event.isRead ?? false,
       isBookmarked: event.isBookmarked ?? false,
       bookmarkedAt: event.bookmarkedAt ?? null,
     };
+    emitSSE("event_status_changed", { eventId, ...result });
+    return result;
   }
 
   const existing = await db

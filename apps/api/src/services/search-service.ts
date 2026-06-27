@@ -92,8 +92,8 @@ async function getMeiliClient(): Promise<MeiliClient | null> {
   if (meiliClient) return meiliClient;
 
   const config = getConfig();
-  const host = (config as Record<string, unknown>).meiliHost as string | undefined;
-  const apiKey = (config as Record<string, unknown>).meiliApiKey as string | undefined;
+  const host = config.meiliHost || undefined;
+  const apiKey = config.meiliApiKey || undefined;
 
   if (!host) return null;
 
