@@ -107,22 +107,19 @@ GET  /api/channels/:channel/rate-limit  -- 查看限流状态
 PUT  /api/channels/:channel/rate-limit  -- 更新限流配置
 ```
 
-## Mock 模式
+## 数据库要求
 
-当 `DATABASE_URL` 为空时，系统自动进入 Mock 模式：
-- 使用内存中的模拟数据
-- 无需数据库连接
-- 适合开发和演示
+API 运行时必须提供 `DATABASE_URL`：
+- 启动入口会在缺少 `DATABASE_URL` 时直接失败
+- Docker 镜像同样要求显式提供数据库连接
+- 本地开发和预览也应通过迁移与 seed 数据准备真实数据库
 
 ```bash
-# 启用 Mock 模式
-DATABASE_URL="" npm run dev
+# 本地开发前先准备数据库
+npm run db:up
+npm run db:migrate
+npm run db:seed:workbench-demo
 ```
-
-注意：
-- Docker 镜像默认设置 `REQUIRE_DATABASE=true`
-- 因此容器环境下如果没有提供 `DATABASE_URL`，API 会直接启动失败，而不会回退到 Mock 模式
-- Mock 模式现在主要保留给本地非 Docker 开发和测试
 
 ## 生产部署建议
 

@@ -19,7 +19,13 @@ export async function registerSearchRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: `Invalid type. Must be one of: ${validTypes.join(", ")}` });
     }
 
-    const result = await search(q.trim(), type, themeId);
-    return reply.send(result);
+    try {
+      const result = await search(q.trim(), type, themeId);
+      return reply.send(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Search failed";
+      const statusCode = message.includes("Search backend is unavailable") ? 503 : 500;
+      return reply.code(statusCode).send({ error: message });
+    }
   });
 }

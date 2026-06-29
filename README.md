@@ -162,14 +162,14 @@ npm run db:enqueue:pbc-open-market-demo
 - **Daily summary / Weekly summary** — delivery, history, comparison, config, export
 - **Notification management** — audit log, timeline, preferences, batch operations, retry
 - **User preferences** — theme favorites, saved views
-- **Frontend fallback** — `requestJson(path, fallback)` with hardcoded fallback data in `api.ts`
+- **Frontend API access** — strict backend requests via `requestJsonStrict`
 
 ### API (Fastify + Kysely)
 
 - 15 route modules covering: health, dashboard, events (incl. feedback), themes (incl. daily-activity, price-comparison, review-note), sources (incl. presets, validate, test-run, replay, config-history, config-rollback, health), notifications (incl. batch ops, retry, send, coalesce), notification-audit, notification-preferences, rule-configurations, daily-summary, weekly-summary, stock-market-close-report, channel-config, user-preferences
-- Database-backed service layer with mock/DB dual mode (see CLAUDE.md)
+- Database-backed service layer with runtime `DATABASE_URL` requirement; some service tests still exercise null-DB branches
 - 23 shared PostgreSQL migrations covering all core entities
-- 14 service test files (run in mock mode)
+- 14 service test files covering API service behavior
 
 ### Python Worker
 
@@ -191,7 +191,7 @@ npm run db:enqueue:pbc-open-market-demo
 - Stock market close report: authority aggregation → report generation → delivery
 - Notification flow: worker → API → frontend notification center, including audit log and retry
 - Recent operation feedback flows across event detail, event workbench, theme detail, inbox, and theme center
-- Local demo data covers price, content update, open market operation, and official release scenarios in both fallback and seeded paths
+- Local demo data covers price, content update, open market operation, and official release scenarios through preview seeds and demo fixtures
 
 ## Current Status
 

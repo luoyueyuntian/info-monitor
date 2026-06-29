@@ -1,7 +1,7 @@
 /**
  * Demo Scene Definitions
  *
- * 统一的 demo 场景定义，供前端 fallback、API mock、DB 种子三处共享。
+ * 统一的 demo 场景定义，供前端静态演示数据和 DB 种子共享。
  * 所有 ID 使用 kebab-case 命名，格式为 `{type}-{kebab-case-name}`。
  *
  * 新增 demo 场景时，只需在此文件中添加定义，然后在各处引用即可。

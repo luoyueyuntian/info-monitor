@@ -180,7 +180,7 @@ npm run build
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `DATABASE_URL` | PostgreSQL 连接字符串（为空时进入 Mock 模式） | - |
+| `DATABASE_URL` | PostgreSQL 连接字符串（API 运行时必填） | - |
 | `API_PORT` | API 服务端口 | 3001 |
 | `API_HOST` | API 绑定地址 | 0.0.0.0 |
 | `CORS_ORIGIN` | CORS 允许的来源 | http://localhost:5173 |

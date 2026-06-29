@@ -9,7 +9,6 @@ import { INBOX_SECTION_IDS } from "@info-monitor/shared-contracts";
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 import { emitSSE } from "./event-bus.js";
-import { mockEventFeedback, mockEvents, mockEventStatusHistory } from "../lib/mock-store.js";
 
 export const inboxSectionIds = INBOX_SECTION_IDS;
 
@@ -25,23 +24,20 @@ export type TriggerReason = {
   originalRecord?: Record<string, unknown>;
 };
 
-async function getLatestStatusChangedAtMap(eventIds: string[]) {
+function requireDatabase() {
   const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
 
+  return db;
+}
+
+async function getLatestStatusChangedAtMap(eventIds: string[]) {
   if (!eventIds.length) {
     return new Map<string, string | null>();
   }
-
-  if (!db) {
-    const map = new Map<string, string | null>();
-    for (const eventId of eventIds) {
-      const latest = mockEventStatusHistory
-        .filter((item) => item.eventId === eventId)
-        .sort((left, right) => (left.changedAt < right.changedAt ? 1 : -1))[0];
-      map.set(eventId, latest?.changedAt ?? null);
-    }
-    return map;
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("event_status_history")
@@ -240,10 +236,6 @@ function buildEventExplanation(input: {
   };
 }
 
-function toEventListItem(event: (typeof mockEvents)[number]): EventListItem {
-  return event;
-}
-
 export function filterEventsByInboxSection<T extends { infoType?: string | null; signal?: string | null }>(
   events: T[],
   sectionId: string,
@@ -268,16 +260,7 @@ export function filterEventsByInboxSection<T extends { infoType?: string | null;
 }
 
 export async function listDashboardEvents(): Promise<EventListItem[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    const events = mockEvents.map(toEventListItem);
-    const changedAtMap = await getLatestStatusChangedAtMap(events.map((item) => item.id));
-    return events.map((event) => ({
-      ...event,
-      latestStatusChangedAt: changedAtMap.get(event.id) ?? null,
-    }));
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("events as e")
@@ -317,24 +300,7 @@ export async function listDashboardEvents(): Promise<EventListItem[]> {
 }
 
 export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    const events = mockEvents
-      .filter((event) => event.isBookmarked)
-      .map(toEventListItem)
-      .sort((left, right) => {
-        const leftChanged = new Date(left.bookmarkedAt ?? left.latestStatusChangedAt ?? left.occurredAt).getTime();
-        const rightChanged = new Date(right.bookmarkedAt ?? right.latestStatusChangedAt ?? right.occurredAt).getTime();
-        return rightChanged - leftChanged;
-      })
-      .slice(0, limit);
-    const changedAtMap = await getLatestStatusChangedAtMap(events.map((item) => item.id));
-    return events.map((event) => ({
-      ...event,
-      latestStatusChangedAt: changedAtMap.get(event.id) ?? null,
-    }));
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("events as e")
@@ -415,19 +381,7 @@ export async function countInboxSectionEvents() {
 }
 
 export async function listInboxSectionEvents(sectionId?: string): Promise<EventListItem[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    const events = [...mockEvents]
-      .map(toEventListItem)
-      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
-    const filtered = sectionId ? filterEventsByInboxSection(events, sectionId) : events;
-    const changedAtMap = await getLatestStatusChangedAtMap(filtered.map((item) => item.id));
-    return filtered.map((event) => ({
-      ...event,
-      latestStatusChangedAt: changedAtMap.get(event.id) ?? null,
-    }));
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("events as e")
@@ -467,30 +421,7 @@ export async function listInboxSectionEvents(sectionId?: string): Promise<EventL
 }
 
 export async function getEventDetail(eventId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    const event = mockEvents.find((item) => item.id === eventId) ?? null;
-
-    if (!event) {
-      return null;
-    }
-
-    return {
-      ...event,
-      explanation: buildEventExplanation({
-        infoType: event.infoType,
-        signal: event.signal,
-        title: event.title,
-        summary: event.summary,
-        sourceHealthScore: 70, // Mock mode: default baseline
-      }),
-      triggerReason: buildTriggerReason(event),
-      statusHistory: mockEventStatusHistory
-        .filter((item) => item.eventId === eventId)
-        .sort((left, right) => (left.changedAt < right.changedAt ? 1 : -1)),
-    };
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("events as e")
@@ -596,49 +527,7 @@ export async function updateEventState(
     isBookmarked?: boolean;
   },
 ) {
-  const db = getDatabase();
-
-  if (!db) {
-    const event = mockEvents.find((item) => item.id === eventId);
-
-    if (!event) {
-      return null;
-    }
-
-    if (typeof input.status === "string") {
-      const previousStatus = event.status ?? "open";
-      event.status = input.status;
-
-      if (previousStatus !== input.status) {
-        mockEventStatusHistory.unshift({
-          id: createId("event_status_history"),
-          eventId,
-          fromStatus: previousStatus,
-          toStatus: input.status,
-          changedAt: new Date().toISOString(),
-        });
-      }
-    }
-
-    if (typeof input.isRead === "boolean") {
-      event.isRead = input.isRead;
-    }
-
-    if (typeof input.isBookmarked === "boolean") {
-      event.isBookmarked = input.isBookmarked;
-      event.bookmarkedAt = input.isBookmarked ? new Date().toISOString() : null;
-    }
-
-    const result = {
-      id: eventId,
-      status: event.status ?? "open",
-      isRead: event.isRead ?? false,
-      isBookmarked: event.isBookmarked ?? false,
-      bookmarkedAt: event.bookmarkedAt ?? null,
-    };
-    emitSSE("event_status_changed", { eventId, ...result });
-    return result;
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("events")
@@ -730,24 +619,7 @@ export type EventFeedbackRecord = {
 };
 
 export async function getEventFeedback(eventId: string): Promise<EventFeedbackRecord | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - read from in-memory feedback store
-    const record = mockEventFeedback.find((f) => f.eventId === eventId);
-    if (!record) {
-      return null;
-    }
-
-    return {
-      id: record.id,
-      eventId: record.eventId,
-      feedback: record.feedback as EventFeedback,
-      note: record.note,
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    };
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("event_feedback")
@@ -781,41 +653,7 @@ export async function upsertEventFeedback(
   feedback: EventFeedback,
   note?: string,
 ): Promise<EventFeedbackRecord | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - upsert into in-memory feedback store
-    const now = new Date().toISOString();
-    const existing = mockEventFeedback.find((f) => f.eventId === eventId);
-
-    if (existing) {
-      existing.feedback = feedback;
-      existing.note = note ?? null;
-      existing.updatedAt = now;
-      return {
-        id: existing.id,
-        eventId: existing.eventId,
-        feedback: existing.feedback as EventFeedback,
-        note: existing.note,
-        createdAt: existing.createdAt,
-        updatedAt: existing.updatedAt,
-      };
-    }
-
-    const record = {
-      id: createId("event_feedback"),
-      eventId,
-      feedback,
-      note: note ?? null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    mockEventFeedback.push(record);
-    return {
-      ...record,
-      feedback: record.feedback as EventFeedback,
-    };
-  }
+  const db = requireDatabase();
 
   // Check if event exists
   const event = await db
@@ -867,16 +705,7 @@ export async function upsertEventFeedback(
 }
 
 export async function deleteEventFeedback(eventId: string): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - remove from in-memory feedback store (idempotent: always succeed)
-    const index = mockEventFeedback.findIndex((f) => f.eventId === eventId);
-    if (index !== -1) {
-      mockEventFeedback.splice(index, 1);
-    }
-    return true;
-  }
+  const db = requireDatabase();
 
   // Check existence first — execute() result doesn't reliably indicate affected rows
   const existing = await db
@@ -900,30 +729,12 @@ export async function deleteEventFeedback(eventId: string): Promise<boolean> {
 export async function getMultipleEventFeedback(
   eventIds: string[],
 ): Promise<Map<string, EventFeedbackRecord>> {
-  const db = getDatabase();
   const map = new Map<string, EventFeedbackRecord>();
 
   if (!eventIds.length) {
     return map;
   }
-
-  if (!db) {
-    // Mock mode - read from in-memory feedback store
-    for (const eventId of eventIds) {
-      const record = mockEventFeedback.find((f) => f.eventId === eventId);
-      if (record) {
-        map.set(record.eventId, {
-          id: record.id,
-          eventId: record.eventId,
-          feedback: record.feedback as EventFeedback,
-          note: record.note,
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt,
-        });
-      }
-    }
-    return map;
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("event_feedback")
@@ -991,34 +802,8 @@ function aggregateFeedbackBy(
 }
 
 export async function getFeedbackAggregation(): Promise<FeedbackAggregation> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  if (!db) {
-    // Mock mode - aggregate from in-memory feedback
-    const recentFeedbackRecords = mockEventFeedback.filter(
-      (f) => new Date(f.updatedAt).getTime() >= twentyFourHoursAgo.getTime(),
-    );
-
-    const recentFeedback: FeedbackRow[] = recentFeedbackRecords.map((feedback) => {
-      const event = mockEvents.find((e) => e.id === feedback.eventId);
-      return {
-        feedback: feedback.feedback,
-        signal: event?.signal ?? "unknown",
-        eventType: event?.eventType ?? "unknown",
-        themeId: event?.themeId ?? "unknown",
-        themeName: event?.themeName ?? "Unknown Theme",
-      };
-    });
-
-    return {
-      bySignal: aggregateFeedbackBy(recentFeedback, "signal", (item) => item.signal),
-      byEventType: aggregateFeedbackBy(recentFeedback, "eventType", (item) => item.eventType),
-      byTheme: aggregateFeedbackBy(recentFeedback, "themeId", (item) => item.themeName),
-      totalFeedback: mockEventFeedback.length,
-      recentFeedback: recentFeedback.length,
-    };
-  }
 
   // Database mode
   const feedbackRows = await db

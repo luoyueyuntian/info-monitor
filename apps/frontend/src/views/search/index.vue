@@ -30,6 +30,13 @@
 
     <div v-if="loading" class="text-ink-secondary">搜索中...</div>
 
+    <div
+      v-else-if="error"
+      class="rounded-2xl border border-rose-200 bg-rose-50/60 px-4 py-3 text-[0.88rem] text-rose-700"
+    >
+      {{ error }}
+    </div>
+
     <div v-else-if="hasSearched && result.hits.length === 0" class="rounded-2xl border border-dashed border-slate-400/30 p-8 text-center text-ink-secondary">
       没有找到匹配 "{{ result.query }}" 的结果
     </div>
@@ -80,13 +87,18 @@ const query = ref("");
 const loading = ref(false);
 const hasSearched = ref(false);
 const result = ref<SearchResult>({ hits: [], query: "", processingTimeMs: 0 });
+const error = ref("");
 
 async function doSearch() {
   if (!query.value.trim()) return;
   loading.value = true;
   hasSearched.value = true;
+  error.value = "";
   try {
     result.value = await searchQuery(query.value.trim());
+  } catch (e) {
+    result.value = { hits: [], query: query.value.trim(), processingTimeMs: 0 };
+    error.value = e instanceof Error ? e.message : "搜索失败";
   } finally {
     loading.value = false;
   }

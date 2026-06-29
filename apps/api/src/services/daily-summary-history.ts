@@ -10,11 +10,17 @@ export type DailySummarySnapshot = {
   createdAt: string;
 };
 
-// In-memory store for mock mode
-const mockSummaryHistory: DailySummarySnapshot[] = [];
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 export async function saveDailySummarySnapshot(summary: DailySummary): Promise<DailySummarySnapshot> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date().toISOString();
 
   const snapshot: DailySummarySnapshot = {
@@ -23,13 +29,6 @@ export async function saveDailySummarySnapshot(summary: DailySummary): Promise<D
     summary,
     createdAt: now,
   };
-
-  if (!db) {
-    // Mock mode - keep in-memory
-    mockSummaryHistory.unshift(snapshot);
-    if (mockSummaryHistory.length > 30) mockSummaryHistory.length = 30;
-    return snapshot;
-  }
 
   // DB mode - persist to dedicated daily_summaries table
   await db
@@ -46,11 +45,7 @@ export async function saveDailySummarySnapshot(summary: DailySummary): Promise<D
 }
 
 export async function getSummaryHistory(limit: number = 7): Promise<DailySummarySnapshot[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockSummaryHistory.slice(0, limit);
-  }
+  const db = requireDatabase();
 
   // DB mode - read from daily_summaries table
   const rows = await db
@@ -72,11 +67,7 @@ export async function getSummaryHistory(limit: number = 7): Promise<DailySummary
 }
 
 export async function hasSnapshotForToday(date: string): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockSummaryHistory.some((s) => s.date === date);
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("daily_summaries")

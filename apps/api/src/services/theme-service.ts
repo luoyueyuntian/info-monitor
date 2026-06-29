@@ -4,7 +4,6 @@ import { getDatabase } from "../db/client.js";
 import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js";
 import type { Database } from "../db/schema.js";
 import { createId } from "../lib/ids.js";
-import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
 import { assertValidSourceConfig } from "./source-service.js";
 
 type ThemeInput = {
@@ -46,6 +45,15 @@ type ThemeCreateResult = {
   id: string;
   sourceIds: string[];
 };
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function formatNumberForInsight(value: unknown) {
   if (typeof value === "number") {
@@ -1737,92 +1745,13 @@ async function createThemeInDb(db: Kysely<Database>, input: ThemeInput): Promise
 }
 
 export async function listThemes() {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockThemes.map((theme) => {
-      const themeEvents = mockEvents.filter((event) => event.themeId === theme.id);
-      const metadata = (theme as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
-      const reviewNote = metadata?.reviewNote as Record<string, unknown> | undefined;
-
-      return {
-        ...theme,
-        openEventCount: themeEvents.filter((event) => (event.status ?? "open") === "open").length,
-        trackingEventCount: themeEvents.filter((event) => event.status === "tracking").length,
-        ignoredEventCount: themeEvents.filter((event) => event.status === "ignored").length,
-        unreadEventCount: themeEvents.filter((event) => !event.isRead).length,
-        bookmarkedEventCount: themeEvents.filter((event) => Boolean(event.isBookmarked)).length,
-        latestBookmarkedAt: themeEvents
-          .filter((event) => event.isBookmarked && event.bookmarkedAt)
-          .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
-        reviewStatus: typeof reviewNote?.status === "string" ? reviewNote.status : null,
-        reviewTags: Array.isArray(reviewNote?.tags) ? reviewNote.tags : [],
-        nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
-      };
-    });
-  }
+  const db = requireDatabase();
 
   return listThemesFromDb(db);
 }
 
 export async function getThemeDetail(themeId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    const theme = mockThemes.find((item) => item.id === themeId);
-
-    if (!theme) {
-      return null;
-    }
-
-    const themeEvents = mockEvents.filter((item) => item.themeId === themeId);
-    const themeSources = mockSources.filter((item) => item.themeId === themeId);
-
-    // Build mock records based on theme type
-    const mockRecords = buildMockThemeRecords(theme, themeEvents);
-    const mockTimeline = buildMockThemeTimeline(theme, themeEvents, themeSources);
-    const mockHistory = buildMockThemeHistory(theme);
-    const mockBreakdown = buildMockThemeBreakdown(theme, mockRecords);
-    const mockMarketOverview = buildThemeMarketOverview(
-      mockRecords.map((item) => ({
-        occurredAt: item.occurredAt,
-        content: item.content,
-      })),
-    );
-
-    return {
-      theme,
-      sources: themeSources,
-      events: themeEvents,
-      history: mockHistory,
-      breakdown: mockBreakdown,
-      marketOverview: mockMarketOverview,
-      timeline: mockTimeline,
-      records: mockRecords,
-      analysis: buildThemeAnalysis({
-        themeType: theme.type,
-        latestInsight: null,
-        events: themeEvents.map((item) => ({
-          title: item.title,
-          signal: item.signal,
-          occurredAt: item.occurredAt,
-          summary: item.summary,
-        })),
-        records: mockRecords.map((item) => ({
-          occurredAt: item.occurredAt,
-          content: item.content,
-        })),
-        sources: themeSources.map((item) => ({
-          name: item.name,
-          status: item.status,
-          isPaused: item.isPaused,
-          latestRunStatus: item.latestRunStatus,
-          latestSuccessAt: item.latestSuccessAt,
-          latestFailureAt: item.latestFailureAt,
-        })),
-      }),
-    };
-  }
+  const db = requireDatabase();
 
   return getThemeDetailFromDb(db, themeId);
 }
@@ -2263,76 +2192,13 @@ export async function createTheme(input: ThemeInput) {
     });
   });
 
-  const db = getDatabase();
-
-  if (!db) {
-    const themeId = input.id?.trim() || createId("theme");
-    const sourceIds: string[] = [];
-    mockThemes.unshift({
-      id: themeId,
-      name: input.name,
-      type: input.themeType,
-      status: "active",
-      latestRunAt: new Date().toISOString(),
-      latestEventAt: null,
-      sourceCount: input.sources?.length ?? 0,
-    });
-
-    input.sources?.forEach((source) => {
-      const sourceId = createId("source");
-      sourceIds.push(sourceId);
-      mockSources.push({
-        id: sourceId,
-        themeId,
-        themeName: input.name,
-        name: source.name,
-        status: "active",
-        latestSuccessAt: null,
-        latestFailureAt: null,
-      });
-    });
-
-    return { id: themeId, sourceIds };
-  }
+  const db = requireDatabase();
 
   return createThemeInDb(db, input);
 }
 
 export async function updateTheme(themeId: string, input: ThemeUpdateInput) {
-  const db = getDatabase();
-
-  if (!db) {
-    const theme = mockThemes.find((item) => item.id === themeId);
-
-    if (!theme) {
-      return null;
-    }
-
-    if (input.name !== undefined) {
-      const nextName = input.name;
-      theme.name = nextName;
-      mockSources.forEach((source) => {
-        if (source.themeId === themeId) {
-          source.themeName = nextName;
-        }
-      });
-      mockEvents.forEach((event) => {
-        if (event.themeId === themeId) {
-          event.themeName = nextName;
-        }
-      });
-    }
-
-    if (input.description !== undefined) {
-      // mock theme summary does not persist description
-    }
-
-    if (input.status !== undefined) {
-      theme.status = input.status;
-    }
-
-    return { id: themeId };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("themes")
@@ -2370,31 +2236,7 @@ export async function updateTheme(themeId: string, input: ThemeUpdateInput) {
 }
 
 export async function deleteTheme(themeId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockThemes.findIndex((item) => item.id === themeId);
-
-    if (index === -1) {
-      return null;
-    }
-
-    mockThemes.splice(index, 1);
-
-    for (let i = mockSources.length - 1; i >= 0; i -= 1) {
-      if (mockSources[i].themeId === themeId) {
-        mockSources.splice(i, 1);
-      }
-    }
-
-    for (let i = mockEvents.length - 1; i >= 0; i -= 1) {
-      if (mockEvents[i].themeId === themeId) {
-        mockEvents.splice(i, 1);
-      }
-    }
-
-    return { id: themeId };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("themes")
@@ -2444,68 +2286,12 @@ export async function getThemeDailyActivity(
   themeId: string,
   days: number = 7,
 ): Promise<ThemeDailyActivity | null> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date();
 
   // Helper to get date string in Asia/Shanghai timezone
   function toCstDate(date: Date): string {
     return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
-  }
-
-  if (!db) {
-    // Mock mode: generate synthetic daily activity
-    const themeEvents = mockEvents.filter((e) => e.themeId === themeId);
-    const dayList: DailyActivityDay[] = [];
-
-    for (let i = days - 1; i >= 0; i--) {
-      const dayDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = toCstDate(dayDate);
-      const dayEvents = themeEvents.filter((e) => e.occurredAt.startsWith(dateStr));
-      const signals: Record<string, number> = {};
-      for (const e of dayEvents) {
-        signals[e.signal] = (signals[e.signal] ?? 0) + 1;
-      }
-      dayList.push({
-        date: dateStr,
-        eventCount: dayEvents.length,
-        runCount: i === 0 ? 1 : 0,
-        changeCount: dayEvents.length > 0 ? 1 : 0,
-        signals,
-      });
-    }
-
-    // Signal distribution (Task 10)
-    const signalDistribution: Record<string, number> = {};
-    for (const day of dayList) {
-      for (const [signal, count] of Object.entries(day.signals)) {
-        signalDistribution[signal] = (signalDistribution[signal] ?? 0) + count;
-      }
-    }
-
-    // Day-over-day comparison
-    let dayOverDay: ThemeDailyActivity["dayOverDay"];
-    if (dayList.length >= 2) {
-      const today = dayList[dayList.length - 1];
-      const yesterday = dayList[dayList.length - 2];
-      const eventsDelta = today.eventCount - yesterday.eventCount;
-      dayOverDay = {
-        eventsDelta,
-        runsDelta: today.runCount - yesterday.runCount,
-        trend: eventsDelta > 0 ? "up" : eventsDelta < 0 ? "down" : "flat",
-      };
-    }
-
-    return {
-      themeId,
-      days: dayList,
-      totals: {
-        events: themeEvents.length,
-        runs: 1,
-        changes: themeEvents.length > 0 ? 1 : 0,
-      },
-      signalDistribution: Object.keys(signalDistribution).length > 0 ? signalDistribution : undefined,
-      dayOverDay,
-    };
   }
 
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -2600,26 +2386,7 @@ export async function getThemeDailyActivity(
 }
 
 export async function getThemeReviewNote(themeId: string): Promise<ThemeReviewNote | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - read review note from in-memory theme metadata
-    const theme = mockThemes.find((t) => t.id === themeId);
-    if (!theme) {
-      return null;
-    }
-
-    const metadata = (theme as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
-    const reviewNote = metadata?.reviewNote as Record<string, unknown> | undefined;
-
-    return {
-      content: typeof reviewNote?.content === "string" ? reviewNote.content : "",
-      updatedAt: typeof reviewNote?.updatedAt === "string" ? reviewNote.updatedAt : null,
-      status: typeof reviewNote?.status === "string" ? reviewNote.status as ThemeReviewNote["status"] : undefined,
-      tags: Array.isArray(reviewNote?.tags) ? reviewNote.tags as string[] : undefined,
-      nextReviewDate: typeof reviewNote?.nextReviewDate === "string" ? reviewNote.nextReviewDate : null,
-    };
-  }
+  const db = requireDatabase();
 
   const theme = await db
     .selectFrom("themes")
@@ -2657,35 +2424,7 @@ export async function updateThemeReviewNote(
   themeId: string,
   input: ThemeReviewNoteUpdate,
 ): Promise<ThemeReviewNote | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - persist review note to in-memory theme metadata
-    const theme = mockThemes.find((t) => t.id === themeId);
-    if (!theme) {
-      return null;
-    }
-
-    const now = new Date().toISOString();
-    const themeRecord = theme as Record<string, unknown>;
-    const metadata = (themeRecord.metadata as Record<string, unknown>) ?? {};
-    metadata.reviewNote = {
-      content: input.content,
-      updatedAt: now,
-      status: input.status,
-      tags: input.tags,
-      nextReviewDate: input.nextReviewDate,
-    };
-    themeRecord.metadata = metadata;
-
-    return {
-      content: input.content,
-      updatedAt: now,
-      status: input.status,
-      tags: input.tags,
-      nextReviewDate: input.nextReviewDate,
-    };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("themes")
@@ -2770,24 +2509,7 @@ export type PriceComparisonResult = {
 };
 
 export async function getPriceComparison(themeId: string): Promise<PriceComparisonResult | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode: build comparison from mock records
-    const theme = mockThemes.find((t) => t.id === themeId);
-    if (!theme || theme.type !== "price") return null;
-
-    const themeRecords = mockEvents
-      .filter((e) => e.themeId === themeId)
-      .map((e) => ({
-        sourceId: "mock-source",
-        sourceName: "Mock Source",
-        content: e.context ?? {},
-        occurredAt: e.occurredAt,
-      }));
-
-    return buildPriceComparison(themeId, theme.name, themeRecords);
-  }
+  const db = requireDatabase();
 
   // DB mode
   const theme = await db

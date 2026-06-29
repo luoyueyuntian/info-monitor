@@ -160,14 +160,14 @@ Use `pbc_open_market_announcements` for PBOC operations or `stats_data_release_l
 
 5. **Source Config**: See examples above
 
-6. **Frontend**: Add theme fixture in `apps/api/src/lib/mock-fixtures.ts`
+6. **Preview / Test Data**: If this source needs local preview data, add a dedicated DB seed script. If frontend tests need static sample data, keep it under `apps/frontend/src/test-fixtures/demo-fixtures.ts` rather than runtime API mocks.
 
 ### Checklist
 - [ ] Adapter fetches and parses HTML correctly
 - [ ] Time parsing handles ISO, human-readable, and timezone variants
 - [ ] Normalizer produces correct `NormalizedRecord` shape
 - [ ] Demo seed creates theme, source, run, snapshot, record, event
-- [ ] Mock fixtures include the new theme
+- [ ] Local preview or demo seed covers the new theme when needed
 - [ ] Frontend displays records, timeline, history, breakdown
 
 ## Announcement/Release Style Source

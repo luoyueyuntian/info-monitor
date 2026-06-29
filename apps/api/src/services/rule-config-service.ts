@@ -6,71 +6,20 @@ import type {
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
 
-// Mock rule configurations for demo mode
-const mockRuleConfigs: RuleConfiguration[] = [
-  {
-    id: "rule-price-30d-low-theme-surface-pro-8",
-    ruleKey: "price_30d_low",
-    themeId: "theme-surface-pro-8",
-    config: {
-      thresholdPercent: 0,
-      dedupWindowDays: 30,
-      onlyLatest: true,
-      notificationLevel: "high",
-      minPriceChange: 0,
-    },
-    isEnabled: true,
-    priority: 10,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "rule-financial-direction-theme-pbc-open-market",
-    ruleKey: "financial_direction",
-    themeId: "theme-pbc-open-market",
-    config: {
-      classifyNeutral: false,
-      notificationLevel: "medium",
-      bullishSignals: ["liquidity_injection"],
-      bearishSignals: ["liquidity_withdrawal"],
-    },
-    isEnabled: true,
-    priority: 10,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "rule-content-update-theme-figma-updates",
-    ruleKey: "content_update",
-    themeId: "theme-figma-updates",
-    config: {
-      notificationLevel: "low",
-      ignoreTypes: [],
-      requireKeyword: null,
-    },
-    isEnabled: true,
-    priority: 5,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-];
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 export async function listRuleConfigurations(
   themeId?: string,
   ruleKey?: string,
 ): Promise<RuleConfiguration[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    let filtered = [...mockRuleConfigs];
-    if (themeId) {
-      filtered = filtered.filter((c) => c.themeId === themeId);
-    }
-    if (ruleKey) {
-      filtered = filtered.filter((c) => c.ruleKey === ruleKey);
-    }
-    return filtered;
-  }
+  const db = requireDatabase();
 
   let query = db
     .selectFrom("rule_configurations")
@@ -106,11 +55,7 @@ export async function listRuleConfigurations(
 export async function getRuleConfiguration(
   configId: string,
 ): Promise<RuleConfiguration | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockRuleConfigs.find((c) => c.id === configId) ?? null;
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("rule_configurations")
@@ -142,7 +87,7 @@ export async function getRuleConfiguration(
 export async function createRuleConfiguration(
   input: RuleConfigurationInput,
 ): Promise<RuleConfiguration> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date().toISOString();
   const id = createId("rule_configurations");
 
@@ -156,11 +101,6 @@ export async function createRuleConfiguration(
     createdAt: now,
     updatedAt: now,
   };
-
-  if (!db) {
-    mockRuleConfigs.push(config);
-    return config;
-  }
 
   await db
     .insertInto("rule_configurations")
@@ -181,26 +121,7 @@ export async function updateRuleConfiguration(
   configId: string,
   input: Partial<RuleConfigurationInput>,
 ): Promise<RuleConfiguration | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockRuleConfigs.findIndex((c) => c.id === configId);
-    if (index === -1) return null;
-
-    const existing = mockRuleConfigs[index];
-    const updated: RuleConfiguration = {
-      ...existing,
-      ruleKey: input.ruleKey ?? existing.ruleKey,
-      themeId: input.themeId !== undefined ? input.themeId : existing.themeId,
-      config: input.config ?? existing.config,
-      isEnabled: input.isEnabled ?? existing.isEnabled,
-      priority: input.priority ?? existing.priority,
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockRuleConfigs[index] = updated;
-    return updated;
-  }
+  const db = requireDatabase();
 
   const updatePatch: Record<string, unknown> = {};
 
@@ -227,15 +148,7 @@ export async function updateRuleConfiguration(
 export async function deleteRuleConfiguration(
   configId: string,
 ): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockRuleConfigs.findIndex((c) => c.id === configId);
-    if (index === -1) return false;
-
-    mockRuleConfigs.splice(index, 1);
-    return true;
-  }
+  const db = requireDatabase();
 
   const result = await db
     .deleteFrom("rule_configurations")
@@ -249,21 +162,7 @@ export async function getEffectiveRuleConfig(
   ruleKey: string,
   themeId?: string,
 ): Promise<Record<string, unknown> | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    const matched = mockRuleConfigs
-      .filter((c) => c.ruleKey === ruleKey && c.isEnabled)
-      .filter((c) => !themeId || !c.themeId || c.themeId === themeId)
-      .sort((a, b) => {
-        // More specific configs first (theme-specific before global)
-        const aSpecific = a.themeId ? 1 : 0;
-        const bSpecific = b.themeId ? 1 : 0;
-        return bSpecific - aSpecific || b.priority - a.priority;
-      })[0];
-
-    return matched?.config ?? null;
-  }
+  const db = requireDatabase();
 
   let query = db
     .selectFrom("rule_configurations")

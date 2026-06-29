@@ -6,15 +6,11 @@ import type { Database } from "./schema.js";
 
 let dbInstance: Kysely<Database> | null = null;
 
-export function getDatabase(): Kysely<Database> | null {
+export function getDatabase(): Kysely<Database> {
   const config = getConfig();
 
   if (!config.databaseUrl) {
-    if (config.requireDatabase) {
-      throw new Error("DATABASE_URL is required when REQUIRE_DATABASE=true. Mock mode is disabled.");
-    }
-
-    return null;
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
   }
 
   if (dbInstance) {

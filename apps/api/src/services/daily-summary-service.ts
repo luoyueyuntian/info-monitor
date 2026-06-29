@@ -3,7 +3,6 @@ import type { DailySummary, DailySummaryItem, EventSummary, NotificationChannel 
 import { sql } from "kysely";
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
-import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
 import {
   sendNotification,
   type ChannelConfig,
@@ -12,6 +11,15 @@ import {
 import { saveDailySummarySnapshot, hasSnapshotForToday } from "./daily-summary-history.js";
 
 export type { DailySummary, DailySummaryItem };
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function formatSummaryForDelivery(summary: DailySummary): { title: string; body: string } {
   const activeCategories = summary.items.filter((item) => item.recentCount > 0);
@@ -128,122 +136,10 @@ function toCstDate(date: Date): string {
 }
 
 export async function getDailySummary(): Promise<DailySummary> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const dateStr = toCstDate(now);
-
-  if (!db) {
-    // Mock mode
-    const recentEvents = mockEvents.filter(
-      (event) => new Date(event.occurredAt).getTime() >= twentyFourHoursAgo.getTime(),
-    );
-
-    const priceEvents = mockEvents.filter((event) => event.infoType === "price");
-    const financialEvents = mockEvents.filter((event) => event.infoType === "financial_event");
-    const releaseEvents = mockEvents.filter((event) => event.signal === "new_announcement");
-    const contentUpdateEvents = mockEvents.filter((event) => event.infoType === "content_update");
-
-    function computeDirectionBreakdown(events: typeof mockEvents) {
-      const recent = events.filter((e) => new Date(e.occurredAt).getTime() >= twentyFourHoursAgo.getTime());
-      const countBySignal = (list: typeof mockEvents, signal: string) => list.filter((e) => e.signal === signal).length;
-      return {
-        bullish: countBySignal(events, "bullish") + countBySignal(events, "liquidity_injection"),
-        bearish: countBySignal(events, "bearish") + countBySignal(events, "liquidity_withdrawal"),
-        neutral: countBySignal(events, "neutral") + countBySignal(events, "new_financial_event"),
-        recentBullish: countBySignal(recent, "bullish") + countBySignal(recent, "liquidity_injection"),
-        recentBearish: countBySignal(recent, "bearish") + countBySignal(recent, "liquidity_withdrawal"),
-        recentNeutral: countBySignal(recent, "neutral") + countBySignal(recent, "new_financial_event"),
-      };
-    }
-
-    const warningSources = mockSources
-      .filter((source) => source.status === "warning")
-      .map((source) => ({
-        id: source.id,
-        name: source.name,
-        themeName: source.themeName,
-        status: source.status,
-        lastErrorMessage: source.lastErrorMessage ?? null,
-      }));
-
-    const mockSummary: DailySummary = {
-      generatedAt: now.toISOString(),
-      date: dateStr,
-      items: [
-        {
-          category: "price-signals",
-          label: "Price Signals",
-          count: priceEvents.length,
-          recentCount: priceEvents.filter((e) => new Date(e.occurredAt).getTime() >= twentyFourHoursAgo.getTime()).length,
-          latestEvent: priceEvents[0]
-            ? {
-                id: priceEvents[0].id,
-                title: priceEvents[0].title,
-                signal: priceEvents[0].signal,
-                occurredAt: priceEvents[0].occurredAt,
-                themeId: priceEvents[0].themeId,
-                themeName: priceEvents[0].themeName,
-              }
-            : null,
-        },
-        {
-          category: "financial-events",
-          label: "Financial Events",
-          count: financialEvents.length,
-          recentCount: financialEvents.filter((e) => new Date(e.occurredAt).getTime() >= twentyFourHoursAgo.getTime()).length,
-          latestEvent: financialEvents[0]
-            ? {
-                id: financialEvents[0].id,
-                title: financialEvents[0].title,
-                signal: financialEvents[0].signal,
-                occurredAt: financialEvents[0].occurredAt,
-                themeId: financialEvents[0].themeId,
-                themeName: financialEvents[0].themeName,
-              }
-            : null,
-          directionBreakdown: computeDirectionBreakdown(financialEvents),
-        },
-        {
-          category: "official-releases",
-          label: "Official Releases",
-          count: releaseEvents.length,
-          recentCount: releaseEvents.filter((e) => new Date(e.occurredAt).getTime() >= twentyFourHoursAgo.getTime()).length,
-          latestEvent: releaseEvents[0]
-            ? {
-                id: releaseEvents[0].id,
-                title: releaseEvents[0].title,
-                signal: releaseEvents[0].signal,
-                occurredAt: releaseEvents[0].occurredAt,
-                themeId: releaseEvents[0].themeId,
-                themeName: releaseEvents[0].themeName,
-              }
-            : null,
-        },
-        {
-          category: "content-updates",
-          label: "Content Updates",
-          count: contentUpdateEvents.length,
-          recentCount: contentUpdateEvents.filter((e) => new Date(e.occurredAt).getTime() >= twentyFourHoursAgo.getTime()).length,
-          latestEvent: contentUpdateEvents[0]
-            ? {
-                id: contentUpdateEvents[0].id,
-                title: contentUpdateEvents[0].title,
-                signal: contentUpdateEvents[0].signal,
-                occurredAt: contentUpdateEvents[0].occurredAt,
-                themeId: contentUpdateEvents[0].themeId,
-                themeName: contentUpdateEvents[0].themeName,
-              }
-            : null,
-        },
-      ],
-      warningSources,
-      totalEvents: mockEvents.length,
-      recentEvents: recentEvents.length,
-    };
-
-    return mockSummary;
-  }
 
   // Database mode
   // Only load recent events (last 30 days) instead of the entire table

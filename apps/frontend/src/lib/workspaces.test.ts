@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fallbackEvents, fallbackSources, fallbackThemes } from "./demo-fixtures";
+import { fallbackEvents, fallbackSources, fallbackThemes } from "../test-fixtures/demo-fixtures";
 import { buildWorkspaceDataset, buildWorkspaceSummary, classifyThemeWorkspace } from "./workspaces";
 
 describe("workspace classification", () => {

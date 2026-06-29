@@ -31,11 +31,6 @@ function toCstTime(date: Date): string {
 async function loadConfig(): Promise<{ enabled: boolean; channel: string; deliveryTime: string } | null> {
   const db = getDatabase();
 
-  if (!db) {
-    // Mock mode — no scheduler needed
-    return null;
-  }
-
   const row = await db
     .selectFrom("notification_preferences")
     .select(["channel", "is_enabled", "signal"])

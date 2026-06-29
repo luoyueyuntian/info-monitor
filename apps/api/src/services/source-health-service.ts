@@ -7,7 +7,6 @@
  */
 
 import { getDatabase } from "../db/client.js";
-import { mockSources } from "../lib/mock-store.js";
 
 // ─── Operational Metrics Types ───────────────────────────────────────────────
 
@@ -43,12 +42,64 @@ export type OperationalMetrics = {
   }>;
 };
 
+export type SystemHealthStatus = "healthy" | "warning" | "pending";
+
+export type SystemHealthCheck = {
+  id: "fetch" | "ingest" | "output" | "schedule";
+  label: string;
+  status: SystemHealthStatus;
+  summary: string;
+  description: string;
+  healthyCount: number;
+  warningCount: number;
+  pendingCount: number;
+};
+
+export type SourcePipelineStatus = {
+  status: SystemHealthStatus;
+  label: string;
+  detail: string;
+};
+
+export type SourceHealthDetail = {
+  id: string;
+  name: string;
+  themeName: string;
+  status: string;
+  sourceType?: string;
+  adapterKey?: string;
+  isPaused: boolean;
+  latestRunStatus: string | null;
+  latestRunAt: string | null;
+  latestSuccessAt: string | null;
+  latestFailureAt: string | null;
+  lastErrorMessage: string | null;
+  runCount24h: number;
+  successCount24h: number;
+  failureCount24h: number;
+  healthScore: number;
+  issueSummary: string | null;
+  latestSnapshotCount: number;
+  latestRecordCount: number;
+  latestChangeCount: number;
+  latestEventCount: number;
+  pipeline: {
+    fetch: SourcePipelineStatus;
+    ingest: SourcePipelineStatus;
+    output: SourcePipelineStatus;
+  };
+};
+
 export type SourceHealthStats = {
   totalSources: number;
+  activeSources: number;
   healthySources: number;
   warningSources: number;
   pausedSources: number;
   healthRate: number;
+  overallScore: number;
+  fetchAvailability: number;
+  ingestionAvailability: number;
   recentRuns: {
     total: number;
     successful: number;
@@ -62,22 +113,20 @@ export type SourceHealthStats = {
     errorMessage: string;
     occurredAt: string;
   }>;
-  sourceDetails: Array<{
-    id: string;
-    name: string;
-    themeName: string;
-    status: string;
-    isPaused: boolean;
-    latestRunStatus: string | null;
-    latestRunAt: string | null;
-    latestSuccessAt: string | null;
-    latestFailureAt: string | null;
-    lastErrorMessage: string | null;
-    runCount24h: number;
-    successCount24h: number;
-    failureCount24h: number;
-  }>;
+  backlog: OperationalMetrics["backlog"];
+  recentExceptions: OperationalMetrics["recentExceptions"];
+  systemChecks: SystemHealthCheck[];
+  sourceDetails: SourceHealthDetail[];
 };
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 /**
  * Calculate health score for a source based on its metrics.
@@ -182,6 +231,186 @@ function calculateSourceHealthScore(source: HealthScoreInput): { score: number; 
 function getHealthStatusFromScore(score: number): string {
   if (score > 80) return "healthy";
   return "warning";
+}
+
+type PipelineInput = {
+  isPaused?: boolean;
+  latestRunStatus?: string | null;
+  latestSnapshotCount?: number;
+  latestRecordCount?: number;
+  latestChangeCount?: number;
+  latestEventCount?: number;
+  lastErrorMessage?: string | null;
+};
+
+function buildSourcePipelineStatus(input: PipelineInput): SourceHealthDetail["pipeline"] {
+  const snapshotCount = input.latestSnapshotCount ?? 0;
+  const recordCount = input.latestRecordCount ?? 0;
+  const changeCount = input.latestChangeCount ?? 0;
+  const eventCount = input.latestEventCount ?? 0;
+
+  if (input.isPaused) {
+    return {
+      fetch: { status: "pending", label: "已暂停", detail: "来源暂停后不会继续抓取。" },
+      ingest: { status: "pending", label: "已暂停", detail: "来源暂停后不会继续入库。" },
+      output: { status: "pending", label: "已暂停", detail: "来源暂停后不会继续执行规则。" },
+    };
+  }
+
+  if (input.latestRunStatus === "pending" || input.latestRunStatus === "running") {
+    return {
+      fetch: { status: "pending", label: "执行中", detail: "抓取任务正在排队或运行中。" },
+      ingest: { status: "pending", label: "等待抓取完成", detail: "需要等待抓取完成后才能判断入库状态。" },
+      output: { status: "pending", label: "等待上游完成", detail: "需要等待抓取和入库完成后才能继续判断输出链路。" },
+    };
+  }
+
+  if (input.latestRunStatus === "failed") {
+    if (snapshotCount > 0) {
+      return {
+        fetch: { status: "healthy", label: "抓取完成", detail: "最近一次已抓到原始快照。" },
+        ingest: {
+          status: recordCount > 0 ? "healthy" : "warning",
+          label: recordCount > 0 ? "部分入库成功" : "入库失败",
+          detail: recordCount > 0 ? "虽然运行失败，但已有部分记录成功写入。" : "抓到了快照，但没有成功产出记录。",
+        },
+        output: {
+          status: recordCount > 0 && (changeCount > 0 || eventCount > 0) ? "healthy" : "warning",
+          label: recordCount > 0 && (changeCount > 0 || eventCount > 0) ? "部分输出成功" : "输出中断",
+          detail:
+            recordCount > 0 && (changeCount > 0 || eventCount > 0)
+              ? "规则链路已经部分执行，仍需回看失败原因。"
+              : input.lastErrorMessage ?? "抓取后的处理链路没有完整跑通。",
+        },
+      };
+    }
+
+    return {
+      fetch: { status: "warning", label: "抓取失败", detail: input.lastErrorMessage ?? "最近一次未能抓到原始数据。" },
+      ingest: { status: "warning", label: "入库未开始", detail: "抓取未成功，因此没有进入入库链路。" },
+      output: { status: "warning", label: "输出未开始", detail: "抓取未成功，因此没有进入规则输出链路。" },
+    };
+  }
+
+  if (input.latestRunStatus === "completed") {
+    const fetchStatus: SourcePipelineStatus = snapshotCount > 0
+      ? { status: "healthy", label: "抓取正常", detail: "最近一次已成功抓到快照。" }
+      : { status: "warning", label: "抓取结果为空", detail: "运行完成，但没有看到可用快照。" };
+    const ingestStatus: SourcePipelineStatus = recordCount > 0
+      ? { status: "healthy", label: "入库正常", detail: "最近一次已成功写入标准化记录。" }
+      : snapshotCount > 0
+        ? { status: "warning", label: "入库异常", detail: "抓到了快照，但没有成功写入记录。" }
+        : { status: "warning", label: "入库未开始", detail: "抓取阶段没有留下可继续处理的数据。" };
+    const outputStatus: SourcePipelineStatus = recordCount === 0
+      ? { status: "warning", label: "输出中断", detail: "入库没有完成，规则链路无法继续执行。" }
+      : changeCount > 0 || eventCount > 0
+        ? { status: "healthy", label: "输出正常", detail: `本轮产生了 ${changeCount} 条变更、${eventCount} 条事件。` }
+        : { status: "healthy", label: "输出正常", detail: "规则链路已完成，本轮没有检测到新变化。" };
+
+    return {
+      fetch: fetchStatus,
+      ingest: ingestStatus,
+      output: outputStatus,
+    };
+  }
+
+  return {
+    fetch: { status: "warning", label: "暂无运行", detail: "还没有可用于判断的最近运行记录。" },
+    ingest: { status: "warning", label: "暂无运行", detail: "还没有可用于判断的最近入库记录。" },
+    output: { status: "warning", label: "暂无运行", detail: "还没有可用于判断的最近规则输出记录。" },
+  };
+}
+
+function parseDurationMinutes(duration: string | null): number {
+  if (!duration) {
+    return 0;
+  }
+
+  const hours = Number(duration.match(/(\d+)H/)?.[1] ?? 0);
+  const minutes = Number(duration.match(/(\d+)M/)?.[1] ?? 0);
+  const seconds = Number(duration.match(/(\d+)S/)?.[1] ?? 0);
+  return hours * 60 + minutes + Math.floor(seconds / 60);
+}
+
+function buildSystemChecks(input: {
+  activeSources: number;
+  sourceDetails: SourceHealthDetail[];
+  backlog: OperationalMetrics["backlog"];
+}): SystemHealthCheck[] {
+  const activeDetails = input.sourceDetails.filter((detail) => !detail.isPaused);
+  const fetchHealthyCount = activeDetails.filter((detail) => detail.pipeline.fetch.status === "healthy").length;
+  const fetchWarningCount = activeDetails.filter((detail) => detail.pipeline.fetch.status === "warning").length;
+  const fetchPendingCount = activeDetails.filter((detail) => detail.pipeline.fetch.status === "pending").length;
+  const ingestHealthyCount = activeDetails.filter((detail) => detail.pipeline.ingest.status === "healthy").length;
+  const ingestWarningCount = activeDetails.filter((detail) => detail.pipeline.ingest.status === "warning").length;
+  const ingestPendingCount = activeDetails.filter((detail) => detail.pipeline.ingest.status === "pending").length;
+  const outputHealthyCount = activeDetails.filter((detail) => detail.pipeline.output.status === "healthy").length;
+  const outputWarningCount = activeDetails.filter((detail) => detail.pipeline.output.status === "warning").length;
+  const outputPendingCount = activeDetails.filter((detail) => detail.pipeline.output.status === "pending").length;
+
+  const queuePressure = input.backlog.pendingRuns + input.backlog.runningRuns;
+  const oldestPendingMinutes = parseDurationMinutes(input.backlog.oldestPendingAge);
+  const scheduleStatus: SystemHealthStatus =
+    queuePressure === 0
+      ? "healthy"
+      : queuePressure >= 3 || oldestPendingMinutes >= 60
+        ? "warning"
+        : "pending";
+
+  return [
+    {
+      id: "fetch",
+      label: "抓取链路",
+      status: fetchWarningCount > 0 ? "warning" : fetchPendingCount > 0 ? "pending" : "healthy",
+      summary: `${fetchHealthyCount} / ${input.activeSources} 个活跃渠道最近一次抓取成功。`,
+      description: fetchWarningCount > 0 ? "异常渠道需要优先检查上游可达性和页面结构。" : "最近一次抓取链路整体稳定。",
+      healthyCount: fetchHealthyCount,
+      warningCount: fetchWarningCount,
+      pendingCount: fetchPendingCount,
+    },
+    {
+      id: "ingest",
+      label: "入库链路",
+      status: ingestWarningCount > 0 ? "warning" : ingestPendingCount > 0 ? "pending" : "healthy",
+      summary: ingestWarningCount > 0
+        ? `${ingestWarningCount} 个渠道抓到了快照，但没有成功入库记录。`
+        : `${ingestHealthyCount} 个活跃渠道最近一次入库正常。`,
+      description: ingestWarningCount > 0 ? "优先排查标准化和解析规则是否失效。" : "标准化入库链路当前没有明显异常。",
+      healthyCount: ingestHealthyCount,
+      warningCount: ingestWarningCount,
+      pendingCount: ingestPendingCount,
+    },
+    {
+      id: "output",
+      label: "输出链路",
+      status: outputWarningCount > 0 ? "warning" : outputPendingCount > 0 ? "pending" : "healthy",
+      summary: outputWarningCount > 0
+        ? `${outputWarningCount} 个渠道的后续检测或事件输出链路中断。`
+        : "规则执行链路整体可用。",
+      description: outputWarningCount > 0 ? "需要从最近运行日志回看是入库中断，还是规则执行异常。" : "没有发现明显的检测或事件落地异常。",
+      healthyCount: outputHealthyCount,
+      warningCount: outputWarningCount,
+      pendingCount: outputPendingCount,
+    },
+    {
+      id: "schedule",
+      label: "调度队列",
+      status: scheduleStatus,
+      summary:
+        queuePressure === 0
+          ? "当前没有任务积压。"
+          : `当前仍有 ${input.backlog.pendingRuns} 个排队任务、${input.backlog.runningRuns} 个执行中任务。`,
+      description:
+        scheduleStatus === "warning"
+          ? "任务积压已经偏高，建议检查 worker 处理能力或失败重试堆积。"
+          : queuePressure > 0
+            ? "如果积压持续扩大，需要回看 worker 处理能力。"
+            : "调度和消费节奏当前正常。",
+      healthyCount: queuePressure === 0 ? input.activeSources : 0,
+      warningCount: scheduleStatus === "warning" ? queuePressure : 0,
+      pendingCount: scheduleStatus === "pending" ? queuePressure : 0,
+    },
+  ];
 }
 
 // ─── Source Health Explanation ──────────────────────────────────────────────
@@ -465,89 +694,9 @@ export function explainMultipleSourceHealth(sources: Array<{
 }
 
 export async function getSourceHealthStats(): Promise<SourceHealthStats> {
-  const db = getDatabase();
+  const db = requireDatabase();
+  const operationalMetrics = await getOperationalMetrics();
 
-  if (!db) {
-    // Mock mode - calculate health based on actual source metrics
-    const totalSources = mockSources.length;
-
-    // Calculate health scores for each source
-    const sourceHealthScores = mockSources.map((s) => ({
-      source: s,
-      healthScore: calculateSourceHealthScore(s).score,
-    }));
-
-    // Count sources by calculated status
-    // Note: healthy and warning exclude paused sources to avoid double-counting
-    const healthySources = sourceHealthScores.filter(
-      (item) => !item.source.isPaused && item.healthScore > 80
-    ).length;
-    const warningSources = sourceHealthScores.filter(
-      (item) => !item.source.isPaused && item.healthScore <= 80
-    ).length;
-    const pausedSources = mockSources.filter((s) => s.isPaused).length;
-
-    // Calculate overall health rate based on health scores
-    const activeSources = sourceHealthScores.filter((item) => !item.source.isPaused);
-    const averageHealthScore = activeSources.length > 0
-      ? activeSources.reduce((sum, item) => sum + item.healthScore, 0) / activeSources.length
-      : 0;
-    const healthRate = averageHealthScore / 100;
-
-    // Calculate run statistics based on source data
-    const sourcesWithFailures = mockSources.filter((s) => s.latestRunStatus === "failed");
-    const totalRuns = mockSources.length * 3; // Assume 3 runs per source in 24h
-    const failedRuns = sourcesWithFailures.length * 2; // Failed sources have ~2 failures
-    const successfulRuns = totalRuns - failedRuns;
-
-    // Collect recent errors from sources with failures
-    const recentErrors = mockSources
-      .filter((s) => s.lastErrorMessage && s.latestFailureAt)
-      .map((s) => ({
-        sourceId: s.id,
-        sourceName: s.name,
-        errorMessage: s.lastErrorMessage!,
-        occurredAt: s.latestFailureAt!,
-      }));
-
-    return {
-      totalSources,
-      healthySources,
-      warningSources,
-      pausedSources,
-      healthRate,
-      recentRuns: {
-        total: totalRuns,
-        successful: successfulRuns,
-        failed: failedRuns,
-        successRate: totalRuns > 0 ? successfulRuns / totalRuns : 0,
-      },
-      averageRunDuration: 1500,
-      recentErrors,
-      sourceDetails: mockSources.map((s) => {
-        const { score: healthScore } = calculateSourceHealthScore(s);
-        const calculatedStatus = s.isPaused ? "paused" : getHealthStatusFromScore(healthScore);
-
-        return {
-          id: s.id,
-          name: s.name,
-          themeName: s.themeName,
-          status: calculatedStatus,
-          isPaused: s.isPaused ?? false,
-          latestRunStatus: s.latestRunStatus ?? null,
-          latestRunAt: s.latestRunAt ?? null,
-          latestSuccessAt: s.latestSuccessAt,
-          latestFailureAt: s.latestFailureAt,
-          lastErrorMessage: s.lastErrorMessage ?? null,
-          runCount24h: 3,
-          successCount24h: s.latestRunStatus === "failed" ? 1 : 3,
-          failureCount24h: s.latestRunStatus === "failed" ? 2 : 0,
-        };
-      }),
-    };
-  }
-
-  // Get source counts by status
   const sources = await db
     .selectFrom("sources")
     .select([
@@ -555,13 +704,14 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       "name",
       "theme_id as themeId",
       "status",
+      "source_type as sourceType",
+      "adapter_key as adapterKey",
       "is_paused as isPaused",
       "latest_success_at as latestSuccessAt",
       "latest_failure_at as latestFailureAt",
     ])
     .execute();
 
-  // Get theme names
   const themeIds = [...new Set(sources.map((s) => s.themeId))];
   const themes = themeIds.length > 0
     ? await db
@@ -573,7 +723,6 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
 
   const themeMap = new Map(themes.map((t) => [t.id, t.name]));
 
-  // Get recent runs (last 24 hours), sorted by creation time descending
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const recentRuns = await db
     .selectFrom("source_runs")
@@ -585,11 +734,10 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       "error_message as errorMessage",
     ])
     .where("created_at", ">=", twentyFourHoursAgo as any)
-    .where("trigger_type", "!=", "test")
+    .where("trigger_type", "not in", ["test", "replay"])
     .orderBy("created_at", "desc")
     .execute();
 
-  // Calculate stats per source (runs are already sorted newest first)
   const sourceRunMap = new Map<string, typeof recentRuns>();
   for (const run of recentRuns) {
     const runs = sourceRunMap.get(run.sourceId) || [];
@@ -598,9 +746,8 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
   }
 
   const totalSources = sources.length;
-  const healthySources = sources.filter((s) => s.status === "healthy" && !s.isPaused).length;
-  const warningSources = sources.filter((s) => s.status === "warning").length;
   const pausedSources = sources.filter((s) => s.isPaused).length;
+  const activeSources = totalSources - pausedSources;
 
   const totalRuns = recentRuns.length;
   const successfulRuns = recentRuns.filter((r) => r.status === "completed").length;
@@ -617,7 +764,6 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
     ? totalDuration / runsWithDuration.length
     : null;
 
-  // Get recent errors (already sorted by created_at desc from recentRuns)
   const recentErrors = recentRuns
     .filter((r) => r.status === "failed" && r.errorMessage)
     .slice(0, 10)
@@ -631,32 +777,167 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       };
     });
 
-  // Build source details
+  const latestRuns = await Promise.all(
+    sources.map(async (source) => {
+      const latestRun = await db
+        .selectFrom("source_runs")
+        .select([
+          "id",
+          "status",
+          "started_at as startedAt",
+          "finished_at as finishedAt",
+          "error_message as errorMessage",
+        ])
+        .where("source_id", "=", source.id)
+        .where("trigger_type", "not in", ["test", "replay"])
+        .orderBy("created_at", "desc")
+        .limit(1)
+        .executeTakeFirst();
+
+      return {
+        sourceId: source.id,
+        runId: latestRun?.id ?? null,
+        latestRunStatus: latestRun?.status ?? null,
+        latestRunAt:
+          latestRun?.finishedAt?.toISOString?.() ??
+          latestRun?.startedAt?.toISOString?.() ??
+          null,
+        lastErrorMessage: latestRun?.errorMessage ?? null,
+      };
+    }),
+  );
+
+  const latestRunIds = latestRuns
+    .map((run) => run.runId)
+    .filter((runId): runId is string => Boolean(runId));
+
+  const [snapshotCounts, recordCounts, changeCounts, eventCounts] = latestRunIds.length > 0
+    ? await Promise.all([
+        db
+          .selectFrom("raw_snapshots")
+          .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+          .where("source_run_id", "in", latestRunIds)
+          .groupBy("source_run_id")
+          .execute(),
+        db
+          .selectFrom("normalized_records")
+          .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+          .where("source_run_id", "in", latestRunIds)
+          .groupBy("source_run_id")
+          .execute(),
+        db
+          .selectFrom("changes")
+          .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+          .where("source_run_id", "in", latestRunIds)
+          .groupBy("source_run_id")
+          .execute(),
+        db
+          .selectFrom("events")
+          .select(["source_run_id as runId", ({ fn }) => fn.count("id").as("count")])
+          .where("source_run_id", "in", latestRunIds)
+          .groupBy("source_run_id")
+          .execute(),
+      ])
+    : [[], [], [], []];
+
+  const snapshotCountMap = new Map(snapshotCounts.map((row) => [row.runId, Number(row.count)]));
+  const recordCountMap = new Map(recordCounts.map((row) => [row.runId, Number(row.count)]));
+  const changeCountMap = new Map(changeCounts.map((row) => [row.runId, Number(row.count)]));
+  const eventCountMap = new Map(eventCounts.map((row) => [row.runId, Number(row.count)]));
+
   const sourceDetails = sources.map((s) => {
     const runs = sourceRunMap.get(s.id) || [];
+    const latestRun = latestRuns.find((run) => run.sourceId === s.id);
+    const latestSnapshotCount = latestRun?.runId ? snapshotCountMap.get(latestRun.runId) ?? 0 : 0;
+    const latestRecordCount = latestRun?.runId ? recordCountMap.get(latestRun.runId) ?? 0 : 0;
+    const latestChangeCount = latestRun?.runId ? changeCountMap.get(latestRun.runId) ?? 0 : 0;
+    const latestEventCount = latestRun?.runId ? eventCountMap.get(latestRun.runId) ?? 0 : 0;
+    const { score: healthScore } = calculateSourceHealthScore({
+      status: s.status,
+      isPaused: s.isPaused,
+      latestRunStatus: latestRun?.latestRunStatus ?? null,
+      latestSuccessAt: s.latestSuccessAt?.toISOString?.() ?? null,
+      latestFailureAt: s.latestFailureAt?.toISOString?.() ?? null,
+      lastErrorMessage: latestRun?.lastErrorMessage ?? null,
+    });
+    const normalizedStatus = s.isPaused ? "paused" : getHealthStatusFromScore(healthScore);
+    const explanation = explainSourceHealth({
+      id: s.id,
+      name: s.name,
+      status: normalizedStatus,
+      isPaused: s.isPaused,
+      latestRunStatus: latestRun?.latestRunStatus ?? null,
+      latestRunAt: latestRun?.latestRunAt ?? null,
+      latestSuccessAt: s.latestSuccessAt?.toISOString?.() ?? null,
+      latestFailureAt: s.latestFailureAt?.toISOString?.() ?? null,
+      lastErrorMessage: latestRun?.lastErrorMessage ?? null,
+      latestSnapshotCount,
+      latestRecordCount,
+      latestEventCount,
+    });
+    const pipeline = buildSourcePipelineStatus({
+      isPaused: s.isPaused,
+      latestRunStatus: latestRun?.latestRunStatus ?? null,
+      lastErrorMessage: latestRun?.lastErrorMessage ?? null,
+      latestSnapshotCount,
+      latestRecordCount,
+      latestChangeCount,
+      latestEventCount,
+    });
+
     return {
       id: s.id,
       name: s.name,
       themeName: themeMap.get(s.themeId) || "Unknown",
-      status: s.status,
+      status: normalizedStatus,
+      sourceType: s.sourceType,
+      adapterKey: s.adapterKey,
       isPaused: s.isPaused,
-      latestRunStatus: runs[0]?.status || null,
-      latestRunAt: runs[0]?.finishedAt?.toString() || null,
+      latestRunStatus: latestRun?.latestRunStatus ?? null,
+      latestRunAt: latestRun?.latestRunAt ?? null,
       latestSuccessAt: s.latestSuccessAt?.toString() || null,
       latestFailureAt: s.latestFailureAt?.toString() || null,
-      lastErrorMessage: runs.find((r) => r.status === "failed")?.errorMessage || null,
+      lastErrorMessage: latestRun?.lastErrorMessage ?? null,
       runCount24h: runs.length,
       successCount24h: runs.filter((r) => r.status === "completed").length,
       failureCount24h: runs.filter((r) => r.status === "failed").length,
-    };
+      healthScore,
+      issueSummary: explanation.issue,
+      latestSnapshotCount,
+      latestRecordCount,
+      latestChangeCount,
+      latestEventCount,
+      pipeline,
+    } satisfies SourceHealthDetail;
   });
+
+  const healthySources = sourceDetails.filter((detail) => !detail.isPaused && detail.status === "healthy").length;
+  const warningSources = sourceDetails.filter((detail) => !detail.isPaused && detail.status === "warning").length;
+  const averageHealthScore = sourceDetails
+    .filter((detail) => !detail.isPaused)
+    .reduce((sum, detail) => sum + detail.healthScore, 0) / Math.max(activeSources, 1);
+  const fetchHealthyCount = sourceDetails.filter((detail) => !detail.isPaused && detail.pipeline.fetch.status === "healthy").length;
+  const ingestHealthyCount = sourceDetails.filter((detail) => !detail.isPaused && detail.pipeline.ingest.status === "healthy").length;
+  const fetchAvailability = activeSources > 0 ? fetchHealthyCount / activeSources : 0;
+  const ingestionAvailability = activeSources > 0 ? ingestHealthyCount / activeSources : 0;
+  const recentRunSuccessRate = totalRuns > 0 ? successfulRuns / totalRuns : 0;
+  const overallScore = Math.round(
+    averageHealthScore * 0.35 +
+    fetchAvailability * 100 * 0.25 +
+    ingestionAvailability * 100 * 0.25 +
+    recentRunSuccessRate * 100 * 0.15,
+  );
 
   return {
     totalSources,
+    activeSources,
     healthySources,
     warningSources,
     pausedSources,
-    healthRate: totalSources > 0 ? healthySources / totalSources : 0,
+    healthRate: activeSources > 0 ? healthySources / activeSources : 0,
+    overallScore,
+    fetchAvailability,
+    ingestionAvailability,
     recentRuns: {
       total: totalRuns,
       successful: successfulRuns,
@@ -665,6 +946,13 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
     },
     averageRunDuration,
     recentErrors,
+    backlog: operationalMetrics.backlog,
+    recentExceptions: operationalMetrics.recentExceptions,
+    systemChecks: buildSystemChecks({
+      activeSources,
+      sourceDetails,
+      backlog: operationalMetrics.backlog,
+    }),
     sourceDetails,
   };
 }
@@ -672,59 +960,7 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
 // ─── Operational Metrics ─────────────────────────────────────────────────────
 
 export async function getOperationalMetrics(): Promise<OperationalMetrics> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - return simulated metrics
-    const now = new Date();
-    const runDurationTrend: DailyMetric[] = [];
-    const failureRateTrend: DailyMetric[] = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
-
-      runDurationTrend.push({
-        date: dateStr,
-        value: 1200 + Math.random() * 600, // 1.2-1.8s
-      });
-
-      failureRateTrend.push({
-        date: dateStr,
-        value: 0.05 + Math.random() * 0.15, // 5-20%
-      });
-    }
-
-    return {
-      runDurationTrend,
-      failureRateTrend,
-      backlog: {
-        pendingRuns: 3,
-        runningRuns: 1,
-        oldestPendingAge: "PT15M", // 15 minutes
-      },
-      recentExceptions: [
-        {
-          errorMessage: "Connection timeout to upstream source",
-          count: 5,
-          lastOccurredAt: new Date(now.getTime() - 3600_000).toISOString(),
-          sourceIds: ["source-pbc-open-market", "source-stats-cpi-release"],
-        },
-        {
-          errorMessage: "Parsing failed on latest page fetch",
-          count: 2,
-          lastOccurredAt: new Date(now.getTime() - 7200_000).toISOString(),
-          sourceIds: ["source-pbc-open-market"],
-        },
-      ],
-      hourlyDistribution: Array.from({ length: 24 }, (_, hour) => {
-        const successful = Math.floor(Math.random() * 8);
-        const failed = Math.floor(Math.random() * 2);
-        return { hour, total: successful + failed, successful, failed };
-      }),
-    };
-  }
+  const db = requireDatabase();
 
   // ─── DB Mode ───────────────────────────────────────────────────────────────
 

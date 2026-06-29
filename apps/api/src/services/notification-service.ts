@@ -5,7 +5,6 @@ import type {
 } from "@info-monitor/shared-contracts";
 
 import { getDatabase } from "../db/client.js";
-import { mockEvents, mockNotifications } from "../lib/mock-store.js";
 import {
   type ChannelConfig,
   type NotificationPayload,
@@ -52,6 +51,15 @@ export type NotificationFilter = {
   themeId?: string;
 };
 
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
+
 export function isNotificationStatus(value: string): value is NotificationStatus {
   return notificationStatuses.includes(value as NotificationStatus);
 }
@@ -66,39 +74,7 @@ export function isNotificationStatus(value: string): value is NotificationStatus
  * @param windowMinutes - Time window in minutes (default: 60)
  */
 export async function coalesceNotifications(windowMinutes: number = 60): Promise<{ coalesced: number }> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode - coalesce in-memory
-    const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
-    const pending = mockNotifications.filter(
-      (n) => n.status === "pending" && n.createdAt >= cutoff,
-    );
-
-    // Group by (signal, themeId) -- look up themeId from eventId via mockEvents
-    const groups = new Map<string, typeof pending>();
-    for (const n of pending) {
-      const event = mockEvents.find((e) => e.id === n.eventId);
-      const themeId = event?.themeId ?? "unknown";
-      const key = `${n.signal}:${themeId}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(n);
-    }
-
-    let coalesced = 0;
-    for (const [, group] of groups) {
-      if (group.length <= 1) continue;
-      // Sort by createdAt desc, keep first, mark rest as sent
-      group.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      for (let i = 1; i < group.length; i++) {
-        group[i].status = "sent";
-        group[i].sentAt = new Date().toISOString();
-        coalesced++;
-      }
-    }
-
-    return { coalesced };
-  }
+  const db = requireDatabase();
 
   // DB mode - find pending notifications in the window and group in memory
   const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
@@ -192,7 +168,7 @@ export async function listNotifications(
     sortOrder?: "asc" | "desc";
   } = {},
 ): Promise<PaginatedNotifications> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const limit = options.limit ?? 20;
   const sortBy = options.sortBy ?? "createdAt";
   const sortOrder = options.sortOrder ?? "desc";
@@ -203,58 +179,6 @@ export async function listNotifications(
     medium: ["new_announcement", "new_financial_event"],
     low: ["content_update", "neutral"],
   };
-
-  if (!db) {
-    let items = [...mockNotifications];
-
-    if (options.status) {
-      items = items.filter((item) => item.status === options.status);
-    }
-
-    if (options.signal) {
-      items = items.filter((item) => {
-        return item.signal === options.signal;
-      });
-    }
-
-    if (options.level) {
-      const levelSignals = LEVEL_SIGNALS[options.level] ?? [];
-      items = items.filter((item) => levelSignals.includes(item.signal));
-    }
-
-    if (options.themeId) {
-      const themeEventIds = new Set(
-        mockEvents.filter((event) => event.themeId === options.themeId).map((event) => event.id),
-      );
-      // Include items with no event (empty eventId) or matching theme
-      items = items.filter((item) => !item.eventId || themeEventIds.has(item.eventId));
-    }
-
-    if (options.onlyUnreadEvents) {
-      const readEventIds = new Set(
-        mockEvents.filter((event) => event.isRead).map((event) => event.id),
-      );
-      items = items.filter((item) => !readEventIds.has(item.eventId));
-    }
-
-    items = items
-      .sort((left, right) => {
-        const leftVal = sortBy === "sentAt" ? left.sentAt || left.createdAt : left.createdAt;
-        const rightVal = sortBy === "sentAt" ? right.sentAt || right.createdAt : right.createdAt;
-        return sortOrder === "desc"
-          ? rightVal.localeCompare(leftVal)
-          : leftVal.localeCompare(rightVal);
-      });
-
-    const offset = options.offset ?? 0;
-    const paginatedItems = items.slice(offset, offset + limit);
-
-    return {
-      items: paginatedItems.map(toNotificationListItem),
-      total: items.length,
-      hasMore: offset + limit < items.length,
-    };
-  }
 
   // Build base query for counting
   let countQuery = db
@@ -381,17 +305,7 @@ export async function listNotifications(
 }
 
 export async function getNotificationDetail(notificationId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    const notification = mockNotifications.find((item) => item.id === notificationId);
-
-    if (!notification) {
-      return null;
-    }
-
-    return toNotificationListItem(notification);
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("notifications as n")
@@ -427,22 +341,7 @@ export async function markNotificationStatus(
   notificationId: string,
   status: NotificationStatus,
 ) {
-  const db = getDatabase();
-
-  if (!db) {
-    const notification = mockNotifications.find((item) => item.id === notificationId);
-
-    if (!notification) {
-      return null;
-    }
-
-    notification.status = status;
-    notification.sentAt = status === "sent" ? new Date().toISOString() : null;
-
-    const result = { id: notificationId, status };
-    emitSSE("notification_status_changed", { notificationId, status });
-    return result;
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("notifications")
@@ -476,20 +375,7 @@ export async function markNotificationStatus(
 export async function batchMarkNotificationsRead(
   notificationIds: string[],
 ): Promise<{ updated: number }> {
-  const db = getDatabase();
-
-  if (!db) {
-    let updated = 0;
-    for (const id of notificationIds) {
-      const notification = mockNotifications.find((item) => item.id === id);
-      if (notification && notification.status !== "sent") {
-        notification.status = "sent";
-        notification.sentAt = new Date().toISOString();
-        updated++;
-      }
-    }
-    return { updated };
-  }
+  const db = requireDatabase();
 
   if (notificationIds.length === 0) {
     return { updated: 0 };
@@ -511,41 +397,7 @@ export async function batchMarkNotificationsRead(
 export async function batchDeleteNotifications(
   filter: NotificationFilter,
 ): Promise<{ deleted: number }> {
-  const db = getDatabase();
-
-  if (!db) {
-    const { mockEvents } = await import("../lib/mock-store.js");
-
-    // Build set of event IDs for themeId filter if needed
-    const themeEventIds = filter.themeId
-      ? new Set(mockEvents.filter((e) => e.themeId === filter.themeId).map((e) => e.id))
-      : null;
-
-    const initialLength = mockNotifications.length;
-    const filtered = mockNotifications.filter((item) => {
-      if (filter.status && item.status !== filter.status) return false;
-      if (filter.channel && item.channel !== filter.channel) return false;
-      if (filter.signal) {
-        // Include items with no event (eventId is empty) or matching signal
-        if (item.eventId && item.signal !== filter.signal) return false;
-      }
-      if (themeEventIds) {
-        // Include items with no event (eventId is empty) or matching theme
-        if (item.eventId && !themeEventIds.has(item.eventId)) return false;
-      }
-      return true;
-    });
-
-    // Remove filtered items
-    for (const item of filtered) {
-      const index = mockNotifications.indexOf(item);
-      if (index > -1) {
-        mockNotifications.splice(index, 1);
-      }
-    }
-
-    return { deleted: initialLength - mockNotifications.length };
-  }
+  const db = requireDatabase();
 
   // Use a subquery to filter by signal/themeId through events table.
   // OR n.event_id IS NULL includes notifications without a backing event
@@ -577,26 +429,7 @@ export async function batchDeleteNotifications(
 export async function clearUnreadByTheme(
   themeId: string,
 ): Promise<{ updated: number }> {
-  const db = getDatabase();
-
-  if (!db) {
-    // In mock mode, we need to filter by themeId through events
-    // Since mockNotifications don't have themeId directly, we need to check mockEvents
-    const { mockEvents } = await import("../lib/mock-store.js");
-    const themeEventIds = new Set(
-      mockEvents.filter((e) => e.themeId === themeId).map((e) => e.id),
-    );
-
-    let updated = 0;
-    for (const notification of mockNotifications) {
-      if (notification.status === "pending" && themeEventIds.has(notification.eventId)) {
-        notification.status = "sent";
-        notification.sentAt = new Date().toISOString();
-        updated++;
-      }
-    }
-    return { updated };
-  }
+  const db = requireDatabase();
 
   const result = await db
     .updateTable("notifications")
@@ -622,56 +455,7 @@ export async function retryFailedNotification(
   notificationId: string,
   channelConfig?: ChannelConfig,
 ): Promise<{ success: boolean; message?: string }> {
-  const db = getDatabase();
-
-  if (!db) {
-    const notification = mockNotifications.find((item) => item.id === notificationId);
-
-    if (!notification) {
-      return { success: false, message: "Notification not found" };
-    }
-
-    if (notification.status !== "failed") {
-      return { success: false, message: "Notification is not in failed state" };
-    }
-
-    // Track retry count in mock
-    const retryCount = ((notification as Record<string, unknown>).retryCount as number) || 0;
-    const maxRetries = ((notification as Record<string, unknown>).maxRetries as number) || MAX_RETRIES;
-    if (retryCount >= maxRetries) {
-      return { success: false, message: `Maximum retry attempts (${maxRetries}) exceeded` };
-    }
-
-    if (channelConfig) {
-      // Simulate immediate retry send (no real external call in mock mode)
-      notification.status = "sent";
-      notification.sentAt = new Date().toISOString();
-      (notification as Record<string, unknown>).retryCount = retryCount + 1;
-
-      await logAuditEvent(notificationId, "retried", "failed", "pending", "system", {
-        retryCount: retryCount + 1,
-        channel: notification.channel,
-      });
-      await logAuditEvent(notificationId, "sent", "pending", "sent", "system", {
-        channel: notification.channel,
-      });
-
-      return { success: true };
-    }
-
-    // No channelConfig - queue for later retry (mirrors DB path behavior)
-    (notification as Record<string, unknown>).retryCount = retryCount + 1;
-    (notification as Record<string, unknown>).mockRetryNextAt =
-      new Date(Date.now() + calculateNextRetryDelay(retryCount)).toISOString();
-
-    await logAuditEvent(notificationId, "retried", "failed", "failed", "system", {
-      retryCount: retryCount + 1,
-      channel: notification.channel,
-      scheduled: true,
-    });
-
-    return { success: true };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("notifications")
@@ -835,31 +619,7 @@ export async function getNotificationStats(): Promise<{
     createdAt: string;
   }>;
 }> {
-  const db = getDatabase();
-
-  if (!db) {
-    const total = mockNotifications.length;
-    const pending = mockNotifications.filter((n) => n.status === "pending").length;
-    const sent = mockNotifications.filter((n) => n.status === "sent").length;
-    const failed = mockNotifications.filter((n) => n.status === "failed").length;
-
-    return {
-      total,
-      pending,
-      sent,
-      failed,
-      failureRate: total > 0 ? failed / total : 0,
-      recentFailures: mockNotifications
-        .filter((n) => n.status === "failed")
-        .slice(0, 5)
-        .map((n) => ({
-          id: n.id,
-          eventId: n.eventId,
-          channel: n.channel,
-          createdAt: n.createdAt,
-        })),
-    };
-  }
+  const db = requireDatabase();
 
   // Get counts by status
   const statusCounts = await db
@@ -1038,67 +798,7 @@ export async function sendExternalNotification(
   notificationId: string,
   channelConfig: ChannelConfig,
 ): Promise<{ success: boolean; error?: string }> {
-  const db = getDatabase();
-
-  if (!db) {
-    const notification = mockNotifications.find((n) => n.id === notificationId);
-    if (!notification) {
-      return { success: false, error: "Notification not found" };
-    }
-
-    // Check rate limit
-    const rateLimit = checkRateLimit(notification.channel);
-    if (!rateLimit.allowed) {
-      return { success: false, error: `Rate limit exceeded for ${notification.channel}` };
-    }
-
-    // Get themeId from mock events
-    const { mockEvents } = await import("../lib/mock-store.js");
-    const event = mockEvents.find((e) => e.id === notification.eventId);
-    const themeId = event?.themeId;
-
-    // Check preferences and priority (single preference fetch)
-    const signal = notification.signal || "";
-    const guardCheck = await checkSendGuards(notification.channel, themeId, signal);
-    if (!guardCheck.allowed) {
-      releaseLastSlot(notification.channel);
-      return { success: false, error: guardCheck.reason };
-    }
-
-    const result = await sendNotification(
-      {
-        id: notification.id,
-        eventId: notification.eventId,
-        channel: notification.channel as NotificationChannel,
-        title: notification.title || "",
-        summary: notification.summary || "",
-        signal: notification.signal || "",
-      },
-      channelConfig,
-    );
-
-    if (result.success) {
-      notification.status = "sent";
-      notification.sentAt = new Date().toISOString();
-      await logAuditEvent(notificationId, "sent", "pending", "sent", "system", {
-        channel: notification.channel,
-      });
-    } else {
-      releaseLastSlot(notification.channel);
-      notification.status = "failed";
-      // Track retry timing in mock mode for getDueRetries consistency
-      const mockRetryCount = ((notification as Record<string, unknown>).retryCount as number) || 0;
-      (notification as Record<string, unknown>).retryCount = mockRetryCount + 1;
-      (notification as Record<string, unknown>).mockRetryNextAt =
-        new Date(Date.now() + calculateNextRetryDelay(mockRetryCount)).toISOString();
-      await logAuditEvent(notificationId, "failed", "pending", "failed", "system", {
-        channel: notification.channel,
-        error: result.error,
-      });
-    }
-
-    return result;
-  }
+  const db = requireDatabase();
 
   // Get notification with event details
   const row = await db
@@ -1198,22 +898,7 @@ export async function sendExternalNotification(
  * These are failed notifications whose next_retry_at has passed.
  */
 export async function getDueRetries(): Promise<Array<{ id: string; channel: string }>> {
-  const db = getDatabase();
-
-  if (!db) {
-    const now = Date.now();
-    return mockNotifications
-      .filter((n) => {
-        const retryCount = ((n as Record<string, unknown>).retryCount as number) || 0;
-        const maxRetries = ((n as Record<string, unknown>).maxRetries as number) || MAX_RETRIES;
-        if (n.status !== "failed" || retryCount >= maxRetries) return false;
-        // Check timing if available (matches DB path's next_retry_at <= now)
-        const retryNextAt = (n as Record<string, unknown>).mockRetryNextAt as string | undefined;
-        if (retryNextAt && new Date(retryNextAt).getTime() > now) return false;
-        return true;
-      })
-      .map((n) => ({ id: n.id, channel: n.channel }));
-  }
+  const db = requireDatabase();
 
   const now = new Date().toISOString();
   const rows = await db

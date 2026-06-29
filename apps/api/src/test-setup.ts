@@ -1,3 +1,2 @@
-// Unset DATABASE_URL to ensure tests run in mock mode
-// This prevents getDatabase() from returning a non-null Kysely instance
+// API service/runtime tests unset DATABASE_URL so runtime access fails fast.
 delete process.env.DATABASE_URL;

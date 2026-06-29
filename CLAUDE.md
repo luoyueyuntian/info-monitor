@@ -8,15 +8,15 @@
 - **Python Scheduler**: Polls DB for pending runs, enqueues them on schedule, `apps/python-scheduler/`
 - **Shared Contracts**: TypeScript types in `packages/shared-contracts/`
 
-## Key Pattern: Mock vs DB Dual Mode
+## Key Pattern: Database Required at Runtime
 
-Every service function has `if (!db)` branching. `getDatabase()` returns null when `DATABASE_URL` is not set, triggering mock mode with in-memory arrays from `apps/api/src/lib/mock-fixtures.ts`.
+API runtime now requires `DATABASE_URL`. `getDatabase()` throws when the database connection string is missing; runtime mock mode has been removed.
 
-**CRITICAL**: Changes to service functions MUST update BOTH branches. Tests run in mock mode only (no DB in CI). The DB path is effectively untested unless manually verified.
+**CRITICAL**: Service and route behavior should assume a real database is present at runtime. Existing API tests currently cover the no-DB failure path and selected pure helpers, but they still do not provide broad real-DB coverage.
 
-## Key Pattern: Frontend Fallback
+## Key Pattern: Frontend Uses Strict API Calls
 
-Frontend `api.ts` uses `requestJson(path, fallback)` — fetches API, falls back to hardcoded data on failure. The fallback data in `api.ts` must stay in sync with the API response shape and the mock fixtures.
+Frontend API access should assume the backend is available. Do not add new runtime fallback datasets or silent mock responses in `apps/frontend/src/lib/api.ts`.
 
 ## Timezone
 

@@ -308,7 +308,7 @@ async function handleFavoriteChanged() {
     const favs = await fetchThemeFavorites();
     favoriteIds.value = new Set(favs);
   } catch {
-    // fallback handled inside fetchThemeFavorites
+    // Keep current UI state when favorites cannot be refreshed.
   }
 }
 
@@ -417,7 +417,7 @@ onMounted(async () => {
     const favs = await fetchThemeFavorites();
     favoriteIds.value = new Set(favs);
   } catch {
-    // fallback handled inside fetchThemeFavorites
+    // Leave favorites empty when the backend is unavailable.
   }
 });
 const filteredThemes = computed(() => filterThemes(themes.value, activeFilters.value, favoriteIds.value));

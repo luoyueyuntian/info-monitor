@@ -18,61 +18,7 @@ export type SearchResult = {
   processingTimeMs: number;
 };
 
-// --- Mock fallback ---
-
 import { getDatabase } from "../db/client.js";
-import { fetchAllEventsMock, fetchAllNotificationsMock, fetchAllThemesMock } from "./search-mock-data.js";
-
-async function searchMock(query: string, type?: string, themeId?: string): Promise<SearchResult> {
-  const q = query.toLowerCase();
-  const hits: SearchHit[] = [];
-
-  const themes = fetchAllThemesMock();
-  for (const t of themes) {
-    if (type && type !== "theme") continue;
-    if (themeId && t.id !== themeId) continue;
-    if (t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q)) {
-      hits.push({ id: t.id, type: "theme", title: t.name, summary: t.description });
-    }
-  }
-
-  const events = fetchAllEventsMock();
-  for (const e of events) {
-    if (type && type !== "event") continue;
-    if (themeId && e.themeId !== themeId) continue;
-    const searchable = `${e.title} ${e.signal ?? ""} ${(e.evidence ?? []).join(" ")}`.toLowerCase();
-    if (searchable.includes(q)) {
-      hits.push({
-        id: e.id,
-        type: "event",
-        title: e.title,
-        signal: e.signal ?? undefined,
-        themeId: e.themeId,
-        themeName: e.themeName,
-      });
-    }
-  }
-
-  const notifications = fetchAllNotificationsMock();
-  for (const n of notifications) {
-    if (type && type !== "notification") continue;
-    if (themeId && n.themeId !== themeId) continue;
-    const searchable = `${n.title} ${n.summary ?? ""} ${n.signal ?? ""}`.toLowerCase();
-    if (searchable.includes(q)) {
-      hits.push({
-        id: n.id,
-        type: "notification",
-        title: n.title,
-        summary: n.summary,
-        signal: n.signal ?? undefined,
-        themeId: n.themeId,
-        themeName: n.themeName,
-      });
-    }
-  }
-
-  return { hits: hits.slice(0, 20), query, processingTimeMs: 0 };
-}
 
 // --- Meilisearch client ---
 
@@ -109,7 +55,9 @@ async function getMeiliClient(): Promise<MeiliClient | null> {
 
 async function searchMeili(query: string, type?: string, themeId?: string): Promise<SearchResult> {
   const client = await getMeiliClient();
-  if (!client) return searchMock(query, type, themeId);
+  if (!client) {
+    throw new Error("Search backend is unavailable. Configure Meilisearch before using search.");
+  }
 
   const indexName = type === "event" ? "events"
     : type === "notification" ? "notifications"
@@ -160,13 +108,20 @@ async function searchMeili(query: string, type?: string, themeId?: string): Prom
     ];
 
     return { hits: hits.slice(0, 20), query, processingTimeMs: Date.now() - start };
-  } catch {
-    return searchMock(query, type, themeId);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("Search request failed.");
   }
 }
 
 export async function search(query: string, type?: string, themeId?: string): Promise<SearchResult> {
   const db = getDatabase();
-  if (!db) return searchMock(query, type, themeId);
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
   return searchMeili(query, type, themeId);
 }

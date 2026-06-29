@@ -37,8 +37,8 @@ Good default split for frontend work:
 - Keep route files thin and move business logic into focused service modules
 - If a service starts handling unrelated responsibilities, split it by domain
   behavior instead of accumulating conditional branches
-- The API can fall back to mock-backed behavior when `DATABASE_URL` is absent;
-  preserve that behavior unless intentionally changing it
+- The API now requires a real database at runtime; do not add new mock-backed
+  execution paths when `DATABASE_URL` is absent
 
 ## Worker
 

@@ -2,13 +2,19 @@ import type { StockMarketCloseReport, StockMarketCloseReportSnapshot, ThemeMarke
 
 import { getDatabase } from "../db/client.js";
 import { createId } from "../lib/ids.js";
-import { mockEvents } from "../lib/mock-store.js";
 import { getThemeDetail } from "./theme-service.js";
 
 const STOCK_MARKET_WORKSPACE_ID = "stock-market";
 const STOCK_MARKET_THEME_ID = "theme-cn-hk-market-overview";
 
-const mockReportHistory: StockMarketCloseReportSnapshot[] = [];
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function toCstDate(date: Date): string {
   return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
@@ -75,20 +81,7 @@ const POSITIVE_ANNOUNCEMENT_KEYWORDS = ["回购", "增持", "中标", "签约", 
 const NEGATIVE_ANNOUNCEMENT_KEYWORDS = ["减持", "问询", "处罚", "诉讼", "亏损", "终止", "风险", "违约", "退市", "下修"];
 
 async function loadRecentAnnouncementCandidates(): Promise<AnnouncementCandidate[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockEvents
-      .filter((event) => event.infoType === "news_announcement")
-      .slice(0, 50)
-      .map((event) => ({
-        themeId: event.themeId,
-        title: event.title,
-        summary: event.summary,
-        themeName: event.themeName,
-        occurredAt: event.occurredAt,
-      }));
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("events as e")
@@ -115,26 +108,8 @@ async function loadRecentAnnouncementCandidates(): Promise<AnnouncementCandidate
 }
 
 async function loadRecentSupportingEvents(): Promise<SupportingEvent[]> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const stockKeywords = ["龙虎榜", "上交所", "深交所", "港交所", "公告", "A股", "港股", "沪深"];
-
-  if (!db) {
-    return mockEvents
-      .filter((event) => event.themeId !== STOCK_MARKET_THEME_ID)
-      .filter((event) => {
-        const text = `${event.title} ${event.summary} ${event.themeName}`.toLowerCase();
-        return stockKeywords.some((keyword) => text.includes(keyword.toLowerCase()));
-      })
-      .slice(0, 20)
-      .map((event) => ({
-        themeId: event.themeId,
-        title: event.title,
-        summary: event.summary,
-        themeName: event.themeName,
-        infoType: typeof event.infoType === "string" ? event.infoType : null,
-        occurredAt: event.occurredAt,
-      }));
-  }
 
   const rows = await db
     .selectFrom("events as e")
@@ -580,11 +555,7 @@ export async function diagnoseStockMarketCloseReport() {
 }
 
 export async function getStockMarketCloseReportHistory(limit: number = 7): Promise<StockMarketCloseReportSnapshot[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockReportHistory.slice(0, limit);
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("workspace_close_reports")
@@ -604,11 +575,7 @@ export async function getStockMarketCloseReportHistory(limit: number = 7): Promi
 }
 
 export async function getStockMarketCloseReportSnapshotByDate(date: string): Promise<StockMarketCloseReportSnapshot | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockReportHistory.find((item) => item.workspaceId === STOCK_MARKET_WORKSPACE_ID && item.date === date) ?? null;
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("workspace_close_reports")
@@ -632,11 +599,7 @@ export async function getStockMarketCloseReportSnapshotByDate(date: string): Pro
 }
 
 export async function hasStockMarketCloseReportForDate(date: string): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockReportHistory.some((item) => item.date === date && item.workspaceId === STOCK_MARKET_WORKSPACE_ID);
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("workspace_close_reports")
@@ -650,7 +613,7 @@ export async function hasStockMarketCloseReportForDate(date: string): Promise<bo
 }
 
 export async function saveStockMarketCloseReportSnapshot(report: StockMarketCloseReport): Promise<StockMarketCloseReportSnapshot> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date().toISOString();
 
   const snapshot: StockMarketCloseReportSnapshot = {
@@ -660,17 +623,6 @@ export async function saveStockMarketCloseReportSnapshot(report: StockMarketClos
     report,
     createdAt: now,
   };
-
-  if (!db) {
-    const existing = mockReportHistory.find((item) => item.workspaceId === STOCK_MARKET_WORKSPACE_ID && item.date === report.date);
-    if (existing) {
-      return existing;
-    }
-
-    mockReportHistory.unshift(snapshot);
-    if (mockReportHistory.length > 30) mockReportHistory.length = 30;
-    return snapshot;
-  }
 
   const existing = await db
     .selectFrom("workspace_close_reports")

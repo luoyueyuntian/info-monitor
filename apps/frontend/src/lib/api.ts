@@ -29,9 +29,6 @@ import type {
   ThemeSummary,
 } from "@info-monitor/shared-contracts";
 
-import { fallbackEvents, fallbackNotifications, fallbackSources, fallbackThemes } from "./demo-fixtures";
-import { buildStockMarketAuthorityBrief } from "../workspaces/stock-market/authority-brief";
-import { buildStockMarketCloseReport } from "./stock-market-report";
 
 export type {
   DashboardSummary,
@@ -1103,20 +1100,6 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
   };
 }
 
-async function requestJson<T>(path: string, fallback: T): Promise<T> {
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`);
-
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-
-    return (await response.json()) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 async function requestJsonStrict<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
 
@@ -1128,96 +1111,22 @@ async function requestJsonStrict<T>(path: string): Promise<T> {
 }
 
 export async function fetchDashboard() {
-  const now = Date.now();
-  const recentThreshold = now - 24 * 60 * 60 * 1000;
-
-  return requestJson("/dashboard", {
-    summary: {
-      activeThemes: fallbackThemes.length,
-      openEvents: fallbackEvents.filter((event) => (event.status ?? "open") === "open").length,
-      trackingEvents: fallbackEvents.filter((event) => event.status === "tracking").length,
-      unreadEvents: fallbackEvents.filter((event) => !event.isRead).length,
-      bookmarkedEvents: fallbackEvents.filter((event) => Boolean(event.isBookmarked)).length,
-      recentEvents: fallbackEvents.filter((event) => new Date(event.occurredAt).getTime() >= recentThreshold).length,
-      warningSources: fallbackSources.filter((source) => source.status === "warning").length,
-      pendingSources: fallbackSources.filter((source) => source.status === "pending").length,
-    },
-    events: fallbackEvents,
-    bookmarkedEvents: fallbackEvents.filter((event) => event.isBookmarked),
-    sectionCounts: {
-      "price-signals": {
-        total: fallbackEvents.filter((event) => event.infoType === "price").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "price" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
-      },
-      "content-updates": {
-        total: fallbackEvents.filter((event) => event.infoType === "content_update").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "content_update" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
-      },
-      "official-releases": {
-        total: fallbackEvents.filter((event) => event.signal === "new_announcement").length,
-        recent: fallbackEvents.filter((event) => event.signal === "new_announcement" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
-      },
-      "financial-events": {
-        total: fallbackEvents.filter((event) => event.infoType === "financial_event").length,
-        recent: fallbackEvents.filter((event) => event.infoType === "financial_event" && new Date(event.occurredAt).getTime() >= recentThreshold).length,
-      },
-    },
-    themes: fallbackThemes.map((theme) => ({
-      ...theme,
-      reviewStatus: null as string | null,
-      reviewTags: [] as string[],
-      nextReviewDate: null as string | null,
-    })),
-    sources: fallbackSources,
-  });
+  return requestJsonStrict<{
+    summary: DashboardSummary;
+    events: EventSummary[];
+    bookmarkedEvents: EventSummary[];
+    sectionCounts: InboxSectionCounts;
+    themes: ThemeSummary[];
+    sources: SourceStatus[];
+  }>("/dashboard");
 }
 
 export async function fetchThemes() {
-  const fallbackThemeSummaries = fallbackThemes.map((theme) => {
-    const themeEvents = fallbackEvents.filter((event) => event.themeId === theme.id);
-
-    return {
-      ...theme,
-      openEventCount: themeEvents.filter((event) => (event.status ?? "open") === "open").length,
-      trackingEventCount: themeEvents.filter((event) => event.status === "tracking").length,
-      ignoredEventCount: themeEvents.filter((event) => event.status === "ignored").length,
-      unreadEventCount: themeEvents.filter((event) => !event.isRead).length,
-      bookmarkedEventCount: themeEvents.filter((event) => Boolean(event.isBookmarked)).length,
-      latestBookmarkedAt: themeEvents
-        .filter((event) => event.isBookmarked && event.bookmarkedAt)
-        .sort((left, right) => String(right.bookmarkedAt).localeCompare(String(left.bookmarkedAt)))[0]?.bookmarkedAt ?? null,
-      reviewStatus: null as string | null,
-      reviewTags: [] as string[],
-      nextReviewDate: null as string | null,
-    };
-  });
-
-  return requestJson("/themes", fallbackThemeSummaries);
+  return requestJsonStrict<ThemeSummary[]>("/themes");
 }
 
 export async function fetchThemeDetail(themeId: string) {
-  const theme = fallbackThemes.find((item) => item.id === themeId) ?? fallbackThemes[0];
-  const events = fallbackEvents.filter((item) => item.themeId === theme.id);
-  const sources = fallbackSources.filter((item) => item.themeId === theme.id);
-  const artifacts = buildFallbackThemeArtifacts(theme, events);
-
-  return requestJson<ThemeDetail>(`/themes/${themeId}`, {
-    theme,
-    events,
-    sources,
-    history: artifacts.history,
-    breakdown: artifacts.breakdown,
-    marketOverview: artifacts.marketOverview ?? null,
-    timeline: artifacts.timeline,
-    records: artifacts.records,
-    analysis: buildFallbackThemeAnalysis({
-      type: theme.type,
-      latestInsight: theme.latestInsight,
-      events,
-      sources,
-      records: artifacts.records,
-    }),
-  });
+  return requestJsonStrict<ThemeDetail>(`/themes/${themeId}`);
 }
 
 export type DailyActivityDay = {
@@ -1245,26 +1154,11 @@ export type ThemeDailyActivity = {
 };
 
 export async function fetchThemeDailyActivity(themeId: string, days: number = 7) {
-  const fallback: ThemeDailyActivity = {
-    themeId,
-    days: [],
-    totals: { events: 0, runs: 0, changes: 0 },
-  };
-  return requestJson<ThemeDailyActivity>(`/themes/${themeId}/daily-activity?days=${days}`, fallback);
+  return requestJsonStrict<ThemeDailyActivity>(`/themes/${themeId}/daily-activity?days=${days}`);
 }
 
 export async function fetchEventDetail(eventId: string) {
-  const event = fallbackEvents.find((item) => item.id === eventId) ?? fallbackEvents[0];
-
-  return requestJson<EventDetail>(`/events/${eventId}`, {
-    ...event,
-    evidence: [
-      "Source run completed successfully.",
-      "Standardized price compared against last 30 days of data.",
-      "Event emitted after threshold evaluation.",
-    ],
-    explanation: buildFallbackEventExplanation(event),
-  });
+  return requestJsonStrict<EventDetail>(`/events/${eventId}`);
 }
 
 export async function updateEvent(eventId: string, input: {
@@ -1349,127 +1243,23 @@ export async function deleteEventFeedback(eventId: string) {
 export type { FeedbackAggregation, FeedbackAggregationItem };
 
 export async function fetchFeedbackAggregation(): Promise<FeedbackAggregation> {
-  const fallbackAggregation: FeedbackAggregation = {
-    bySignal: [],
-    byEventType: [],
-    byTheme: [],
-    totalFeedback: 0,
-    recentFeedback: 0,
-  };
-
-  return requestJson<FeedbackAggregation>("/events/feedback/stats", fallbackAggregation);
+  return requestJsonStrict<FeedbackAggregation>("/events/feedback/stats");
 }
 
 export async function fetchInboxSectionEvents(sectionId: string) {
-  const filteredFallback = fallbackEvents.filter((event) => {
-    if (sectionId === "price-signals") {
-      return event.infoType === "price";
-    }
-
-    if (sectionId === "content-updates") {
-      return event.infoType === "content_update";
-    }
-
-    if (sectionId === "official-releases") {
-      return event.signal === "new_announcement";
-    }
-
-    if (sectionId === "financial-events") {
-      return event.infoType === "financial_event";
-    }
-
-    return false;
-  });
-
-  return requestJson(`/inbox/sections/${sectionId}/events`, filteredFallback);
+  return requestJsonStrict<EventSummary[]>(`/inbox/sections/${sectionId}/events`);
 }
 
 export async function fetchEvents() {
-  return requestJson("/events", fallbackEvents);
+  return requestJsonStrict<EventSummary[]>("/events");
 }
 
 export async function fetchSourceStatuses() {
-  return requestJson("/sources/status", fallbackSources);
+  return requestJsonStrict<SourceStatus[]>("/sources/status");
 }
 
 export async function fetchSourceDetail(sourceId: string) {
-  const source = fallbackSources.find((item) => item.id === sourceId) ?? fallbackSources[0];
-  const events = fallbackEvents
-    .filter((item) => item.themeId === source.themeId)
-    .map((item) => ({
-      id: item.id,
-      title: item.title,
-      signal: item.signal,
-      status: item.status,
-      isRead: item.isRead,
-      isBookmarked: item.isBookmarked,
-      occurredAt: item.occurredAt,
-      summary: item.summary,
-    }));
-
-  return requestJson<SourceDetail>(`/sources/${sourceId}`, {
-    source: {
-      ...source,
-      config: {},
-    },
-    runs: [
-      {
-        id: `run-${source.id}-latest`,
-        status: source.latestRunStatus ?? "completed",
-        triggerType: "manual",
-        startedAt: source.latestRunAt,
-        finishedAt: source.latestRunAt,
-        errorMessage: source.lastErrorMessage ?? null,
-        snapshotCount: 0,
-        recordCount: 0,
-        changeCount: 0,
-        eventCount: events.length,
-      },
-    ],
-    events,
-    records: [],
-    changes: [],
-    snapshots: [
-      {
-        id: `snapshot-${source.id}-latest`,
-        sourceRunId: `run-${source.id}-latest`,
-        fetchedAt: source.latestRunAt ?? source.latestSuccessAt,
-        storagePath: null,
-        payloadPreview: JSON.stringify(
-          [
-            {
-              title: source.name,
-              fetched_from: source.themeName,
-              status: source.status,
-            },
-          ],
-          null,
-          2,
-        ),
-      },
-    ],
-    analysis: {
-      tone: source.status === "warning" ? "warning" : source.isPaused ? "pending" : "healthy",
-      toneLabel: source.status === "warning" ? "需要优先处理" : source.isPaused ? "当前已暂停" : "整体稳定",
-      headline:
-        source.status === "warning"
-          ? "当前来源存在异常，建议优先处理。"
-          : source.isPaused
-            ? "当前来源处于暂停状态。"
-            : "当前来源运行稳定。",
-      summary: source.lastErrorMessage ?? "可以继续结合最近运行历史和事件输出判断这个来源的可靠性。",
-      keyPoints: [
-        `最近运行状态：${source.latestRunStatus ?? "暂无"}`,
-        `相关主题：${source.themeName}`,
-      ],
-      risks: [
-        source.status === "warning" ? "如果不处理，主题判断可能漏掉最新变化。" : "当前未发现明显风险。",
-      ],
-      actions: [
-        source.status === "warning" ? "优先查看最近错误信息并补跑验证。" : "继续观察其输出质量，必要时手动补跑。",
-      ],
-    },
-  });
+  return requestJsonStrict<SourceDetail>(`/sources/${sourceId}`);
 }
 
 export async function fetchSourcePresets(): Promise<SourcePreset[]> {
@@ -1484,8 +1274,7 @@ export async function fetchSourcePresets(): Promise<SourcePreset[]> {
     defaultConfig: Record<string, string | number | boolean>;
     help?: string;
   };
-  const fallback: RawPreset[] = [];
-  const raw = await requestJson("/sources/presets", fallback);
+  const raw = await requestJsonStrict<RawPreset[]>("/sources/presets");
   // Cast field.type from string to the union type — the backend always returns valid values
   return raw.map((preset) => ({
     ...preset,
@@ -1618,11 +1407,7 @@ export type SourceReplayComparison = {
 };
 
 export async function fetchSourceReplayComparison(sourceId: string, runId: string) {
-  const response = await requestJson<SourceReplayComparison | null>(
-    `/sources/${sourceId}/runs/${runId}/comparison`,
-    null,
-  );
-  return response;
+  return requestJsonStrict<SourceReplayComparison | null>(`/sources/${sourceId}/runs/${runId}/comparison`);
 }
 
 export type SourceTestRunPreview = {
@@ -1651,8 +1436,7 @@ export type SourceTestRunPreview = {
 };
 
 export async function fetchSourceTestPreview(sourceId: string) {
-  const fallback: SourceTestRunPreview | null = null;
-  return requestJson<SourceTestRunPreview | null>(`/sources/${sourceId}/test-preview`, fallback);
+  return requestJsonStrict<SourceTestRunPreview | null>(`/sources/${sourceId}/test-preview`);
 }
 
 export async function updateSourcePaused(sourceId: string, isPaused: boolean) {
@@ -2054,12 +1838,33 @@ export async function loadChannelConfigFromBackend(channel: string): Promise<Cha
 }
 
 // Source Health API
+export type SystemHealthCheck = {
+  id: "fetch" | "ingest" | "output" | "schedule";
+  label: string;
+  status: "healthy" | "warning" | "pending";
+  summary: string;
+  description: string;
+  healthyCount: number;
+  warningCount: number;
+  pendingCount: number;
+};
+
+export type SourcePipelineStatus = {
+  status: "healthy" | "warning" | "pending";
+  label: string;
+  detail: string;
+};
+
 export type SourceHealthStats = {
   totalSources: number;
+  activeSources: number;
   healthySources: number;
   warningSources: number;
   pausedSources: number;
   healthRate: number;
+  overallScore: number;
+  fetchAvailability: number;
+  ingestionAvailability: number;
   recentRuns: {
     total: number;
     successful: number;
@@ -2073,11 +1878,25 @@ export type SourceHealthStats = {
     errorMessage: string;
     occurredAt: string;
   }>;
+  backlog: {
+    pendingRuns: number;
+    runningRuns: number;
+    oldestPendingAge: string | null;
+  };
+  recentExceptions: Array<{
+    errorMessage: string;
+    count: number;
+    lastOccurredAt: string;
+    sourceIds: string[];
+  }>;
+  systemChecks: SystemHealthCheck[];
   sourceDetails: Array<{
     id: string;
     name: string;
     themeName: string;
     status: string;
+    sourceType?: string;
+    adapterKey?: string;
     isPaused: boolean;
     latestRunStatus: string | null;
     latestRunAt: string | null;
@@ -2087,6 +1906,17 @@ export type SourceHealthStats = {
     runCount24h: number;
     successCount24h: number;
     failureCount24h: number;
+    healthScore: number;
+    issueSummary: string | null;
+    latestSnapshotCount: number;
+    latestRecordCount: number;
+    latestChangeCount: number;
+    latestEventCount: number;
+    pipeline: {
+      fetch: SourcePipelineStatus;
+      ingest: SourcePipelineStatus;
+      output: SourcePipelineStatus;
+    };
   }>;
 };
 
@@ -2128,7 +1958,7 @@ export async function fetchAllSourceHealthExplanations() {
 
 // Notification Preferences API
 export async function fetchNotificationPreferences() {
-  return requestJson<NotificationPreference[]>("/notification-preferences", []);
+  return requestJsonStrict<NotificationPreference[]>("/notification-preferences");
 }
 
 export async function createNotificationPreference(input: NotificationPreferenceInput) {
@@ -2196,7 +2026,7 @@ export async function fetchRuleConfigurations(options?: {
   const query = params.toString();
   const path = query ? `/rule-configurations?${query}` : "/rule-configurations";
 
-  return requestJson<RuleConfiguration[]>(path, []);
+  return requestJsonStrict<RuleConfiguration[]>(path);
 }
 
 export async function createRuleConfiguration(input: RuleConfigurationInput) {
@@ -2250,89 +2080,7 @@ export async function deleteRuleConfiguration(configId: string) {
 export type { DailySummary, DailySummaryItem };
 
 export async function fetchDailySummary(): Promise<DailySummary> {
-  const fallbackSummary: DailySummary = {
-    generatedAt: new Date().toISOString(),
-    date: new Date().toISOString().slice(0, 10),
-    items: [
-      {
-        category: "price-signals",
-        label: "Price Signals",
-        count: fallbackEvents.filter((e) => e.infoType === "price").length,
-        recentCount: fallbackEvents.filter((e) => e.infoType === "price" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
-        latestEvent: fallbackEvents.find((e) => e.infoType === "price")
-          ? {
-              id: fallbackEvents.find((e) => e.infoType === "price")!.id,
-              title: fallbackEvents.find((e) => e.infoType === "price")!.title,
-              signal: fallbackEvents.find((e) => e.infoType === "price")!.signal,
-              occurredAt: fallbackEvents.find((e) => e.infoType === "price")!.occurredAt,
-              themeId: fallbackEvents.find((e) => e.infoType === "price")!.themeId,
-              themeName: fallbackEvents.find((e) => e.infoType === "price")!.themeName,
-            }
-          : null,
-      },
-      {
-        category: "financial-events",
-        label: "Financial Events",
-        count: fallbackEvents.filter((e) => e.infoType === "financial_event").length,
-        recentCount: fallbackEvents.filter((e) => e.infoType === "financial_event" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
-        latestEvent: fallbackEvents.find((e) => e.infoType === "financial_event")
-          ? {
-              id: fallbackEvents.find((e) => e.infoType === "financial_event")!.id,
-              title: fallbackEvents.find((e) => e.infoType === "financial_event")!.title,
-              signal: fallbackEvents.find((e) => e.infoType === "financial_event")!.signal,
-              occurredAt: fallbackEvents.find((e) => e.infoType === "financial_event")!.occurredAt,
-              themeId: fallbackEvents.find((e) => e.infoType === "financial_event")!.themeId,
-              themeName: fallbackEvents.find((e) => e.infoType === "financial_event")!.themeName,
-            }
-          : null,
-      },
-      {
-        category: "official-releases",
-        label: "Official Releases",
-        count: fallbackEvents.filter((e) => e.signal === "new_announcement").length,
-        recentCount: fallbackEvents.filter((e) => e.signal === "new_announcement" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
-        latestEvent: fallbackEvents.find((e) => e.signal === "new_announcement")
-          ? {
-              id: fallbackEvents.find((e) => e.signal === "new_announcement")!.id,
-              title: fallbackEvents.find((e) => e.signal === "new_announcement")!.title,
-              signal: fallbackEvents.find((e) => e.signal === "new_announcement")!.signal,
-              occurredAt: fallbackEvents.find((e) => e.signal === "new_announcement")!.occurredAt,
-              themeId: fallbackEvents.find((e) => e.signal === "new_announcement")!.themeId,
-              themeName: fallbackEvents.find((e) => e.signal === "new_announcement")!.themeName,
-            }
-          : null,
-      },
-      {
-        category: "content-updates",
-        label: "Content Updates",
-        count: fallbackEvents.filter((e) => e.infoType === "content_update").length,
-        recentCount: fallbackEvents.filter((e) => e.infoType === "content_update" && new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
-        latestEvent: fallbackEvents.find((e) => e.infoType === "content_update")
-          ? {
-              id: fallbackEvents.find((e) => e.infoType === "content_update")!.id,
-              title: fallbackEvents.find((e) => e.infoType === "content_update")!.title,
-              signal: fallbackEvents.find((e) => e.infoType === "content_update")!.signal,
-              occurredAt: fallbackEvents.find((e) => e.infoType === "content_update")!.occurredAt,
-              themeId: fallbackEvents.find((e) => e.infoType === "content_update")!.themeId,
-              themeName: fallbackEvents.find((e) => e.infoType === "content_update")!.themeName,
-            }
-          : null,
-      },
-    ],
-    warningSources: fallbackSources
-      .filter((s) => s.status === "warning")
-      .map((s) => ({
-        id: s.id,
-        name: s.name,
-        themeName: s.themeName,
-        status: s.status,
-        lastErrorMessage: s.lastErrorMessage ?? null,
-      })),
-    totalEvents: fallbackEvents.length,
-    recentEvents: fallbackEvents.filter((e) => new Date(e.occurredAt).getTime() >= Date.now() - 24 * 60 * 60 * 1000).length,
-  };
-
-  return requestJson<DailySummary>("/daily-summary", fallbackSummary);
+  return requestJsonStrict<DailySummary>("/daily-summary");
 }
 
 export type ChannelConfig = {
@@ -2367,8 +2115,7 @@ export type DailySummarySnapshot = {
 };
 
 export async function fetchDailySummaryHistory(limit: number = 7): Promise<DailySummarySnapshot[]> {
-  const fallback: DailySummarySnapshot[] = [];
-  return requestJson(`/daily-summary/history?limit=${limit}`, fallback);
+  return requestJsonStrict<DailySummarySnapshot[]>(`/daily-summary/history?limit=${limit}`);
 }
 
 export type DailySummaryCompare = {
@@ -2382,9 +2129,7 @@ export type DailySummaryCompare = {
 };
 
 export async function fetchDailySummaryCompare(): Promise<DailySummaryCompare> {
-  const today = await fetchDailySummary();
-  const fallback: DailySummaryCompare = { today, yesterday: null, delta: null };
-  return requestJson("/daily-summary/compare", fallback);
+  return requestJsonStrict<DailySummaryCompare>("/daily-summary/compare");
 }
 
 // Daily Summary Subscription Config API
@@ -2395,8 +2140,7 @@ export type DailySummaryConfig = {
 };
 
 export async function fetchDailySummaryConfig(): Promise<DailySummaryConfig> {
-  const fallback: DailySummaryConfig = { enabled: false, channel: "in_app", deliveryTime: "09:00" };
-  return requestJson("/daily-summary/config", fallback);
+  return requestJsonStrict<DailySummaryConfig>("/daily-summary/config");
 }
 
 export async function updateDailySummaryConfig(config: DailySummaryConfig): Promise<DailySummaryConfig> {
@@ -2421,73 +2165,20 @@ export type StockMarketCloseReportConfig = {
 
 // ─── Stock Market Close Report ─────────────────────────────────────────────
 
-function buildFallbackStockMarketCloseReport(): StockMarketCloseReport | null {
-  const theme = fallbackThemes.find((item) => item.id === "theme-cn-hk-market-overview");
-  if (!theme) {
-    return null;
-  }
-
-  const events = fallbackEvents.filter((item) => item.themeId === theme.id);
-  const artifacts = buildFallbackThemeArtifacts(theme, events);
-  const detail: ThemeDetail = {
-    theme,
-    events,
-    sources: fallbackSources.filter((item) => item.themeId === theme.id),
-    history: artifacts.history,
-    breakdown: artifacts.breakdown,
-    marketOverview: artifacts.marketOverview ?? null,
-    timeline: artifacts.timeline,
-    records: artifacts.records,
-    analysis: buildFallbackThemeAnalysis({
-      type: theme.type,
-      latestInsight: theme.latestInsight,
-      events,
-      sources: fallbackSources.filter((item) => item.themeId === theme.id),
-      records: artifacts.records,
-    }),
-  };
-
-  return buildStockMarketCloseReport(detail);
-}
-
-function buildFallbackStockMarketAuthorityBrief(): StockMarketAuthorityBrief {
-  return buildStockMarketAuthorityBrief({
-    themes: fallbackThemes,
-    events: fallbackEvents,
-    sources: fallbackSources,
-  });
-}
-
 export async function fetchStockMarketCloseReport(): Promise<StockMarketCloseReport | null> {
-  const fallback = buildFallbackStockMarketCloseReport();
-  return requestJson("/stock-market-report", fallback);
+  return requestJsonStrict<StockMarketCloseReport | null>("/stock-market-report");
 }
 
 export async function fetchStockMarketAuthorityBrief(): Promise<StockMarketAuthorityBrief> {
-  const fallback = buildFallbackStockMarketAuthorityBrief();
-  return requestJson("/stock-market-report/authorities", fallback);
+  return requestJsonStrict<StockMarketAuthorityBrief>("/stock-market-report/authorities");
 }
 
 export async function fetchStockMarketCloseReportHistory(limit: number = 7): Promise<StockMarketCloseReportSnapshot[]> {
-  const fallbackReport = buildFallbackStockMarketCloseReport();
-  const fallback: StockMarketCloseReportSnapshot[] = fallbackReport
-    ? [
-        {
-          id: "report-stock-market-fallback",
-          workspaceId: "stock-market",
-          date: fallbackReport.date,
-          report: fallbackReport,
-          createdAt: new Date().toISOString(),
-        },
-      ]
-    : [];
-  return requestJson(`/stock-market-report/history?limit=${limit}`, fallback);
+  return requestJsonStrict<StockMarketCloseReportSnapshot[]>(`/stock-market-report/history?limit=${limit}`);
 }
 
 export async function fetchStockMarketCloseReportSnapshotByDate(date: string): Promise<StockMarketCloseReportSnapshot | null> {
-  const fallbackHistory = await fetchStockMarketCloseReportHistory(30);
-  const fallback = fallbackHistory.find((item) => item.date === date) ?? null;
-  return requestJson(`/stock-market-report/by-date?date=${date}`, fallback);
+  return requestJsonStrict<StockMarketCloseReportSnapshot | null>(`/stock-market-report/by-date?date=${date}`);
 }
 
 export async function saveStockMarketCloseReport(): Promise<StockMarketCloseReportSnapshot> {
@@ -2503,8 +2194,7 @@ export async function saveStockMarketCloseReport(): Promise<StockMarketCloseRepo
 }
 
 export async function fetchStockMarketCloseReportConfig(): Promise<StockMarketCloseReportConfig> {
-  const fallback: StockMarketCloseReportConfig = { enabled: false, channel: "in_app", deliveryTime: "16:25" };
-  return requestJson("/stock-market-report/config", fallback);
+  return requestJsonStrict<StockMarketCloseReportConfig>("/stock-market-report/config");
 }
 
 export async function updateStockMarketCloseReportConfig(config: StockMarketCloseReportConfig): Promise<StockMarketCloseReportConfig> {
@@ -2655,32 +2345,29 @@ export async function rollbackSourceConfig(sourceId: string, version: number): P
   return (await response.json()) as { success: boolean };
 }
 
-// ─── Theme Favorites (DB-backed with localStorage fallback) ──────────────────
+// ─── Theme Favorites ──────────────────────────────────────────────────────────
 
 const THEME_FAVORITES_KEY = "themeFavorites";
 
 let cachedFavorites: string[] | null = null;
 
 export async function fetchThemeFavorites(): Promise<string[]> {
-  try {
-    const result = await requestJson<{ favorites: string[] }>(
-      "/user-preferences/favorites",
-      { favorites: JSON.parse(localStorage.getItem(THEME_FAVORITES_KEY) ?? "[]") },
-    );
-    cachedFavorites = result.favorites;
-    // Sync to localStorage as backup
-    localStorage.setItem(THEME_FAVORITES_KEY, JSON.stringify(result.favorites));
-    return result.favorites;
-  } catch {
-    // Fallback to localStorage
-    const local = JSON.parse(localStorage.getItem(THEME_FAVORITES_KEY) ?? "[]") as string[];
-    cachedFavorites = local;
-    return local;
-  }
+  const result = await requestJsonStrict<{ favorites: string[] }>("/user-preferences/favorites");
+  cachedFavorites = result.favorites;
+  localStorage.setItem(THEME_FAVORITES_KEY, JSON.stringify(result.favorites));
+  return result.favorites;
 }
 
 export async function setThemeFavorite(themeId: string, favorited: boolean): Promise<void> {
-  // Optimistic update
+  const response = await fetch(`${API_BASE_URL}/user-preferences/favorites/${themeId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ favorited }),
+  });
+  if (!response.ok) {
+    throw new Error(`请求失败 (${response.status})`);
+  }
+
   const favorites = cachedFavorites ?? getThemeFavoritesLocal();
   if (favorited && !favorites.includes(themeId)) {
     favorites.push(themeId);
@@ -2690,17 +2377,6 @@ export async function setThemeFavorite(themeId: string, favorited: boolean): Pro
   }
   cachedFavorites = favorites;
   localStorage.setItem(THEME_FAVORITES_KEY, JSON.stringify(favorites));
-
-  // Persist to DB
-  try {
-    await fetch(`${API_BASE_URL}/user-preferences/favorites/${themeId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ favorited }),
-    });
-  } catch {
-    // localStorage already updated, DB sync will happen on next load
-  }
 }
 
 export function isThemeFavorited(themeId: string): boolean {
@@ -2716,7 +2392,7 @@ function getThemeFavoritesLocal(): string[] {
   }
 }
 
-// ─── Saved Filter Views (DB-backed with localStorage fallback) ────────────────
+// ─── Saved Filter Views ────────────────────────────────────────────────────────
 
 export type SavedFilterView = {
   id: string;
@@ -2729,71 +2405,52 @@ export type SavedFilterView = {
 const SAVED_VIEWS_KEY = "savedFilterViews";
 
 export async function fetchSavedFilterViews(viewType?: string): Promise<SavedFilterView[]> {
-  try {
-    const params = viewType ? `?viewType=${viewType}` : "";
-    const result = await requestJsonStrict<SavedFilterView[]>(
-      `/user-preferences/saved-views${params}`,
-    );
-    // Merge with existing localStorage data to avoid overwriting other viewTypes
-    const existing = getSavedFilterViewsLocal();
-    if (viewType) {
-      // Replace only the matching viewType entries, keep others
-      const otherViews = existing.filter((v) => v.viewType !== viewType);
-      const merged = [...otherViews, ...result];
-      localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(merged));
-    } else {
-      // Full replacement when no viewType filter
-      localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(result));
-    }
-    return result;
-  } catch {
-    // Fallback to localStorage
-    return getSavedFilterViewsLocal();
+  const params = viewType ? `?viewType=${viewType}` : "";
+  const result = await requestJsonStrict<SavedFilterView[]>(
+    `/user-preferences/saved-views${params}`,
+  );
+  // Merge with existing localStorage data to avoid overwriting other viewTypes
+  const existing = getSavedFilterViewsLocal();
+  if (viewType) {
+    // Replace only the matching viewType entries, keep others
+    const otherViews = existing.filter((v) => v.viewType !== viewType);
+    const merged = [...otherViews, ...result];
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(merged));
+  } else {
+    // Full replacement when no viewType filter
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(result));
   }
+
+  return result;
 }
 
 export async function saveFilterView(
   view: Omit<SavedFilterView, "id" | "createdAt">,
 ): Promise<SavedFilterView> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(view),
-    });
-    if (!response.ok) throw new Error(`请求失败 (${response.status})`);
-    const result = (await response.json()) as SavedFilterView;
-    // Update localStorage
-    const views = getSavedFilterViewsLocal();
-    views.push(result);
-    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
-    return result;
-  } catch {
-    // Fallback: save locally
-    const views = getSavedFilterViewsLocal();
-    const newView: SavedFilterView = {
-      ...view,
-      id: `view_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      createdAt: new Date().toISOString(),
-    };
-    views.push(newView);
-    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
-    return newView;
-  }
+  const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(view),
+  });
+  if (!response.ok) throw new Error(`请求失败 (${response.status})`);
+  const result = (await response.json()) as SavedFilterView;
+  // Update localStorage
+  const views = getSavedFilterViewsLocal();
+  views.push(result);
+  localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
+  return result;
 }
 
 export async function deleteFilterView(viewId: string): Promise<void> {
-  // Optimistic: remove from localStorage immediately
+  const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views/${viewId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`请求失败 (${response.status})`);
+  }
+
   const views = getSavedFilterViewsLocal().filter((v) => v.id !== viewId);
   localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(views));
-
-  try {
-    await fetch(`${API_BASE_URL}/user-preferences/saved-views/${viewId}`, {
-      method: "DELETE",
-    });
-  } catch {
-    // localStorage already updated
-  }
 }
 
 function getSavedFilterViewsLocal(): SavedFilterView[] {
@@ -2832,11 +2489,14 @@ export async function searchQuery(
   if (options?.type) params.set("type", options.type);
   if (options?.themeId) params.set("themeId", options.themeId);
 
-  return requestJson<SearchResult>(`/search?${params.toString()}`, {
-    hits: [],
-    query,
-    processingTimeMs: 0,
-  });
+  const response = await fetch(`${API_BASE_URL}/search?${params.toString()}`);
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `请求失败 (${response.status})`);
+  }
+
+  return (await response.json()) as SearchResult;
 }
 
 // ─── Backtest API ────────────────────────────────────────────────────────────

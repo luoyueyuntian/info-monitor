@@ -1,19 +1,6 @@
 import { getDatabase } from "../db/client.js";
 import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js";
 import { createId } from "../lib/ids.js";
-import { mockEvents, mockSources, mockThemes } from "../lib/mock-store.js";
-
-// Mock config store for sources created in mock mode
-const mockSourceConfigs = new Map<string, Record<string, unknown>>();
-
-// In-memory config history for mock mode
-const mockConfigHistory: Array<{
-  id: string;
-  sourceId: string;
-  config: Record<string, unknown>;
-  version: number;
-  createdAt: string;
-}> = [];
 
 type SourceInput = {
   themeId: string;
@@ -32,6 +19,15 @@ type SourceUpdateInput = {
   isPaused?: boolean;
   onboardingStatus?: "draft" | "ready_to_test" | "active";
 };
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function toTimestamp(value?: string | Date | null) {
   if (!value) {
@@ -129,11 +125,7 @@ function buildSourceAnalysis(input: {
 }
 
 export async function listSourceStatuses() {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockSources;
-  }
+  const db = requireDatabase();
 
   const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
 
@@ -219,76 +211,8 @@ export async function listSourceStatuses() {
 }
 
 export async function getSourceDetail(sourceId: string) {
-  const db = getDatabase();
+  const db = requireDatabase();
 
-  if (!db) {
-    const source = mockSources.find((item) => item.id === sourceId);
-
-    if (!source) {
-      return null;
-    }
-
-    const runs = [
-      {
-        id: `run-${sourceId}-latest`,
-        status: source.latestRunStatus ?? "completed",
-        triggerType: "manual",
-        startedAt: source.latestRunAt,
-        finishedAt: source.latestRunAt,
-        errorMessage: source.lastErrorMessage ?? null,
-        snapshotCount: 0,
-        recordCount: 0,
-        changeCount: 0,
-        eventCount: 0,
-      },
-    ];
-    const events = mockEvents
-      .filter((item) => item.themeId === source.themeId)
-      .map((item) => ({
-        id: item.id,
-        title: item.title,
-        signal: item.signal,
-        status: item.status,
-        occurredAt: item.occurredAt,
-        summary: item.summary,
-      }));
-
-    // Update run counts based on events
-    if (runs[0]) {
-      runs[0].eventCount = events.length;
-    }
-
-    return {
-      source: {
-        ...source,
-        config: mockSourceConfigs.get(sourceId) ?? {},
-      },
-      runs,
-      events,
-      records: [],
-      changes: [],
-      snapshots: [
-        {
-          id: `snapshot-${source.id}-latest`,
-          sourceRunId: `run-${source.id}-latest`,
-          fetchedAt: source.latestRunAt ?? source.latestSuccessAt ?? null,
-          storagePath: null,
-          payloadPreview: JSON.stringify(
-            [
-              {
-                title: source.name,
-                fetched_from: source.themeName,
-                status: source.status,
-              },
-            ],
-            null,
-            2,
-          ),
-        },
-      ],
-      analysis: buildSourceAnalysis({ source, runs, events }),
-    };
-  }
   const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
 
   const baseSourceQuery = db
@@ -1328,34 +1252,9 @@ export async function createSource(input: SourceInput) {
     config: input.config,
   });
 
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date().toISOString();
   const onboardingStatus = input.onboardingStatus ?? "draft";
-
-  if (!db) {
-    const id = createId("source");
-    const theme = mockThemes.find((item) => item.id === input.themeId);
-    mockSources.push({
-      id,
-      themeId: input.themeId,
-      themeName: theme?.name ?? input.themeId,
-      name: input.name,
-      status: onboardingStatus === "active" ? "active" : "paused",
-      sourceType: input.sourceType,
-      adapterKey: input.adapterKey,
-      isPaused: onboardingStatus !== "active",
-      onboardingStatus,
-      latestSuccessAt: null,
-      latestFailureAt: null,
-    });
-    if (input.config) {
-      mockSourceConfigs.set(id, input.config);
-    }
-    if (theme) {
-      theme.sourceCount += 1;
-    }
-    return { id, onboardingStatus };
-  }
 
   const id = createId("source");
   const hasOnboardingStatusColumn = await hasSourcesOnboardingStatusColumn(db);
@@ -1406,11 +1305,7 @@ async function getCurrentConfigVersion(db: NonNullable<ReturnType<typeof getData
 }
 
 export async function enqueueManualSourceRun(sourceId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    return { queued: true, mode: "mock" };
-  }
+  const db = requireDatabase();
 
   const source = await db
     .selectFrom("sources")
@@ -1446,11 +1341,7 @@ export async function enqueueManualSourceRun(sourceId: string) {
  * for audit. Only allowed when the original run actually failed.
  */
 export async function retrySourceAfterFailure(sourceId: string, failedRunId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    return { queued: true, mode: "mock", failedRunId };
-  }
+  const db = requireDatabase();
 
   // Verify the original run exists, belongs to this source, and actually failed
   const failedRun = await db
@@ -1499,22 +1390,7 @@ export async function retrySourceAfterFailure(sourceId: string, failedRunId: str
 }
 
 export async function enqueueTestSourceRun(sourceId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode: simulate a test run with synthetic preview data
-    const source = mockSources.find((item) => item.id === sourceId);
-    if (!source) {
-      return null;
-    }
-
-    return {
-      queued: true,
-      mode: "mock",
-      triggerType: "test",
-      runId: `test-run-${sourceId}-mock`,
-    };
-  }
+  const db = requireDatabase();
 
   const source = await db
     .selectFrom("sources")
@@ -1550,11 +1426,7 @@ export async function enqueueTestSourceRun(sourceId: string) {
  * The worker reads the snapshot payload and re-runs normalize/detect/event.
  */
 export async function enqueueReplaySourceRun(sourceId: string, snapshotId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    return { queued: true, mode: "mock", triggerType: "replay", runId: `replay-${sourceId}-mock`, snapshotId };
-  }
+  const db = requireDatabase();
 
   const source = await db
     .selectFrom("sources")
@@ -1612,19 +1484,7 @@ export type SourceReplayComparison = {
  * Compare a replay run's results against the original run that produced the snapshot.
  */
 export async function getSourceReplayComparison(sourceId: string, replayRunId: string): Promise<SourceReplayComparison | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    return {
-      replayRunId,
-      status: "completed",
-      originalRunId: null,
-      replay: { recordCount: 2, changeCount: 1, eventCount: 0 },
-      original: { recordCount: 2, changeCount: 1, eventCount: 0 },
-      deltas: { recordDelta: 0, changeDelta: 0, eventDelta: 0 },
-      failureLayer: null,
-    };
-  }
+  const db = requireDatabase();
 
   // Get the replay run and its snapshot
   const replayRun = await db
@@ -1728,48 +1588,7 @@ export type SourceTestRunPreview = {
 };
 
 export async function getSourceTestRunPreview(sourceId: string): Promise<SourceTestRunPreview | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // Mock mode: return synthetic preview
-    const source = mockSources.find((item) => item.id === sourceId);
-    if (!source) {
-      return null;
-    }
-
-    return {
-      runId: `test-run-${sourceId}-mock`,
-      status: "completed",
-      triggerType: "test",
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      fetchSummary: {
-        success: true,
-        snapshotCount: 1,
-        payloadPreview: JSON.stringify([{ title: source.name, status: "sample_data" }], null, 2),
-      },
-      parseSummary: {
-        recordCount: 2,
-        changeCount: 1,
-        eventCount: 0,
-      },
-      sampleRecords: [
-        {
-          title: `${source.name} — Sample Record 1`,
-          occurredAt: new Date().toISOString(),
-          infoType: "price",
-          contentPreview: JSON.stringify({ price: 3999, currency: "CNY" }),
-        },
-        {
-          title: `${source.name} — Sample Record 2`,
-          occurredAt: new Date().toISOString(),
-          infoType: "price",
-          contentPreview: JSON.stringify({ price: 4199, currency: "CNY" }),
-        },
-      ],
-      issues: [],
-    };
-  }
+  const db = requireDatabase();
 
   // Find the most recent test run for this source
   const testRun = await db
@@ -1925,59 +1744,7 @@ export async function getSourceTestRunPreview(sourceId: string): Promise<SourceT
 }
 
 export async function updateSource(sourceId: string, input: SourceUpdateInput) {
-  const db = getDatabase();
-
-  if (!db) {
-    const source = mockSources.find((item) => item.id === sourceId);
-
-    if (!source) {
-      return null;
-    }
-
-    if (input.name !== undefined) {
-      source.name = input.name;
-    }
-
-    if (input.sourceType !== undefined) {
-      source.sourceType = input.sourceType;
-    }
-
-    if (input.adapterKey !== undefined) {
-      source.adapterKey = input.adapterKey;
-    }
-
-    if (input.isPaused !== undefined) {
-      source.isPaused = input.isPaused;
-    }
-
-    if (input.config !== undefined) {
-      // Save current config to history before overwriting
-      const currentConfig = mockSourceConfigs.get(sourceId) ?? {};
-      const version = mockConfigHistory.filter((h) => h.sourceId === sourceId).length + 1;
-      mockConfigHistory.push({
-        id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        sourceId,
-        config: { ...currentConfig },
-        version,
-        createdAt: new Date().toISOString(),
-      });
-      mockSourceConfigs.set(sourceId, input.config);
-    }
-
-    if (input.onboardingStatus !== undefined) {
-      source.onboardingStatus = input.onboardingStatus;
-      // Sync status and isPaused to match onboardingStatus
-      source.status = input.onboardingStatus === "active" ? "active" : "paused";
-      source.isPaused = input.onboardingStatus !== "active";
-    }
-
-    return {
-      id: source.id,
-      isPaused: source.isPaused ?? false,
-      onboardingStatus: source.onboardingStatus ?? "active",
-      mode: "mock",
-    };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("sources")
@@ -2108,24 +1875,7 @@ export async function updateSourcePaused(sourceId: string, isPaused: boolean) {
 }
 
 export async function deleteSource(sourceId: string) {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockSources.findIndex((item) => item.id === sourceId);
-
-    if (index === -1) {
-      return null;
-    }
-
-    const themeId = mockSources[index].themeId;
-    mockSources.splice(index, 1);
-    mockSourceConfigs.delete(sourceId);
-    const theme = mockThemes.find((item) => item.id === themeId);
-    if (theme) {
-      theme.sourceCount = Math.max(0, theme.sourceCount - 1);
-    }
-    return { id: sourceId };
-  }
+  const db = requireDatabase();
 
   const existing = await db
     .selectFrom("sources")
@@ -2156,13 +1906,7 @@ export type SourceConfigVersion = {
 };
 
 export async function getSourceConfigHistory(sourceId: string): Promise<SourceConfigVersion[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockConfigHistory
-      .filter((h) => h.sourceId === sourceId)
-      .sort((a, b) => b.version - a.version);
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("source_config_history" as any)
@@ -2181,28 +1925,7 @@ export async function getSourceConfigHistory(sourceId: string): Promise<SourceCo
 }
 
 export async function rollbackSourceConfig(sourceId: string, version: number): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    const history = mockConfigHistory.find((h) => h.sourceId === sourceId && h.version === version);
-    if (!history) return false;
-
-    // Save current config to history before rolling back (matches DB mode behavior)
-    const currentConfig = mockSourceConfigs.get(sourceId) ?? {};
-    const maxVersion = mockConfigHistory
-      .filter((h) => h.sourceId === sourceId)
-      .reduce((max, h) => Math.max(max, h.version), 0);
-    mockConfigHistory.push({
-      id: `config_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      sourceId,
-      config: { ...currentConfig },
-      version: maxVersion + 1,
-      createdAt: new Date().toISOString(),
-    });
-
-    mockSourceConfigs.set(sourceId, { ...history.config });
-    return true;
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("source_config_history" as any)

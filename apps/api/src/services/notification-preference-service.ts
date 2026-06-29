@@ -15,57 +15,19 @@ function isSystemPreference(signal: string | null | undefined): boolean {
   return signal.startsWith("channel_config:") || signal.startsWith("daily_summary:");
 }
 
-// Mock preferences for demo mode
-const mockPreferences: NotificationPreference[] = [
-  {
-    id: "pref-default-theme-surface-pro-8-in_app",
-    userId: "default",
-    themeId: "theme-surface-pro-8",
-    sourceId: null,
-    signal: null,
-    channel: "in_app",
-    isEnabled: true,
-    isMuted: false,
-    priorityOnly: false,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "pref-default-theme-pbc-open-market-in_app",
-    userId: "default",
-    themeId: "theme-pbc-open-market",
-    sourceId: null,
-    signal: null,
-    channel: "in_app",
-    isEnabled: true,
-    isMuted: false,
-    priorityOnly: false,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "pref-default-signal-30d_low-in_app",
-    userId: "default",
-    themeId: null,
-    sourceId: null,
-    signal: "30d_low",
-    channel: "in_app",
-    isEnabled: true,
-    isMuted: false,
-    priorityOnly: false,
-    createdAt: "2026-06-01T00:00:00Z",
-    updatedAt: "2026-06-01T00:00:00Z",
-  },
-];
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 export async function listNotificationPreferences(
   userId: string = "default",
 ): Promise<NotificationPreference[]> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockPreferences.filter((p) => p.userId === userId && !isSystemPreference(p.signal));
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("notification_preferences")
@@ -108,11 +70,7 @@ export async function listNotificationPreferences(
 export async function getNotificationPreference(
   preferenceId: string,
 ): Promise<NotificationPreference | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockPreferences.find((p) => p.id === preferenceId) ?? null;
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("notification_preferences")
@@ -150,7 +108,7 @@ export async function createNotificationPreference(
   input: NotificationPreferenceInput,
   userId: string = "default",
 ): Promise<NotificationPreference> {
-  const db = getDatabase();
+  const db = requireDatabase();
   const now = new Date().toISOString();
   const id = createId("notification_preferences");
 
@@ -170,11 +128,6 @@ export async function createNotificationPreference(
     createdAt: now,
     updatedAt: now,
   };
-
-  if (!db) {
-    mockPreferences.push(preference);
-    return preference;
-  }
 
   await db
     .insertInto("notification_preferences")
@@ -201,31 +154,7 @@ export async function updateNotificationPreference(
   preferenceId: string,
   input: Partial<NotificationPreferenceInput>,
 ): Promise<NotificationPreference | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockPreferences.findIndex((p) => p.id === preferenceId);
-    if (index === -1) return null;
-
-    const existing = mockPreferences[index];
-    const updated: NotificationPreference = {
-      ...existing,
-      themeId: input.themeId !== undefined ? input.themeId : existing.themeId,
-      sourceId: input.sourceId !== undefined ? input.sourceId : existing.sourceId,
-      signal: input.signal !== undefined ? input.signal : existing.signal,
-      channel: input.channel ?? existing.channel,
-      isEnabled: input.isEnabled ?? existing.isEnabled,
-      isMuted: input.isMuted ?? existing.isMuted,
-      priorityOnly: input.priorityOnly ?? existing.priorityOnly,
-      quietHoursStart: input.quietHoursStart !== undefined ? input.quietHoursStart : existing.quietHoursStart,
-      quietHoursEnd: input.quietHoursEnd !== undefined ? input.quietHoursEnd : existing.quietHoursEnd,
-      maxPerHour: input.maxPerHour !== undefined ? input.maxPerHour : existing.maxPerHour,
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockPreferences[index] = updated;
-    return updated;
-  }
+  const db = requireDatabase();
 
   const updatePatch: Record<string, unknown> = {};
 
@@ -258,15 +187,7 @@ export async function updateNotificationPreference(
 export async function deleteNotificationPreference(
   preferenceId: string,
 ): Promise<boolean> {
-  const db = getDatabase();
-
-  if (!db) {
-    const index = mockPreferences.findIndex((p) => p.id === preferenceId);
-    if (index === -1) return false;
-
-    mockPreferences.splice(index, 1);
-    return true;
-  }
+  const db = requireDatabase();
 
   const result = await db
     .deleteFrom("notification_preferences")
@@ -290,36 +211,7 @@ export async function getEffectivePreference(
   quietHoursEnd: string | null;
   maxPerHour: number | null;
 } | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    // In mock mode, find the most specific matching preference
-    const matched = mockPreferences
-      .filter((p) => p.userId === userId && p.channel === channel)
-      .filter((p) => {
-        if (themeId && p.themeId && p.themeId !== themeId) return false;
-        if (sourceId && p.sourceId && p.sourceId !== sourceId) return false;
-        if (signal && p.signal && p.signal !== signal) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        // More specific preferences first
-        const aSpecificity = (a.sourceId ? 3 : 0) + (a.themeId ? 2 : 0) + (a.signal ? 1 : 0);
-        const bSpecificity = (b.sourceId ? 3 : 0) + (b.themeId ? 2 : 0) + (b.signal ? 1 : 0);
-        return bSpecificity - aSpecificity;
-      })[0];
-
-    if (!matched) return null;
-
-    return {
-      isEnabled: matched.isEnabled,
-      isMuted: matched.isMuted,
-      priorityOnly: matched.priorityOnly,
-      quietHoursStart: matched.quietHoursStart ?? null,
-      quietHoursEnd: matched.quietHoursEnd ?? null,
-      maxPerHour: matched.maxPerHour ?? null,
-    };
-  }
+  const db = requireDatabase();
 
   // Query for the most specific matching preference
   let query = db

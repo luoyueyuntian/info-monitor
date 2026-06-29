@@ -9,7 +9,7 @@ import {
   DEMO_SOURCE_IDS,
   DEMO_THEME_IDS,
 } from "@info-monitor/shared-contracts";
-import type { EventSummary, NotificationItem, SourceStatus, ThemeSummary } from "./api";
+import type { EventSummary, NotificationItem, SourceStatus, ThemeSummary } from "../lib/api";
 
 type DemoThemeFixture = {
   theme: ThemeSummary;

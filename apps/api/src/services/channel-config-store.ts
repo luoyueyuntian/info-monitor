@@ -13,11 +13,17 @@
 import type { ChannelConfig } from "./notification-channels.js";
 import { getDatabase } from "../db/client.js";
 
-// Mock store for channel configs
-const mockChannelConfigs = new Map<string, ChannelConfig>();
-
 const SIGNAL_PREFIX = "channel_config:";
 const ID_PREFIX = "channel_config_";
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function configId(channel: string): string {
   return `${ID_PREFIX}${channel}`;
@@ -47,12 +53,7 @@ export async function saveChannelConfig(
   channel: string,
   config: ChannelConfig,
 ): Promise<void> {
-  const db = getDatabase();
-
-  if (!db) {
-    mockChannelConfigs.set(channel, config);
-    return;
-  }
+  const db = requireDatabase();
 
   const now = new Date().toISOString();
   const id = configId(channel);
@@ -94,11 +95,7 @@ export async function saveChannelConfig(
 export async function loadChannelConfig(
   channel: string,
 ): Promise<ChannelConfig | null> {
-  const db = getDatabase();
-
-  if (!db) {
-    return mockChannelConfigs.get(channel) ?? null;
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("notification_preferences")
@@ -124,15 +121,7 @@ export async function loadChannelConfig(
  * Load all saved channel configs.
  */
 export async function loadAllChannelConfigs(): Promise<Record<string, ChannelConfig>> {
-  const db = getDatabase();
-
-  if (!db) {
-    const result: Record<string, ChannelConfig> = {};
-    for (const [key, value] of mockChannelConfigs) {
-      result[key] = value;
-    }
-    return result;
-  }
+  const db = requireDatabase();
 
   const rows = await db
     .selectFrom("notification_preferences")

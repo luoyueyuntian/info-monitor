@@ -493,7 +493,7 @@ async function loadDailySummaryConfig() {
     // Use defaults
   }
 
-  // Load channel config from backend (with localStorage fallback)
+  // Load channel config from backend
   const channel = dailySummary.value.channel;
   if (channel !== "in_app") {
     try {

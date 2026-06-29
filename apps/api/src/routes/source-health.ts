@@ -26,11 +26,6 @@ async function getRecentRunMetrics(sourceId: string): Promise<{
 }> {
   const db = getDatabase();
 
-  if (!db) {
-    // Mock mode: return empty metrics (drift detection requires real run data)
-    return { recentRecordCounts: [], latestRecordCount: 0, latestSnapshotCount: 0, latestEventCount: 0 };
-  }
-
   try {
     // Use raw query since record_count/snapshot_count may not be in Kysely schema
     const { sql } = await import("kysely");

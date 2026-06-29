@@ -94,12 +94,7 @@ describe("stock-market-authority-brief-service", () => {
     expect(policy?.items[0].sourceHealth).toBe("mixed");
   });
 
-  it("builds exchange and regulatory sections from mock-mode sources", async () => {
-    const brief = await getStockMarketAuthorityBrief();
-
-    expect(brief.sections.some((section) => section.id === "macro")).toBe(true);
-    expect(brief.sections.some((section) => section.id === "regulatory")).toBe(true);
-    expect(brief.sections.some((section) => section.id === "exchange")).toBe(true);
-    expect(brief.mergedItemCount).toBeGreaterThan(0);
+  it("requires DATABASE_URL for runtime data loading", async () => {
+    await expect(getStockMarketAuthorityBrief()).rejects.toThrow(/DATABASE_URL/);
   });
 });

@@ -24,10 +24,7 @@ function toCstTime(date: Date): string {
 
 async function checkAndDeliver() {
   try {
-    const db = getDatabase();
-    if (!db) {
-      return;
-    }
+    getDatabase();
 
     const config = await getStockMarketCloseReportDeliveryConfig();
     if (!config.enabled) {

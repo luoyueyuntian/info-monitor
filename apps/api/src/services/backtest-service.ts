@@ -26,47 +26,6 @@ export type BacktestResult = {
   }>;
 };
 
-// Mock fallback for when DB is not available
-async function backtestMock(
-  sourceId: string,
-  startDate: string,
-  endDate: string,
-): Promise<BacktestResult> {
-  return {
-    sourceId,
-    themeId: "mock-theme",
-    startDate,
-    endDate,
-    totalRecords: 5,
-    hypotheticalEvents: [
-      {
-        event_type: "price_low",
-        signal: "30d_low",
-        title: "Price near 30-day low",
-        summary: "Current price is near the 30-day low, potential buying opportunity",
-        occurred_at: "2026-06-20T09:30:00+08:00",
-        evidence: ["Price: 1728.52", "30d low: 1710.00"],
-      },
-      {
-        event_type: "rsi_signal",
-        signal: "oversold",
-        title: "RSI oversold signal",
-        summary: "RSI(14) = 28.5, below oversold threshold of 30",
-        occurred_at: "2026-06-22T14:00:00+08:00",
-        evidence: ["RSI(14): 28.5", "Threshold: 30"],
-      },
-    ],
-    signalDistribution: { "30d_low": 1, oversold: 1 },
-    timeline: [
-      { recordId: "rec-1", occurredAt: "2026-06-18T09:30:00+08:00", title: "Price: 1750.00", eventCount: 0, signals: [] },
-      { recordId: "rec-2", occurredAt: "2026-06-19T09:30:00+08:00", title: "Price: 1735.00", eventCount: 0, signals: [] },
-      { recordId: "rec-3", occurredAt: "2026-06-20T09:30:00+08:00", title: "Price: 1728.52", eventCount: 1, signals: ["30d_low"] },
-      { recordId: "rec-4", occurredAt: "2026-06-21T09:30:00+08:00", title: "Price: 1720.00", eventCount: 0, signals: [] },
-      { recordId: "rec-5", occurredAt: "2026-06-22T14:00:00+08:00", title: "Price: 1715.00", eventCount: 1, signals: ["oversold"] },
-    ],
-  };
-}
-
 export async function runBacktest(
   sourceId: string,
   startDate: string,
@@ -74,7 +33,9 @@ export async function runBacktest(
   _detectorConfig?: Record<string, unknown>,
 ): Promise<BacktestResult> {
   const db = getDatabase();
-  if (!db) return backtestMock(sourceId, startDate, endDate);
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
 
   // In DB mode, fetch records and run backtest logic
   const records = await db

@@ -82,10 +82,7 @@ function isTradingDay(date: Date): boolean {
 
 async function checkAndSave() {
   try {
-    const db = getDatabase();
-    if (!db) {
-      return;
-    }
+    getDatabase();
 
     const now = new Date();
     const today = toCstDate(now);

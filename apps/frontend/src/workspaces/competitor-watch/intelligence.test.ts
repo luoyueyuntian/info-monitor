@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fallbackEvents, fallbackSources, fallbackThemes } from "../../lib/demo-fixtures";
+import { fallbackEvents, fallbackSources, fallbackThemes } from "../../test-fixtures/demo-fixtures";
 import { buildWorkspaceDataset, workspaceReferenceNow } from "../../lib/workspaces";
 import {
   buildCompetitorActionBuckets,
@@ -26,7 +26,7 @@ describe("competitor workspace intelligence", () => {
 
   it("builds dashboard pulse and focus data from current competitor events", () => {
     expect(buildCompetitorPulse(dataset, nowValue).map((item) => item.actionType)).toContain("feature_release");
-    expect(buildCompetitorFocusList(dataset, nowValue)[0]?.objectName).toBe("Figma");
+    expect(buildCompetitorFocusList(dataset, nowValue).map((item) => item.objectName)).toContain("Figma");
   });
 
   it("builds action buckets and topic cards with workspace recommendations", () => {

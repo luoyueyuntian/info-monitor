@@ -4,13 +4,12 @@
 
 ## 1. 概述
 
-项目中有三套 demo 数据，分别用于不同场景：
+项目中保留两套 demo / preview 数据，分别用于不同场景：
 
 | 数据位置 | 用途 | 运行环境 |
 |----------|------|----------|
 | `packages/shared-contracts/src/demo-scene-definitions.ts` | 共享定义（ID 常量、类型） | 前端/API 共享 |
-| `apps/frontend/src/lib/demo-fixtures.ts` | 前端 fallback 数据 | 浏览器 |
-| `apps/api/src/lib/mock-fixtures.ts` | API mock 数据 | Node API |
+| `apps/frontend/src/test-fixtures/demo-fixtures.ts` | 前端测试 / 演示数据资产 | 前端测试与静态示例 |
 | `scripts/lib/demo-scene-ids.mjs` | DB 种子脚本共享 ID | Node 脚本 |
 | `scripts/db-seed-*.mjs` | DB 种子脚本 | PostgreSQL |
 
@@ -95,7 +94,7 @@
 
 ### 4.2 字段差异
 
-| 字段 | 前端 demo-fixtures | API mock-fixtures | DB 种子 |
+| 字段 | 前端 demo-fixtures | DB 种子 |
 |------|-------------------|-------------------|---------|
 | `eventType` | 有 | 有 | 有 |
 | `evidence` | 无 | 有 | 有 |
@@ -129,8 +128,8 @@
 
 1. 在 `packages/shared-contracts/src/demo-scene-definitions.ts` 中添加 ID 常量和定义
 2. 在 `scripts/lib/demo-scene-ids.mjs` 中同步添加 ID 常量
-3. 在 `apps/frontend/src/lib/demo-fixtures.ts` 中添加前端 fallback 数据
-4. 在 `apps/api/src/lib/mock-fixtures.ts` 中添加 API mock 数据
+3. 在 `apps/frontend/src/test-fixtures/demo-fixtures.ts` 中添加前端测试或静态演示数据（如仍需要）
+4. 在 DB seed 脚本中添加对应的真实预览数据
 5. 如需 DB 种子数据，创建或更新 `scripts/db-seed-*.mjs`
 6. 更新本文档
 

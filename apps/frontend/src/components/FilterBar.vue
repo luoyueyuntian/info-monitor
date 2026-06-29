@@ -77,6 +77,13 @@
       </div>
     </section>
 
+    <div
+      v-if="savedViewsError"
+      class="mt-3 rounded-2xl border border-rose-200 bg-rose-50/60 px-4 py-3 text-[0.88rem] text-rose-700"
+    >
+      {{ savedViewsError }}
+    </div>
+
     <section class="mt-3 flex flex-wrap items-center gap-3">
       <slot />
     </section>
@@ -113,6 +120,7 @@ const emit = defineEmits<{
 const showSavedViews = ref(false);
 const newViewName = ref("");
 const savedViews = ref<SavedFilterView[]>([]);
+const savedViewsError = ref("");
 
 // Load from DB on mount
 onMounted(async () => {
@@ -120,7 +128,7 @@ onMounted(async () => {
     try {
       savedViews.value = await fetchSavedFilterViews(props.viewType);
     } catch {
-      // fallback already handled inside fetchSavedFilterViews
+      // Leave saved views empty when the backend is unavailable.
     }
   }
 });
@@ -132,13 +140,18 @@ const savedViewsList = computed(() => {
 
 async function handleSaveView() {
   if (!props.viewType || !newViewName.value.trim() || !props.currentFilters) return;
-  const saved = await saveFilterView({
-    name: newViewName.value.trim(),
-    viewType: props.viewType,
-    filters: props.currentFilters,
-  });
-  savedViews.value.push(saved);
-  newViewName.value = "";
+  savedViewsError.value = "";
+  try {
+    const saved = await saveFilterView({
+      name: newViewName.value.trim(),
+      viewType: props.viewType,
+      filters: props.currentFilters,
+    });
+    savedViews.value.push(saved);
+    newViewName.value = "";
+  } catch (e) {
+    savedViewsError.value = e instanceof Error ? e.message : "保存失败";
+  }
 }
 
 function handleLoadView(view: SavedFilterView) {
@@ -147,7 +160,12 @@ function handleLoadView(view: SavedFilterView) {
 }
 
 async function handleDeleteView(viewId: string) {
-  await deleteFilterView(viewId);
-  savedViews.value = savedViews.value.filter((v) => v.id !== viewId);
+  savedViewsError.value = "";
+  try {
+    await deleteFilterView(viewId);
+    savedViews.value = savedViews.value.filter((v) => v.id !== viewId);
+  } catch (e) {
+    savedViewsError.value = e instanceof Error ? e.message : "删除失败";
+  }
 }
 </script>

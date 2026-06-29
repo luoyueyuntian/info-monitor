@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { filterEventsByInboxSection, listInboxSectionEvents } from "./event-service.js";
 
-describe("event-service (mock mode)", () => {
+describe("event-service", () => {
   describe("filterEventsByInboxSection", () => {
     const events = [
       { id: "1", infoType: "price", signal: "30d_low" },
@@ -47,41 +47,10 @@ describe("event-service (mock mode)", () => {
     });
   });
 
-  describe("listInboxSectionEvents", () => {
-    it("returns all events when no section specified", async () => {
-      const events = await listInboxSectionEvents();
-
-      expect(events.length).toBeGreaterThanOrEqual(4);
-    });
-
-    it("returns filtered events for price-signals section", async () => {
-      const events = await listInboxSectionEvents("price-signals");
-
-      for (const event of events) {
-        expect(event.infoType).toBe("price");
-      }
-    });
-
-    it("returns filtered events for financial-events section", async () => {
-      const events = await listInboxSectionEvents("financial-events");
-
-      for (const event of events) {
-        expect(event.infoType).toBe("financial_event");
-      }
-    });
-
-    it("each event has required fields", async () => {
-      const events = await listInboxSectionEvents();
-
-      for (const event of events) {
-        expect(event).toHaveProperty("id");
-        expect(event).toHaveProperty("themeId");
-        expect(event).toHaveProperty("themeName");
-        expect(event).toHaveProperty("title");
-        expect(event).toHaveProperty("signal");
-        expect(event).toHaveProperty("occurredAt");
-        expect(event).toHaveProperty("summary");
-      }
+  describe("runtime database requirement", () => {
+    it("requires DATABASE_URL for inbox event queries", async () => {
+      await expect(listInboxSectionEvents()).rejects.toThrow(/DATABASE_URL/);
+      await expect(listInboxSectionEvents("price-signals")).rejects.toThrow(/DATABASE_URL/);
     });
   });
 });

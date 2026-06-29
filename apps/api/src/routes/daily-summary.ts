@@ -6,13 +6,6 @@ import { deliverDailySummary, getDailySummary } from "../services/daily-summary-
 import { getSummaryHistory, compareWithYesterday, saveDailySummarySnapshot, hasSnapshotForToday } from "../services/daily-summary-history.js";
 import type { ChannelConfig } from "../services/notification-channels.js";
 
-// In-memory fallback for mock mode
-let mockDailySummaryConfig: DailySummaryConfig = {
-  enabled: false,
-  channel: "in_app",
-  deliveryTime: "09:00",
-};
-
 type DailySummaryConfig = {
   enabled: boolean;
   channel: string;
@@ -20,6 +13,15 @@ type DailySummaryConfig = {
 };
 
 const DAILY_SUMMARY_SIGNAL_PREFIX = "daily_summary";
+
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
 
 function parseDeliveryTimeFromSignal(signal: string): string {
   // signal format: "daily_summary:HH:MM" or just "daily_summary"
@@ -31,11 +33,7 @@ function parseDeliveryTimeFromSignal(signal: string): string {
 }
 
 async function getDailySummaryConfig(): Promise<DailySummaryConfig> {
-  const db = getDatabase();
-
-  if (!db) {
-    return { ...mockDailySummaryConfig };
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("notification_preferences")
@@ -55,12 +53,7 @@ async function getDailySummaryConfig(): Promise<DailySummaryConfig> {
 }
 
 async function updateDailySummaryConfig(config: DailySummaryConfig): Promise<DailySummaryConfig> {
-  const db = getDatabase();
-
-  if (!db) {
-    mockDailySummaryConfig = { ...config };
-    return config;
-  }
+  const db = requireDatabase();
 
   // Upsert: delete existing daily_summary pref (any signal starting with prefix), insert new one
   await db

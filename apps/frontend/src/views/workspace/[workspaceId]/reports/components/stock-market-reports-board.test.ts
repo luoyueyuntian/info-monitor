@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import { describe, expect, it, vi } from "vitest";
 
 import StockMarketReportsBoard from "./StockMarketReportsBoard.vue";
-import { fallbackEvents, fallbackSources, fallbackThemes } from "../../../../../lib/demo-fixtures";
+import { fallbackEvents, fallbackSources, fallbackThemes } from "../../../../../test-fixtures/demo-fixtures";
 import { buildWorkspaceDataset, workspaceReferenceNow } from "../../../../../lib/workspaces";
 import { buildStockMarketAuthorityBrief } from "../../../../../workspaces/stock-market/authority-brief";
 

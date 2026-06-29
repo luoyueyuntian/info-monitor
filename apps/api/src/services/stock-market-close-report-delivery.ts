@@ -18,6 +18,15 @@ export type StockMarketCloseReportDeliveryConfig = {
 
 const STOCK_MARKET_REPORT_SIGNAL_PREFIX = "stock_market_close_report";
 
+function requireDatabase() {
+  const db = getDatabase();
+  if (!db) {
+    throw new Error("DATABASE_URL is required. Runtime mock mode has been removed.");
+  }
+
+  return db;
+}
+
 function parseDeliveryTimeFromSignal(signal: string): string {
   const parts = signal.split(":");
   if (parts.length === 3 && parts[0] === STOCK_MARKET_REPORT_SIGNAL_PREFIX) {
@@ -27,11 +36,7 @@ function parseDeliveryTimeFromSignal(signal: string): string {
 }
 
 export async function getStockMarketCloseReportDeliveryConfig(): Promise<StockMarketCloseReportDeliveryConfig> {
-  const db = getDatabase();
-
-  if (!db) {
-    return { enabled: false, channel: "in_app", deliveryTime: "16:25" };
-  }
+  const db = requireDatabase();
 
   const row = await db
     .selectFrom("notification_preferences")
@@ -53,11 +58,7 @@ export async function getStockMarketCloseReportDeliveryConfig(): Promise<StockMa
 export async function updateStockMarketCloseReportDeliveryConfig(
   config: StockMarketCloseReportDeliveryConfig,
 ): Promise<StockMarketCloseReportDeliveryConfig> {
-  const db = getDatabase();
-
-  if (!db) {
-    return config;
-  }
+  const db = requireDatabase();
 
   await db
     .deleteFrom("notification_preferences")
@@ -104,7 +105,7 @@ export async function deliverStockMarketCloseReport(
   }
 
   const { title, body } = formatReportForDelivery(report);
-  const db = getDatabase();
+  const db = requireDatabase();
   const notificationId = createId("notification");
   const now = new Date().toISOString();
 
@@ -131,27 +132,6 @@ export async function deliverStockMarketCloseReport(
       return { delivered: false, error: result.error };
     }
 
-    if (db) {
-      await db
-        .insertInto("notifications")
-        .values({
-          id: notificationId,
-          event_id: null,
-          channel,
-          status: "sent",
-          payload: JSON.stringify({ title, summary: body, signal: "stock_market_close_report", date: report.date }),
-          sent_at: now,
-          created_at: now,
-          retry_count: 0,
-          max_retries: 0,
-        })
-        .execute();
-    }
-
-    return { delivered: true, notificationId };
-  }
-
-  if (db) {
     await db
       .insertInto("notifications")
       .values({
@@ -166,7 +146,24 @@ export async function deliverStockMarketCloseReport(
         max_retries: 0,
       })
       .execute();
+
+    return { delivered: true, notificationId };
   }
+
+  await db
+    .insertInto("notifications")
+    .values({
+      id: notificationId,
+      event_id: null,
+      channel,
+      status: "sent",
+      payload: JSON.stringify({ title, summary: body, signal: "stock_market_close_report", date: report.date }),
+      sent_at: now,
+      created_at: now,
+      retry_count: 0,
+      max_retries: 0,
+    })
+    .execute();
 
   return { delivered: true, notificationId };
 }

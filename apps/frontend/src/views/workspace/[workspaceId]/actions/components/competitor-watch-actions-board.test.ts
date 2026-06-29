@@ -4,7 +4,7 @@ import { computed } from "vue";
 import { describe, expect, it, vi } from "vitest";
 
 import CompetitorWatchActionsBoard from "./CompetitorWatchActionsBoard.vue";
-import { fallbackEvents, fallbackSources, fallbackThemes } from "../../../../../lib/demo-fixtures";
+import { fallbackEvents, fallbackSources, fallbackThemes } from "../../../../../test-fixtures/demo-fixtures";
 import { buildWorkspaceDataset, workspaceReferenceNow } from "../../../../../lib/workspaces";
 
 const dataset = buildWorkspaceDataset("competitor-watch", fallbackThemes, fallbackEvents, fallbackSources);

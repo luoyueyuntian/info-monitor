@@ -4,6 +4,12 @@
       <h3>主题列表</h3>
       <span class="text-[0.88rem] text-ink-secondary">共 {{ themes.length }} 个主题</span>
     </div>
+    <div
+      v-if="favoriteError"
+      class="mb-3 rounded-2xl border border-rose-200 bg-rose-50/60 px-4 py-3 text-[0.88rem] text-rose-700"
+    >
+      {{ favoriteError }}
+    </div>
     <div v-if="themes.length" class="flex flex-col gap-3">
       <article
         v-for="theme in themes"
@@ -106,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import type { ThemeSummary } from "../../../lib/api";
 import { fetchThemeFavorites, setThemeFavorite } from "../../../lib/api";
 import { impactToneLabel, themeImpactTone } from "../../../lib/impact";
@@ -131,6 +137,7 @@ const emit = defineEmits<{
 }>();
 
 const favoriteIds = reactive(new Set<string>());
+const favoriteError = ref("");
 
 // Load favorites from DB on mount
 onMounted(async () => {
@@ -138,7 +145,7 @@ onMounted(async () => {
     const favs = await fetchThemeFavorites();
     for (const id of favs) favoriteIds.add(id);
   } catch {
-    // fallback handled inside fetchThemeFavorites
+    // Leave favorites empty when the backend is unavailable.
   }
 });
 
@@ -148,13 +155,18 @@ function isFavorited(themeId: string): boolean {
 
 async function toggleFavorite(themeId: string) {
   const currentlyFavorited = favoriteIds.has(themeId);
-  await setThemeFavorite(themeId, !currentlyFavorited);
-  if (currentlyFavorited) {
-    favoriteIds.delete(themeId);
-  } else {
-    favoriteIds.add(themeId);
+  favoriteError.value = "";
+  try {
+    await setThemeFavorite(themeId, !currentlyFavorited);
+    if (currentlyFavorited) {
+      favoriteIds.delete(themeId);
+    } else {
+      favoriteIds.add(themeId);
+    }
+    emit("favoriteChanged");
+  } catch (e) {
+    favoriteError.value = e instanceof Error ? e.message : "收藏失败";
   }
-  emit("favoriteChanged");
 }
 
 function themeDetailTarget(theme: ThemeSummary) {
