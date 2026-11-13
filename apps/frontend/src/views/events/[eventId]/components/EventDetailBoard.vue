@@ -6,6 +6,8 @@
       :handle-back="handleBack"
     />
 
+    <EventArticleReader v-if="detail.infoType === 'news_announcement'" :key="detail.id" :event-id="detail.id" />
+
     <EventDetailSummaryCard :detail="detail" />
 
     <EventDetailStatusCard
@@ -63,6 +65,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
 
+import EventArticleReader from "./EventArticleReader.vue";
 import EventDetailContextCard from "./EventDetailContextCard.vue";
 import EventDetailEvidenceCard from "./EventDetailEvidenceCard.vue";
 import EventDetailExplanationCard from "./EventDetailExplanationCard.vue";

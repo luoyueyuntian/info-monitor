@@ -10,6 +10,7 @@ from info_monitor_worker.config import load_config
 from typing import Any, Dict
 
 from info_monitor_worker.adapters.registry import get_adapter
+from info_monitor_worker.article_queue import enqueue_article
 from info_monitor_worker.db import create_db_engine
 from info_monitor_worker.detectors import get_detector
 from info_monitor_worker.event_rules.boll_signal import BOLLSignalRule
@@ -568,6 +569,11 @@ class WorkerService:
                                 fingerprint=fingerprint,
                                 content_json=to_json(normalized_record.content),
                             )
+
+                        if theme.info_type == 'news_announcement' and not is_replay:
+                            article_url = normalized_record.source_url or normalized_record.content.get('url')
+                            if isinstance(article_url, str):
+                                enqueue_article(connection, article_url, normalized_record.title)
 
                         # Index for search (best-effort)
                         try:

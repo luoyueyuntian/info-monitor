@@ -1,3 +1,4 @@
+import { getEventArticle } from "../services/article-service.js";
 import type { FastifyInstance } from "fastify";
 import type { EventPageQuery } from "@info-monitor/shared-contracts";
 import { listCompactEvents, listEventPage } from "../services/event-list-service.js";
@@ -54,6 +55,19 @@ export async function registerEventRoutes(app: FastifyInstance) {
     }
 
     return event;
+  });
+
+  app.get<{ Params: { eventId: string } }>("/api/events/:eventId/article", async (request, reply) => {
+    const article = await getEventArticle(request.params.eventId);
+    if (!article) { reply.code(404); return { message: "Event not found" }; }
+    return article;
+  });
+  app.post<{ Params: { eventId: string }; Body: { retry?: boolean } }>("/api/events/:eventId/article", {
+    schema: { body: { type: "object", additionalProperties: false, properties: { retry: { type: "boolean" } } } },
+  }, async (request, reply) => {
+    const article = await getEventArticle(request.params.eventId, { request: true, retry: request.body?.retry });
+    if (!article) { reply.code(404); return { message: "Event not found" }; }
+    return article;
   });
 
   app.patch<{ Params: { eventId: string } }>("/api/events/:eventId", async (request, reply) => {

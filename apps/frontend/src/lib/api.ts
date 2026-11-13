@@ -1171,6 +1171,19 @@ export async function fetchThemeDailyActivity(themeId: string, days: number = 7)
   return requestJsonStrict<ThemeDailyActivity>(`/themes/${themeId}/daily-activity?days=${days}`);
 }
 
+export async function fetchEventArticle(eventId: string, signal?: AbortSignal) {
+  return requestJsonStrict<import("@info-monitor/shared-contracts").NewsArticle>(`/events/${encodeURIComponent(eventId)}/article`, 0, signal);
+}
+
+export async function requestEventArticle(eventId: string, retry = false, signal?: AbortSignal) {
+  // Queueing an article does not change events; keep list caches warm.
+  const response = await fetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/article`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ retry }), signal,
+  });
+  if (!response.ok) throw new Error(`正文加载失败 (${response.status})`);
+  return await response.json() as import("@info-monitor/shared-contracts").NewsArticle;
+}
+
 export async function fetchEventDetail(eventId: string) {
   return requestJsonStrict<EventDetail>(`/events/${eventId}`);
 }

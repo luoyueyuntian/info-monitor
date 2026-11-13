@@ -143,6 +143,16 @@ export type TriggerReason = {
   originalRecord?: Record<string, unknown>;
 };
 
+export type NewsArticle = {
+  status: "not_requested" | "pending" | "running" | "ready" | "failed" | "unsupported";
+  url: string | null;
+  title: string;
+  contentText: string | null;
+  fetchedAt: string | null;
+  errorMessage: string | null;
+  retryAvailableAt: string | null;
+};
+
 export type EventDetail = EventSummary & {
   sourceName?: string | null;
   evidence: string[];

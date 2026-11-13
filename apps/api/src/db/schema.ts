@@ -202,7 +202,25 @@ export interface WorkspaceCloseReportsTable {
   created_at: TimestampColumn;
 }
 
+export interface NewsArticlesTable {
+  id: string;
+  url: string;
+  title: string;
+  status: "pending" | "running" | "ready" | "failed";
+  content_text: string | null;
+  final_url: string | null;
+  error_message: string | null;
+  fetched_at: TimestampColumn | null;
+  claim_token: string | null;
+  lease_expires_at: TimestampColumn | null;
+  attempt_count: number;
+  requested_at: TimestampColumn | null;
+  created_at: TimestampColumn;
+  updated_at: TimestampColumn;
+}
+
 export interface Database {
+  news_articles: NewsArticlesTable;
   themes: ThemesTable;
   sources: SourcesTable;
   source_runs: SourceRunsTable;
