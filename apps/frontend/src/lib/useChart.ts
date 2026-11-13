@@ -1,40 +1,34 @@
+import { loadChartRuntime } from "./chart-loader";
 import { type Ref, markRaw, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from "vue";
-import * as echarts from "echarts";
+import type { EChartsType } from "echarts/core";
 import type { EChartsOption } from "echarts";
 
-export function useChart(
-  containerRef: Ref<HTMLElement | null>,
-  options: () => EChartsOption,
-) {
-  const chart = shallowRef<echarts.ECharts | null>(null);
-
-  function init() {
-    if (!containerRef.value) return;
-    chart.value = markRaw(echarts.init(containerRef.value));
+export function useChart(containerRef: Ref<HTMLElement | null>, options: () => EChartsOption) {
+  const chart = shallowRef<EChartsType | null>(null);
+  let disposed = false;
+  let observer: ResizeObserver | undefined;
+  let frame: number | undefined;
+  const resize = () => {
+    if (disposed || frame !== undefined) return;
+    frame = requestAnimationFrame(() => { frame = undefined; if (!disposed) chart.value?.resize(); });
+  };
+  onMounted(async () => {
+    await nextTick();
+    const runtime = await loadChartRuntime();
+    if (disposed || !containerRef.value) return;
+    chart.value = markRaw(runtime.init(containerRef.value));
     chart.value.setOption(options());
-  }
-
-  function update() {
-    if (chart.value) {
-      chart.value.setOption(options(), { notMerge: true });
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(resize); observer.observe(containerRef.value);
     }
-  }
-
-  function resize() {
-    chart.value?.resize();
-  }
-
-  onMounted(() => {
-    nextTick(init);
     window.addEventListener("resize", resize);
   });
-
+  watch(options, () => chart.value?.setOption(options(), { notMerge: true }), { deep: true });
   onBeforeUnmount(() => {
-    window.removeEventListener("resize", resize);
-    chart.value?.dispose();
+    disposed = true;
+    observer?.disconnect(); window.removeEventListener("resize", resize);
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    chart.value?.dispose(); chart.value = null;
   });
-
-  watch(options, update, { deep: true });
-
   return { chart, resize };
 }

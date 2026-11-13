@@ -41,7 +41,7 @@ def ensure_iso_with_tz(value: str, fallback: Optional[str] = None) -> str:
         return fallback if fallback is not None else now_cst()
 
     # Has T and already has timezone suffix — return as-is
-    if "T" in stripped and has_tz_suffix(stripped):
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", stripped) and has_tz_suffix(stripped):
         return stripped
 
     # ISO date-only: YYYY-MM-DD
@@ -49,7 +49,7 @@ def ensure_iso_with_tz(value: str, fallback: Optional[str] = None) -> str:
         return f"{stripped}T00:00:00+08:00"
 
     # Has T but no timezone — append CST
-    if "T" in stripped:
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", stripped):
         return f"{stripped}+08:00"
 
     # Human-readable date — try dateutil parse
@@ -75,7 +75,7 @@ def normalize_pub_date(pub_date: str) -> str:
         return now_cst()
 
     # Already has timezone — return as-is
-    if "T" in stripped and has_tz_suffix(stripped):
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", stripped) and has_tz_suffix(stripped):
         return stripped
 
     # Simple slash-separated date: YYYY/MM/DD or YYYY/MM/DD HH:MM:SS
@@ -86,7 +86,7 @@ def normalize_pub_date(pub_date: str) -> str:
         return f"{normalized}T00:00:00+08:00"
 
     # Has T but no timezone
-    if "T" in normalized:
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", normalized):
         return f"{normalized}+08:00"
 
     # Other formats — try dateutil

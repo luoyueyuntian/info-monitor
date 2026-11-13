@@ -1,52 +1,99 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 
-def fetch_pending_runs(connection: Connection, limit: int = 5) -> List[Dict[str, Any]]:
-    rows = connection.execute(
-        text(
-            """
-            select
-              sr.id as run_id,
-              sr.theme_id as theme_id,
-              sr.source_id as source_id,
-              sr.trigger_type as trigger_type,
-              sr.replay_snapshot_id as replay_snapshot_id,
-              t.name as theme_name,
-              t.info_type as info_type,
-              s.name as source_name,
-              s.source_type as source_type,
-              s.adapter_key as adapter_key,
-              s.config as source_config
-            from source_runs sr
-            inner join themes t on t.id = sr.theme_id
-            inner join sources s on s.id = sr.source_id
-            where sr.status = 'pending'
-            order by sr.created_at asc
-            limit :limit
-            """
-        ),
-        {"limit": limit},
-    )
-    return [dict(row._mapping) for row in rows]
+def claim_pending_runs(
+    connection: Connection, limit: int = 5, lease_seconds: int = 600, max_run_seconds: int = 1800,
+    exclude_run_ids: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    # Source locks serialize claimers. The following statement gets a fresh
+    # READ COMMITTED snapshot after locking, so a newly committed running task
+    # cannot be missed by a concurrent claimer.
+    sources = connection.execute(text("""
+        select s.id from sources s
+        where exists (select 1 from source_runs r where r.source_id=s.id and r.status='pending' and r.id <> all(cast(:excluded as text[])))
+          and not exists (select 1 from source_runs r where r.source_id=s.id and r.status='running')
+        order by (select min(r.created_at) from source_runs r where r.source_id=s.id and r.status='pending'), s.id
+        limit :limit for update of s skip locked
+    """), {"limit": limit, "excluded": exclude_run_ids or []}).scalars().all()
+    claimed = []
+    for source_id in sources:
+        row = connection.execute(text("""
+            with candidate as (
+                select r.id from source_runs r
+                where r.source_id=:source_id and r.status='pending' and r.id <> all(cast(:excluded as text[]))
+                  and not exists (select 1 from source_runs active where active.source_id=:source_id and active.status='running')
+                order by r.created_at, r.id limit 1 for update of r skip locked
+            ), claimed as (
+                update source_runs r set status='running', started_at=now(), finished_at=null,
+                  error_message=null, claim_token=:token, attempt_count=attempt_count+1,
+                  lease_expires_at=now()+make_interval(secs => :lease)
+                from candidate where r.id=candidate.id returning r.*
+            )
+            select r.id as run_id, r.theme_id, r.source_id, r.trigger_type, r.replay_snapshot_id,
+              r.claim_token, r.attempt_count, t.name as theme_name, t.info_type,
+              s.name as source_name, s.source_type, s.adapter_key, s.config as source_config
+            from claimed r join themes t on t.id=r.theme_id join sources s on s.id=r.source_id
+        """), {"source_id": source_id, "token": uuid4().hex,
+               "lease": min(lease_seconds, max_run_seconds), "excluded": exclude_run_ids or []}).first()
+        if row:
+            claimed.append(dict(row._mapping))
+    return claimed
 
 
-def mark_run_running(connection: Connection, run_id: str) -> None:
-    connection.execute(
-        text(
-            """
-            update source_runs
-            set status = 'running',
-                started_at = now()
-            where id = :run_id
-            """
-        ),
-        {"run_id": run_id},
-    )
+def verify_run_claim(connection: Connection, run_id: str, token: str) -> bool:
+    return connection.execute(text("""
+        select id from source_runs where id=:id and status='running'
+          and claim_token=:token and lease_expires_at>now() for update
+    """), {"id": run_id, "token": token}).first() is not None
+
+
+def renew_run_leases(
+    connection: Connection, claims: Dict[str, str], lease_seconds: int = 600,
+    max_run_seconds: int = 1800,
+) -> int:
+    renewed = 0
+    for run_id, token in claims.items():
+        result = connection.execute(text("""
+            with active as (
+                select id from source_runs where id=:id and claim_token=:token and status='running'
+                  and lease_expires_at>now() and started_at+make_interval(secs => :maximum)>now()
+                for update skip locked
+            )
+            update source_runs r set lease_expires_at=least(
+                now()+make_interval(secs => :lease), r.started_at+make_interval(secs => :maximum))
+            from active where r.id=active.id
+        """), {"id": run_id, "token": token, "lease": lease_seconds, "maximum": max_run_seconds})
+        renewed += result.rowcount
+    return renewed
+
+
+def recover_expired_runs(connection: Connection, lease_seconds: int = 600, max_attempts: int = 3) -> int:
+    rows = connection.execute(text("""
+        with expired as (
+            select id from source_runs where status='running'
+              and coalesce(lease_expires_at, coalesce(started_at,created_at)+make_interval(secs => :lease))<=now()
+            order by created_at limit 100 for update skip locked
+        )
+        update source_runs r set
+          status=case when attempt_count>=:maximum then 'failed' else 'pending' end,
+          claim_token=null, lease_expires_at=null,
+          finished_at=case when attempt_count>=:maximum then now() else null end,
+          error_message='Worker lease expired; recovery attempt limit applies'
+        from expired where r.id=expired.id
+        returning r.id, r.source_id, r.trigger_type, r.status
+    """), {"lease": lease_seconds, "maximum": max_attempts}).all()
+    for row in rows:
+        if row.status == "failed":
+            mark_run_failed(connection, row.id, row.source_id,
+                            "Worker lease expired; maximum recovery attempts reached",
+                            is_test=row.trigger_type == "test")
+    return len(rows)
 
 
 def mark_run_completed(connection: Connection, run_id: str, source_id: str, is_test: bool = False) -> None:
@@ -55,6 +102,7 @@ def mark_run_completed(connection: Connection, run_id: str, source_id: str, is_t
             """
             update source_runs
             set status = 'completed',
+                claim_token = null, lease_expires_at = null,
                 finished_at = now(),
                 error_message = null
             where id = :run_id
@@ -84,6 +132,7 @@ def mark_run_failed(connection: Connection, run_id: str, source_id: str, error_m
             """
             update source_runs
             set status = 'failed',
+                claim_token = null, lease_expires_at = null,
                 finished_at = now(),
                 error_message = :error_message
             where id = :run_id

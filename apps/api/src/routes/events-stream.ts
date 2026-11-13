@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { eventBus } from "../services/event-bus.js";
 
 export async function registerEventStreamRoutes(app: FastifyInstance) {
-  app.get("/api/events/stream", async (request, reply) => {
+  app.get("/api/events/stream", { config: { compress: false } }, async (request, reply) => {
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",

@@ -10,6 +10,7 @@ import os
 import random
 import time
 from typing import Any
+from threading import Lock, local
 from urllib.parse import urlparse
 
 import httpx
@@ -44,17 +45,19 @@ class _RateLimiter:
     def __init__(self, max_per_second: float = 2.0):
         self._max_per_second = max_per_second
         self._last_request: dict[str, float] = {}
+        self._lock = Lock()
 
     def wait(self, domain: str) -> None:
         if self._max_per_second <= 0:
             return
-        now = time.monotonic()
-        last = self._last_request.get(domain, 0.0)
-        interval = 1.0 / self._max_per_second
-        elapsed = now - last
-        if elapsed < interval:
-            time.sleep(interval - elapsed)
-        self._last_request[domain] = time.monotonic()
+        with self._lock:
+            now = time.monotonic()
+            interval = 1.0 / self._max_per_second
+            reserved = max(now, self._last_request.get(domain, now - interval) + interval)
+            self._last_request[domain] = reserved
+        if reserved > now:
+            time.sleep(reserved - now)
+
 
 
 class HttpClient:
@@ -70,10 +73,38 @@ class HttpClient:
         user_agents: list[str] | None = None,
     ):
         self._timeout = timeout
-        self._max_retries = max_retries
+        self._max_retries = max(1, max_retries)
         self._user_agents = user_agents or list(_DEFAULT_USER_AGENTS)
         self._rate_limiter = _RateLimiter(rate_limit_per_second)
         self._proxy = proxy
+        self._local = local()
+        self._clients = []
+        self._clients_lock = Lock()
+        self._closed = False
+
+    def _session(self):
+        if self._closed:
+            raise RuntimeError("HTTP client is closed")
+        client = getattr(self._local, "client", None)
+        if client is None:
+            options = {"timeout": self._timeout}
+            if self._proxy:
+                options["proxy"] = self._proxy
+            client = httpx.Client(**options)
+            with self._clients_lock:
+                if self._closed:
+                    client.close()
+                    raise RuntimeError("HTTP client is closed")
+                self._clients.append(client)
+            self._local.client = client
+        return client
+
+    def close(self):
+        with self._clients_lock:
+            self._closed = True
+            clients, self._clients = self._clients, []
+        for client in clients:
+            client.close()
 
     def _pick_ua(self) -> str:
         return random.choice(self._user_agents)
@@ -143,17 +174,11 @@ class HttpClient:
             if headers:
                 merged_headers.update(headers)
 
-            client_kwargs: dict[str, Any] = {
-                "timeout": self._timeout,
-                "headers": merged_headers,
-                "follow_redirects": follow_redirects,
-            }
-            if self._proxy:
-                client_kwargs["proxy"] = self._proxy
-
             try:
-                with httpx.Client(**client_kwargs) as client:
-                    response = client.request(method, url, params=params, data=data, json=json)
+                response = self._session().request(
+                    method, url, params=params, data=data, json=json,
+                    headers=merged_headers, follow_redirects=follow_redirects,
+                )
 
                 self._check_response(response)
 
@@ -229,11 +254,21 @@ def _create_client() -> HttpClient:
 
 
 _instance: HttpClient | None = None
+_instance_lock = Lock()
 
 
 def get_http_client() -> HttpClient:
     """Return a module-level singleton HttpClient."""
     global _instance
-    if _instance is None:
-        _instance = _create_client()
+    with _instance_lock:
+        if _instance is None:
+            _instance = _create_client()
     return _instance
+
+
+def close_http_client() -> None:
+    global _instance
+    with _instance_lock:
+        client, _instance = _instance, None
+    if client:
+        client.close()

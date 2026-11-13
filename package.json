@@ -24,6 +24,7 @@
     "deploy:api": "bash ./deploy.sh api",
     "deploy:worker": "bash ./deploy.sh worker",
     "deploy:scheduler": "bash ./deploy.sh scheduler",
+    "db:archive": "bash ./scripts/archive-failed-runs.sh",
     "db:migrate": "bash ./scripts/db-apply-migrations.sh",
     "db:seed:demo": "node ./scripts/db-seed-demo.mjs",
     "db:seed:eastmoney-demo": "node ./scripts/db-seed-eastmoney-stock-demo.mjs",

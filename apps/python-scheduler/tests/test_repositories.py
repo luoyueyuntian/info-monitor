@@ -19,9 +19,11 @@ class FetchSchedulableSourcesTest(unittest.TestCase):
                       id text primary key,
                       theme_id text not null,
                       config text,
+                      adapter_key text default 'rss_feed',
                       is_paused boolean not null default false,
                       status text not null,
                       latest_success_at text,
+                      latest_failure_at text,
                       created_at text
                     )
                     """
@@ -85,6 +87,7 @@ class FetchSchedulableSourcesTest(unittest.TestCase):
 
             rows = fetch_schedulable_sources(connection)
 
+        self.assertTrue(all(row["adapter_key"] == "rss_feed" for row in rows))
         self.assertEqual(
             [row["source_id"] for row in rows],
             ["source_active", "source_healthy", "source_warning"],

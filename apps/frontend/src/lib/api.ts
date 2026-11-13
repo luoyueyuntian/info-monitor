@@ -1,3 +1,5 @@
+import { cachedRead, invalidateReadCache } from "./request-cache";
+import type { EventPage, EventPageQuery } from "@info-monitor/shared-contracts";
 import type { SourcePreset, SourcePresetFieldType } from "../views/sources/components/source-presets";
 
 import type {
@@ -1100,14 +1102,26 @@ function buildFallbackThemeArtifacts(theme: ThemeSummary, events: EventSummary[]
   };
 }
 
-async function requestJsonStrict<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const response = await fetch(input, init);
+  if (response.ok && init?.method && !["GET", "HEAD"].includes(init.method.toUpperCase())) invalidateReadCache();
+  return response;
+}
 
-  if (!response.ok) {
-    throw new Error(`请求失败 (${response.status})`);
-  }
+async function requestJsonStrict<T>(path: string, cacheMs = 0, signal?: AbortSignal): Promise<T> {
+  const load = async () => {
+    const response = await apiFetch(`${API_BASE_URL}${path}`, { signal });
+    if (!response.ok) throw new Error(`请求失败 (${response.status})`);
+    return (await response.json()) as T;
+  };
+  return cacheMs ? cachedRead(`${API_BASE_URL}${path}`, load, cacheMs) : load();
+}
 
-  return (await response.json()) as T;
+export async function fetchWorkspaceData(id: import("@info-monitor/shared-contracts").WorkspaceId) {
+  return requestJsonStrict<import("@info-monitor/shared-contracts").WorkspaceDataResponse>(`/workspaces/${id}`, 10_000);
+}
+export async function fetchWorkspaceIndex() {
+  return requestJsonStrict<import("@info-monitor/shared-contracts").WorkspaceIndexResponse>("/workspaces", 10_000);
 }
 
 export async function fetchDashboard() {
@@ -1118,11 +1132,11 @@ export async function fetchDashboard() {
     sectionCounts: InboxSectionCounts;
     themes: ThemeSummary[];
     sources: SourceStatus[];
-  }>("/dashboard");
+  }>("/dashboard", 10_000);
 }
 
 export async function fetchThemes() {
-  return requestJsonStrict<ThemeSummary[]>("/themes");
+  return requestJsonStrict<ThemeSummary[]>("/themes", 15_000);
 }
 
 export async function fetchThemeDetail(themeId: string) {
@@ -1166,7 +1180,7 @@ export async function updateEvent(eventId: string, input: {
   isRead?: boolean;
   isBookmarked?: boolean;
 }) {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/events/${eventId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1212,7 +1226,7 @@ export async function fetchEventFeedback(eventId: string) {
 }
 
 export async function upsertEventFeedback(eventId: string, feedback: EventFeedback, note?: string) {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
+  const response = await apiFetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1228,7 +1242,7 @@ export async function upsertEventFeedback(eventId: string, feedback: EventFeedba
 }
 
 export async function deleteEventFeedback(eventId: string) {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
+  const response = await apiFetch(`${API_BASE_URL}/events/${eventId}/feedback`, {
     method: "DELETE",
   });
 
@@ -1251,11 +1265,19 @@ export async function fetchInboxSectionEvents(sectionId: string) {
 }
 
 export async function fetchEvents() {
-  return requestJsonStrict<EventSummary[]>("/events");
+  return requestJsonStrict<EventSummary[]>("/events?view=compact", 15_000);
+}
+
+export async function fetchEventPage(input: EventPageQuery, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  return requestJsonStrict<EventPage>(`/events/page?${params}`, 0, signal);
 }
 
 export async function fetchSourceStatuses() {
-  return requestJsonStrict<SourceStatus[]>("/sources/status");
+  return requestJsonStrict<SourceStatus[]>("/sources/status", 15_000);
 }
 
 export async function fetchSourceDetail(sourceId: string) {
@@ -1292,7 +1314,7 @@ export async function validateSourceConfig(input: {
   config?: Record<string, unknown>;
   name?: string;
 }) {
-  const response = await fetch(`${API_BASE_URL}/sources/validate`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1318,7 +1340,7 @@ export async function createSource(input: {
   config?: Record<string, unknown>;
   onboardingStatus?: "draft" | "ready_to_test" | "active";
 }) {
-  const response = await fetch(`${API_BASE_URL}/sources`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1337,7 +1359,7 @@ export async function createSource(input: {
 }
 
 export async function triggerSourceRun(sourceId: string) {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/runs`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/runs`, {
     method: "POST",
   });
 
@@ -1349,7 +1371,7 @@ export async function triggerSourceRun(sourceId: string) {
 }
 
 export async function retrySourceAfterFailure(sourceId: string, failedRunId: string) {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/runs/${failedRunId}/retry`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/runs/${failedRunId}/retry`, {
     method: "POST",
   });
 
@@ -1366,7 +1388,7 @@ export async function retrySourceAfterFailure(sourceId: string, failedRunId: str
 }
 
 export async function triggerTestSourceRun(sourceId: string) {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/test-run`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/test-run`, {
     method: "POST",
   });
 
@@ -1378,7 +1400,7 @@ export async function triggerTestSourceRun(sourceId: string) {
 }
 
 export async function triggerSourceReplay(sourceId: string, snapshotId: string) {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/replay`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/replay`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ snapshotId }),
@@ -1452,7 +1474,7 @@ export async function updateSource(input: {
   isPaused?: boolean;
   onboardingStatus?: "draft" | "ready_to_test" | "active";
 }) {
-  const response = await fetch(`${API_BASE_URL}/sources/${input.sourceId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${input.sourceId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1480,7 +1502,7 @@ export async function updateSource(input: {
 }
 
 export async function deleteSource(sourceId: string) {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}`, {
     method: "DELETE",
   });
 
@@ -1506,7 +1528,7 @@ export async function createTheme(input: {
     config?: Record<string, unknown>;
   }>;
 }) {
-  const response = await fetch(`${API_BASE_URL}/themes`, {
+  const response = await apiFetch(`${API_BASE_URL}/themes`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1531,7 +1553,7 @@ export async function updateTheme(input: {
   description?: string | null;
   status?: string;
 }) {
-  const response = await fetch(`${API_BASE_URL}/themes/${input.themeId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/themes/${input.themeId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1553,7 +1575,7 @@ export async function updateTheme(input: {
 }
 
 export async function deleteTheme(themeId: string) {
-  const response = await fetch(`${API_BASE_URL}/themes/${themeId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/themes/${themeId}`, {
     method: "DELETE",
   });
 
@@ -1586,7 +1608,7 @@ export async function updateThemeReviewNote(
   tags?: string[],
   nextReviewDate?: string | null,
 ) {
-  const response = await fetch(`${API_BASE_URL}/themes/${themeId}/review-note`, {
+  const response = await apiFetch(`${API_BASE_URL}/themes/${themeId}/review-note`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1669,7 +1691,7 @@ export async function fetchNotifications(options?: {
 }
 
 export async function markNotificationRead(notificationId: string) {
-  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/notifications/${notificationId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1688,7 +1710,7 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 export async function batchMarkNotificationsRead(notificationIds: string[]) {
-  const response = await fetch(`${API_BASE_URL}/notifications/batch/read`, {
+  const response = await apiFetch(`${API_BASE_URL}/notifications/batch/read`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1707,7 +1729,7 @@ export async function batchDeleteNotifications(filter: {
   status?: string;
   channel?: string;
 }) {
-  const response = await fetch(`${API_BASE_URL}/notifications/batch/delete`, {
+  const response = await apiFetch(`${API_BASE_URL}/notifications/batch/delete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1723,7 +1745,7 @@ export async function batchDeleteNotifications(filter: {
 }
 
 export async function clearUnreadByTheme(themeId: string) {
-  const response = await fetch(`${API_BASE_URL}/notifications/batch/clear-unread/${themeId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/notifications/batch/clear-unread/${themeId}`, {
     method: "POST",
   });
 
@@ -1735,7 +1757,7 @@ export async function clearUnreadByTheme(themeId: string) {
 }
 
 export async function retryFailedNotification(notificationId: string) {
-  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/retry`, {
+  const response = await apiFetch(`${API_BASE_URL}/notifications/${notificationId}/retry`, {
     method: "POST",
   });
 
@@ -1813,7 +1835,7 @@ export async function fetchNotificationTimeline(notificationId: string) {
 
 // Channel Config API
 export async function saveChannelConfigToBackend(channel: string, config: ChannelConfig) {
-  const response = await fetch(`${API_BASE_URL}/channels/${channel}/config`, {
+  const response = await apiFetch(`${API_BASE_URL}/channels/${channel}/config`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ config }),
@@ -1828,7 +1850,7 @@ export async function saveChannelConfigToBackend(channel: string, config: Channe
 
 export async function loadChannelConfigFromBackend(channel: string): Promise<ChannelConfig | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/channels/${channel}/config`);
+    const response = await apiFetch(`${API_BASE_URL}/channels/${channel}/config`);
     if (!response.ok) return null;
     const data = await response.json() as { channel: string; config: ChannelConfig };
     return data.config;
@@ -1962,7 +1984,7 @@ export async function fetchNotificationPreferences() {
 }
 
 export async function createNotificationPreference(input: NotificationPreferenceInput) {
-  const response = await fetch(`${API_BASE_URL}/notification-preferences`, {
+  const response = await apiFetch(`${API_BASE_URL}/notification-preferences`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1981,7 +2003,7 @@ export async function updateNotificationPreference(
   preferenceId: string,
   input: Partial<NotificationPreferenceInput>,
 ) {
-  const response = await fetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1997,7 +2019,7 @@ export async function updateNotificationPreference(
 }
 
 export async function deleteNotificationPreference(preferenceId: string) {
-  const response = await fetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/notification-preferences/${preferenceId}`, {
     method: "DELETE",
   });
 
@@ -2030,7 +2052,7 @@ export async function fetchRuleConfigurations(options?: {
 }
 
 export async function createRuleConfiguration(input: RuleConfigurationInput) {
-  const response = await fetch(`${API_BASE_URL}/rule-configurations`, {
+  const response = await apiFetch(`${API_BASE_URL}/rule-configurations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -2049,7 +2071,7 @@ export async function updateRuleConfiguration(
   configId: string,
   input: Partial<RuleConfigurationInput>,
 ) {
-  const response = await fetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -2065,7 +2087,7 @@ export async function updateRuleConfiguration(
 }
 
 export async function deleteRuleConfiguration(configId: string) {
-  const response = await fetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/rule-configurations/${configId}`, {
     method: "DELETE",
   });
 
@@ -2092,7 +2114,7 @@ export async function deliverDailySummary(
   channel: string = "in_app",
   channelConfig?: ChannelConfig,
 ): Promise<{ delivered: boolean; notificationId?: string }> {
-  const response = await fetch(`${API_BASE_URL}/daily-summary/deliver`, {
+  const response = await apiFetch(`${API_BASE_URL}/daily-summary/deliver`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ channel, channelConfig }),
@@ -2144,7 +2166,7 @@ export async function fetchDailySummaryConfig(): Promise<DailySummaryConfig> {
 }
 
 export async function updateDailySummaryConfig(config: DailySummaryConfig): Promise<DailySummaryConfig> {
-  const response = await fetch(`${API_BASE_URL}/daily-summary/config`, {
+  const response = await apiFetch(`${API_BASE_URL}/daily-summary/config`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -2182,7 +2204,7 @@ export async function fetchStockMarketCloseReportSnapshotByDate(date: string): P
 }
 
 export async function saveStockMarketCloseReport(): Promise<StockMarketCloseReportSnapshot> {
-  const response = await fetch(`${API_BASE_URL}/stock-market-report/save`, {
+  const response = await apiFetch(`${API_BASE_URL}/stock-market-report/save`, {
     method: "POST",
   });
 
@@ -2198,7 +2220,7 @@ export async function fetchStockMarketCloseReportConfig(): Promise<StockMarketCl
 }
 
 export async function updateStockMarketCloseReportConfig(config: StockMarketCloseReportConfig): Promise<StockMarketCloseReportConfig> {
-  const response = await fetch(`${API_BASE_URL}/stock-market-report/config`, {
+  const response = await apiFetch(`${API_BASE_URL}/stock-market-report/config`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -2332,7 +2354,7 @@ export async function fetchSourceConfigHistory(sourceId: string): Promise<Source
 }
 
 export async function rollbackSourceConfig(sourceId: string, version: number): Promise<{ success: boolean }> {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/config-rollback`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/config-rollback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ version }),
@@ -2359,7 +2381,7 @@ export async function fetchThemeFavorites(): Promise<string[]> {
 }
 
 export async function setThemeFavorite(themeId: string, favorited: boolean): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/user-preferences/favorites/${themeId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/user-preferences/favorites/${themeId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ favorited }),
@@ -2427,7 +2449,7 @@ export async function fetchSavedFilterViews(viewType?: string): Promise<SavedFil
 export async function saveFilterView(
   view: Omit<SavedFilterView, "id" | "createdAt">,
 ): Promise<SavedFilterView> {
-  const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views`, {
+  const response = await apiFetch(`${API_BASE_URL}/user-preferences/saved-views`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(view),
@@ -2442,7 +2464,7 @@ export async function saveFilterView(
 }
 
 export async function deleteFilterView(viewId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/user-preferences/saved-views/${viewId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/user-preferences/saved-views/${viewId}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -2489,7 +2511,7 @@ export async function searchQuery(
   if (options?.type) params.set("type", options.type);
   if (options?.themeId) params.set("themeId", options.themeId);
 
-  const response = await fetch(`${API_BASE_URL}/search?${params.toString()}`);
+  const response = await apiFetch(`${API_BASE_URL}/search?${params.toString()}`);
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -2531,7 +2553,7 @@ export async function triggerBacktest(
   endDate: string,
   detectorConfig?: Record<string, unknown>,
 ): Promise<BacktestResult> {
-  const response = await fetch(`${API_BASE_URL}/sources/${sourceId}/backtest`, {
+  const response = await apiFetch(`${API_BASE_URL}/sources/${sourceId}/backtest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ startDate, endDate, detectorConfig }),

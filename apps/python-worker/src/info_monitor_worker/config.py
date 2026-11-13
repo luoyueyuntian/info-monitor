@@ -15,6 +15,10 @@ class WorkerConfig:
     # Meilisearch
     meili_host: str
     meili_api_key: str
+    concurrency: int = 2
+    lease_seconds: int = 600
+    max_attempts: int = 3
+    max_run_seconds: int = 1800
 
 
 def load_config() -> WorkerConfig:
@@ -28,4 +32,8 @@ def load_config() -> WorkerConfig:
         http_proxy=os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY") or None,
         meili_host=os.getenv("MEILI_HOST", ""),
         meili_api_key=os.getenv("MEILI_API_KEY", ""),
+        concurrency=min(8, max(1, int(os.getenv("WORKER_CONCURRENCY", "2")))),
+        lease_seconds=max(60, int(os.getenv("WORKER_LEASE_SECONDS", "600"))),
+        max_attempts=max(1, int(os.getenv("WORKER_MAX_ATTEMPTS", "3"))),
+        max_run_seconds=max(60, int(os.getenv("WORKER_MAX_RUN_SECONDS", "1800"))),
     )

@@ -1,4 +1,6 @@
 import type { FastifyInstance } from "fastify";
+import type { EventPageQuery } from "@info-monitor/shared-contracts";
+import { listCompactEvents, listEventPage } from "../services/event-list-service.js";
 
 import {
   getEventDetail,
@@ -22,7 +24,26 @@ export async function registerEventRoutes(app: FastifyInstance) {
     return listInboxSectionEvents(request.params.sectionId);
   });
 
-  app.get("/api/events", async () => listInboxSectionEvents());
+  app.get<{ Querystring: { view?: string } }>("/api/events", async (request) =>
+    request.query.view === "compact" ? listCompactEvents() : listInboxSectionEvents());
+
+  app.get<{ Querystring: EventPageQuery }>("/api/events/page", {
+    schema: { querystring: {
+      type: "object", additionalProperties: false,
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 200 },
+        cursor: { type: "string", minLength: 1, maxLength: 2048 },
+        q: { type: "string", maxLength: 200 }, themeId: { type: "string", minLength: 1, maxLength: 4000 },
+        status: { type: "string", enum: ["all", "open", "tracking", "ignored"] },
+        type: { type: "string", enum: ["all", "price", "content_update", "news_announcement", "financial_event"] },
+        impact: { type: "string", enum: ["all", "positive", "negative", "neutral"] },
+        read: { type: "string", enum: ["all", "read", "unread"] },
+        bookmark: { type: "string", enum: ["all", "bookmarked"] },
+        sort: { type: "string", enum: ["occurredAt", "bookmarkedAt", "statusChanged"] },
+        recent: { type: "string", enum: ["24h"] }, since: { type: "string", format: "date-time" },
+      },
+    } },
+  }, async (request) => listEventPage(request.query));
 
   app.get<{ Params: { eventId: string } }>("/api/events/:eventId", async (request, reply) => {
     const event = await getEventDetail(request.params.eventId);

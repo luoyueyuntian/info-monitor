@@ -105,6 +105,7 @@ import brandLogo from "./assets/logo-128.png";
 import MobileNav from "./components/MobileNav.vue";
 import SearchBar from "./components/SearchBar.vue";
 import { useBreakpoint } from "./composables/useBreakpoint";
+import { invalidateReadCache } from "./lib/request-cache";
 import { useSSE } from "./lib/useSSE";
 import { workspaceDefinitions } from "./workspaces/catalog";
 import { buildWorkspaceShellState } from "./workspaces/shell";
@@ -113,6 +114,7 @@ const route = useRoute();
 const { isDesktop } = useBreakpoint();
 
 useSSE((event) => {
+  if (event.payload?.message !== "connected") invalidateReadCache();
   if (event.type === "new_notification") {
     console.info("[SSE] new notification:", event.payload);
   } else if (event.type === "notification_status_changed") {

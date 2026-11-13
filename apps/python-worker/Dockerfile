@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # Copy package metadata first, then source for installation.
 COPY pyproject.toml ./

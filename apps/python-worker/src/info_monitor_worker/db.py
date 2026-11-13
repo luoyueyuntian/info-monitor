@@ -14,4 +14,8 @@ def _normalize_database_url(database_url: str) -> str:
 
 def create_db_engine():
     config = load_config()
-    return create_engine(_normalize_database_url(config.database_url), future=True)
+    return create_engine(
+        _normalize_database_url(config.database_url), future=True,
+        pool_size=config.concurrency + 2, max_overflow=0, pool_timeout=5, pool_pre_ping=True,
+        connect_args={"connect_timeout": 5, "application_name": "info-monitor-worker"},
+    )

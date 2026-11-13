@@ -1,3 +1,4 @@
+import { countEventSections } from "./event-list-service.js";
 import type {
   EventSummary,
   FeedbackAggregation,
@@ -347,37 +348,7 @@ export async function listBookmarkedEvents(limit = 8): Promise<EventListItem[]> 
 }
 
 export async function countInboxSectionEvents() {
-  const events = await listInboxSectionEvents();
-  const threshold = Date.now() - 24 * 60 * 60 * 1000;
-  const countRecent = (items: EventListItem[]) =>
-    items.filter((event) => {
-      const time = new Date(event.occurredAt).getTime();
-      return !Number.isNaN(time) && time >= threshold;
-    }).length;
-
-  const priceEvents = filterEventsByInboxSection(events, "price-signals");
-  const contentUpdateEvents = filterEventsByInboxSection(events, "content-updates");
-  const officialEvents = filterEventsByInboxSection(events, "official-releases");
-  const financialEvents = filterEventsByInboxSection(events, "financial-events");
-
-  return {
-    "price-signals": {
-      total: priceEvents.length,
-      recent: countRecent(priceEvents),
-    },
-    "content-updates": {
-      total: contentUpdateEvents.length,
-      recent: countRecent(contentUpdateEvents),
-    },
-    "official-releases": {
-      total: officialEvents.length,
-      recent: countRecent(officialEvents),
-    },
-    "financial-events": {
-      total: financialEvents.length,
-      recent: countRecent(financialEvents),
-    },
-  };
+  return countEventSections();
 }
 
 export async function listInboxSectionEvents(sectionId?: string): Promise<EventListItem[]> {

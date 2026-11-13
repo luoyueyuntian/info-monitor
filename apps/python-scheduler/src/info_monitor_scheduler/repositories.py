@@ -14,8 +14,10 @@ def fetch_schedulable_sources(connection: Connection) -> List[Dict[str, Any]]:
               s.id as source_id,
               s.theme_id as theme_id,
               s.config as config,
+              s.adapter_key as adapter_key,
               s.is_paused as is_paused,
-              s.latest_success_at as latest_success_at
+              s.latest_success_at as latest_success_at,
+              s.latest_failure_at as latest_failure_at
             from sources s
             where s.is_paused = false
             order by s.created_at asc

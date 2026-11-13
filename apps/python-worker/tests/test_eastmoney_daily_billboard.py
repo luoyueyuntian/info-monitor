@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import sys
-import types
 import unittest
 from datetime import datetime, timedelta, timezone
-
-sys.modules.setdefault("httpx", types.SimpleNamespace(Client=object))
 
 from info_monitor_worker.adapters.eastmoney_daily_billboard import (
     _should_allow_empty_result,

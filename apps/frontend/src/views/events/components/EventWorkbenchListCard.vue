@@ -2,7 +2,7 @@
   <article class="card">
     <div class="card-topline">
       <h3>事件列表</h3>
-      <span class="text-[0.88rem] text-ink-secondary">共 {{ events.length }} 条事件</span>
+      <span class="text-[0.88rem] text-ink-secondary">本页 {{ events.length }} 条事件</span>
     </div>
 
     <div v-if="events.length" class="flex flex-col gap-3">
@@ -41,7 +41,7 @@
           </span>
         </div>
         <div class="text-ink-body">{{ event.summary }}</div>
-        <EventFeedbackInline :event-id="event.id" />
+        <EventFeedbackInline :event-id="event.id" :initial-feedback="event.feedback ?? null" />
         <div class="mt-3 flex flex-wrap gap-3">
           <RouterLink
             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-400/15 bg-white/70 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-white/90"

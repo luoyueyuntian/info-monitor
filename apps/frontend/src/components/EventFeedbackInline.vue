@@ -31,6 +31,7 @@ import { fetchEventFeedback, upsertEventFeedback, deleteEventFeedback } from "..
 
 const props = defineProps<{
   eventId: string;
+  initialFeedback?: EventFeedback | null;
 }>();
 
 const currentFeedback = ref<EventFeedback | null>(null);
@@ -44,6 +45,10 @@ const feedbackOptions = [
 
 async function loadFeedback() {
   if (!props.eventId) return;
+  if (props.initialFeedback !== undefined) {
+    currentFeedback.value = props.initialFeedback;
+    return;
+  }
   try {
     const result = await fetchEventFeedback(props.eventId);
     currentFeedback.value = result?.feedback ?? null;
@@ -76,5 +81,5 @@ async function handleClear() {
   }
 }
 
-watch(() => props.eventId, loadFeedback, { immediate: true });
+watch(() => [props.eventId, props.initialFeedback], loadFeedback, { immediate: true });
 </script>

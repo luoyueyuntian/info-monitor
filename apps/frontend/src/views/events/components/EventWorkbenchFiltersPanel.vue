@@ -77,7 +77,7 @@
           type="checkbox"
           @change="toggleSelectAllVisible"
         />
-        选中当前筛选结果
+        选中当前页事件
       </label>
       <span class="text-[0.88rem] text-ink-secondary">已选 {{ selectedCount }} 条事件</span>
     </div>

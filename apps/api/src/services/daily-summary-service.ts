@@ -177,9 +177,9 @@ export async function getDailySummary(): Promise<DailySummary> {
   // not the NULL row from LEFT JOIN (PostgreSQL defaults to NULLS FIRST for DESC).
   const warningSourcesRaw = await db
     .selectFrom("sources as s")
-    .leftJoin("source_runs as sr", (join) =>
-      join.onRef("sr.source_id", "=", "s.id").on("sr.trigger_type", "!=", "test"),
-    )
+    .leftJoinLateral((eb) => eb.selectFrom("source_runs")
+      .select(["error_message", "created_at"]).whereRef("source_id", "=", "s.id")
+      .where("trigger_type", "!=", "test").orderBy("created_at", "desc").orderBy("id", "desc").limit(1).as("sr"), (join) => join.onTrue())
     .select([
       "s.id as id",
       "s.name as name",

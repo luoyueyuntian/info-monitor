@@ -1,12 +1,10 @@
+import { eventImpactTone } from "@info-monitor/shared-contracts";
+export { eventImpactTone } from "@info-monitor/shared-contracts";
 import type { ImpactTone } from "@info-monitor/shared-contracts";
 import type { EventSummary, ThemeSummary } from "./api";
 
 export type { ImpactTone };
 
-type EventImpactInput = {
-  infoType?: EventSummary["infoType"] | null;
-  signal?: EventSummary["signal"] | null;
-};
 type ThemeImpactInput = Pick<ThemeSummary, "type" | "latestEventSignal">;
 
 export function impactToneLabel(tone: ImpactTone) {
@@ -20,23 +18,6 @@ export function impactToneLabel(tone: ImpactTone) {
   }
 }
 
-export function eventImpactTone(event: EventImpactInput): ImpactTone {
-  switch (event.signal) {
-    case "30d_low":
-    case "bullish":
-    case "liquidity_injection":
-      return "positive";
-    case "bearish":
-    case "liquidity_withdrawal":
-      return "negative";
-    case "content_update":
-    case "new_announcement":
-    case "new_financial_event":
-      return "neutral";
-    default:
-      return event.infoType === "content_update" ? "neutral" : "neutral";
-  }
-}
 
 export function themeImpactTone(theme: ThemeImpactInput): ImpactTone {
   return eventImpactTone({

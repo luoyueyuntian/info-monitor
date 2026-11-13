@@ -8,12 +8,31 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 _client = None
 _checked = False
+
+
+_pending_documents: ContextVar = ContextVar("pending_index_documents", default=None)
+
+
+@contextmanager
+def defer_indexing():
+    """Flush best-effort batches only after the enclosed transaction commits."""
+    documents = {}
+    token = _pending_documents.set(documents)
+    try:
+        yield
+    finally:
+        _pending_documents.reset(token)
+    for index_name, rows in documents.items():
+        index_batch(index_name, rows)
 
 
 def _get_client():
@@ -83,10 +102,6 @@ def ensure_indexes() -> None:
 
 def index_event(event: Dict[str, Any]) -> None:
     """Index a single event document."""
-    client = _get_client()
-    if not client:
-        return
-
     doc = {
         "id": event.get("id", ""),
         "title": event.get("title", ""),
@@ -100,18 +115,11 @@ def index_event(event: Dict[str, Any]) -> None:
         "occurredAt": event.get("occurredAt", ""),
     }
 
-    try:
-        client.index("events").add_documents([doc])
-    except Exception as exc:
-        logger.debug("Failed to index event %s: %s", doc["id"], exc)
+    index_batch("events", [doc])
 
 
 def index_normalized_record(record: Dict[str, Any]) -> None:
     """Index a single normalized record."""
-    client = _get_client()
-    if not client:
-        return
-
     doc = {
         "id": record.get("id", ""),
         "title": record.get("title", ""),
@@ -121,18 +129,11 @@ def index_normalized_record(record: Dict[str, Any]) -> None:
         "sourceId": record.get("sourceId", ""),
     }
 
-    try:
-        client.index("normalized_records").add_documents([doc])
-    except Exception as exc:
-        logger.debug("Failed to index record %s: %s", doc["id"], exc)
+    index_batch("normalized_records", [doc])
 
 
 def index_theme(theme: Dict[str, Any]) -> None:
     """Index a single theme."""
-    client = _get_client()
-    if not client:
-        return
-
     doc = {
         "id": theme.get("id", ""),
         "name": theme.get("name", ""),
@@ -141,18 +142,11 @@ def index_theme(theme: Dict[str, Any]) -> None:
         "status": theme.get("status", ""),
     }
 
-    try:
-        client.index("themes").add_documents([doc])
-    except Exception as exc:
-        logger.debug("Failed to index theme %s: %s", doc["id"], exc)
+    index_batch("themes", [doc])
 
 
 def index_notification(notification: Dict[str, Any]) -> None:
     """Index a single notification."""
-    client = _get_client()
-    if not client:
-        return
-
     doc = {
         "id": notification.get("id", ""),
         "title": notification.get("title", ""),
@@ -162,14 +156,15 @@ def index_notification(notification: Dict[str, Any]) -> None:
         "status": notification.get("status", ""),
     }
 
-    try:
-        client.index("notifications").add_documents([doc])
-    except Exception as exc:
-        logger.debug("Failed to index notification %s: %s", doc["id"], exc)
+    index_batch("notifications", [doc])
 
 
 def index_batch(index_name: str, documents: List[Dict[str, Any]]) -> None:
     """Index a batch of documents to a given index."""
+    pending = _pending_documents.get()
+    if pending is not None:
+        pending.setdefault(index_name, []).extend(deepcopy(documents))
+        return
     client = _get_client()
     if not client or not documents:
         return

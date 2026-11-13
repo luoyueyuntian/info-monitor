@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Lock, Thread
+import logging
+
+from sqlalchemy import text
+from info_monitor_worker.config import load_config
 from typing import Any, Dict
 
 from info_monitor_worker.adapters.registry import get_adapter
@@ -17,7 +23,10 @@ from info_monitor_worker.event_rules.price_30d_low import ThirtyDayLowRule
 from info_monitor_worker.models import SourceContext, ThemeContext
 from info_monitor_worker.normalizers.registry import get_normalizer
 from info_monitor_worker.repositories import (
-    fetch_pending_runs,
+    claim_pending_runs,
+    recover_expired_runs,
+    renew_run_leases,
+    verify_run_claim,
     fetch_snapshot_payload,
     find_min_price_in_last_30_days,
     find_normalized_record_by_fingerprint,
@@ -29,17 +38,28 @@ from info_monitor_worker.repositories import (
     insert_raw_snapshot,
     mark_run_completed,
     mark_run_failed,
-    mark_run_running,
     update_normalized_record,
 )
 from info_monitor_worker.enrichment import enrich_record_sync
-from info_monitor_worker.search_indexer import index_event, index_normalized_record, index_notification
+from info_monitor_worker.search_indexer import defer_indexing, index_event, index_normalized_record, index_notification
+
 from info_monitor_worker.utils import create_id, fingerprint_for_value, to_json
+
+logger = logging.getLogger(__name__)
 
 
 class WorkerService:
-    def __init__(self) -> None:
-        self.engine = create_db_engine()
+    def __init__(self, *, engine=None, config=None) -> None:
+        self.config = config or load_config()
+        self.engine = engine if engine is not None else create_db_engine()
+        self._owns_engine = engine is None
+        self._executor = ThreadPoolExecutor(max_workers=self.config.concurrency, thread_name_prefix="source-run")
+        self._futures = {}
+        self._claims = {}
+        self._lock = Lock()
+        self._stopped = Event()
+        self._heartbeat = Thread(target=self._renew_active, name="worker-leases", daemon=True)
+        self._heartbeat.start()
         self.price_low_rule = ThirtyDayLowRule()
         self.financial_direction_rule = FinancialDirectionRule()
         self.rsi_signal_rule = RSISignalRule()
@@ -47,17 +67,50 @@ class WorkerService:
         self.kdj_signal_rule = KDJSignalRule()
         self.boll_signal_rule = BOLLSignalRule()
         self.ma_signal_rule = MovingAverageSignalRule()
+    def _renew_active(self) -> None:
+        interval = min(30, max(5, self.config.lease_seconds // 3))
+        while not self._stopped.wait(interval):
+            with self._lock:
+                claims = dict(self._claims)
+            if claims:
+                try:
+                    with self.engine.begin() as connection:
+                        renew_run_leases(connection, claims, self.config.lease_seconds, self.config.max_run_seconds)
+                except Exception:
+                    logger.exception("Could not renew active run leases")
+
     def run_once(self) -> int:
-        processed = 0
-
+        if self._stopped.is_set():
+            raise RuntimeError("Worker service is closed")
+        with self._lock:
+            done = [(run_id, future) for run_id, future in self._futures.items() if future.done()]
+            for run_id, _ in done:
+                del self._futures[run_id]
+                self._claims.pop(run_id, None)
+            active_ids = list(self._futures)
+        for run_id, future in done:
+            try:
+                future.result()
+            except Exception:
+                logger.exception("Unhandled task failure for %s", run_id)
+        slots = self.config.concurrency - len(active_ids)
         with self.engine.begin() as connection:
-            pending_runs = fetch_pending_runs(connection)
+            recover_expired_runs(connection, self.config.lease_seconds, self.config.max_attempts)
+            runs = claim_pending_runs(connection, slots, self.config.lease_seconds,
+                                      self.config.max_run_seconds, exclude_run_ids=active_ids) if slots else []
+        for run in runs:
+            with self._lock:
+                self._claims[run["run_id"]] = run["claim_token"]
+                self._futures[run["run_id"]] = self._executor.submit(self._process_run, run)
+        return len(runs)
 
-        for run in pending_runs:
-            self._process_run(run)
-            processed += 1
-
-        return processed
+    def close(self) -> None:
+        # Keep renewing leases while in-flight work drains.
+        self._executor.shutdown(wait=True)
+        self._stopped.set()
+        self._heartbeat.join(timeout=5)
+        if self._owns_engine:
+            self.engine.dispose()
 
     def _should_check_latest_only(
         self,
@@ -375,28 +428,38 @@ class WorkerService:
 
         try:
             with self.engine.begin() as connection:
-                mark_run_running(connection, run_id)
-
+                if not verify_run_claim(connection, run_id, run["claim_token"]):
+                    return
                 if is_replay and replay_snapshot_id:
-                    # Replay mode: read stored snapshot instead of live fetch
                     snapshot = fetch_snapshot_payload(connection, replay_snapshot_id)
                     if not snapshot:
-                        raise ValueError(
-                            f"Replay snapshot {replay_snapshot_id} not found"
-                        )
+                        raise ValueError(f"Replay snapshot {replay_snapshot_id} not found")
                     raw_payload = snapshot["payload_json"]
                     if isinstance(raw_payload, str):
                         import json
                         raw_payload = json.loads(raw_payload)
-                else:
-                    # Live fetch mode (manual, test, scheduled)
-                    adapter = get_adapter(source.adapter_key)
-                    raw_result = adapter.fetch(theme, source)
-                    raw_payload = adapter.map_to_normalizer_input(raw_result)
 
-                normalizer = get_normalizer(theme.info_type)
-                normalized_records = normalizer.normalize(raw_payload)
+            if not (is_replay and replay_snapshot_id):
+                adapter = get_adapter(source.adapter_key)
+                raw_result = adapter.fetch(theme, source)
+                raw_payload = adapter.map_to_normalizer_input(raw_result)
+            normalizer = get_normalizer(theme.info_type)
+            normalized_records = normalizer.normalize(raw_payload)
+            for record in normalized_records if not is_test else []:
+                enrichment = enrich_record_sync(title=record.title, content=record.content,
+                                                info_type=theme.info_type, source_name=source.source_name)
+                if enrichment and enrichment.summary:
+                    record.content["_enrichment"] = {
+                        "summary": enrichment.summary, "sentiment": enrichment.sentiment,
+                        "impact": enrichment.impact, "entities": enrichment.entities,
+                    }
 
+            with defer_indexing(), self.engine.begin() as connection:
+                if not verify_run_claim(connection, run_id, run["claim_token"]):
+                    return
+                # Preserve ordering of cross-source event/price checks within a theme.
+                connection.execute(text("select pg_advisory_xact_lock(hashtextextended(:theme_id, 0))"),
+                                   {"theme_id": theme.theme_id})
                 if is_test:
                     # Test run: write snapshot with results, skip production writes
                     sample_records = []
@@ -442,21 +505,6 @@ class WorkerService:
                     detector = get_detector(theme.info_type)
 
                     for normalized_record in normalized_records:
-                        # LLM enrichment (graceful no-op when provider is None)
-                        enrichment = enrich_record_sync(
-                            title=normalized_record.title,
-                            content=normalized_record.content,
-                            info_type=theme.info_type,
-                            source_name=source.source_name,
-                        )
-                        if enrichment and enrichment.summary:
-                            normalized_record.content["_enrichment"] = {
-                                "summary": enrichment.summary,
-                                "sentiment": enrichment.sentiment,
-                                "impact": enrichment.impact,
-                                "entities": enrichment.entities,
-                            }
-
                         logical_key = normalized_record.logical_key
                         fingerprint = fingerprint_for_value(
                             {
@@ -574,5 +622,6 @@ class WorkerService:
                 mark_run_completed(connection, run_id, source.source_id, is_test=is_test)
         except Exception as error:
             with self.engine.begin() as connection:
-                mark_run_failed(connection, run_id, source.source_id, str(error), is_test=is_test)
+                if verify_run_claim(connection, run_id, run["claim_token"]):
+                    mark_run_failed(connection, run_id, source.source_id, str(error), is_test=is_test)
             print(f"Run {run_id} failed for source {source.source_id}: {error}")

@@ -130,9 +130,25 @@ def _is_after_local_schedule_window(
 
 def _is_due(source: Dict[str, Any]) -> bool:
     config = source.get("config") or {}
+    # Do not create endless failed runs for incomplete generic/feed sources.
+    # Dedicated adapters keep using their own built-in endpoints.
+    if source.get("adapter_key") in {
+        "generic_news_announcement_list", "generic_price_list", "generic_html_price_list",
+        "generic_content_update_list", "generic_announcement_list", "rss_feed",
+    }:
+        url = config.get("url") if isinstance(config, dict) else None
+        if not isinstance(url, str) or not url.strip():
+            return False
     interval_seconds = int(config.get("schedule_interval_seconds", 3600))
     latest_success_at = _parse_iso_datetime(source.get("latest_success_at"))
+    latest_failure_at = _parse_iso_datetime(source.get("latest_failure_at"))
     now_utc = datetime.now(timezone.utc)
+    # Failures must not bypass the normal interval on every scheduler poll.
+    # A success newer than the failure restores the regular schedule.
+    if latest_failure_at and (latest_success_at is None or latest_failure_at > latest_success_at):
+        retry_seconds = max(60, int(config.get("retry_interval_seconds", 300)))
+        if latest_failure_at > now_utc - timedelta(seconds=retry_seconds):
+            return False
     run_after_time_local = _parse_local_time(config.get("run_after_time_local"))
     schedule_tz = _parse_timezone(config.get("schedule_timezone"))
 

@@ -22,6 +22,8 @@ export default defineConfig({
             return undefined;
           }
 
+          if (id.includes("/echarts/") || id.includes("/zrender/")) return "charts";
+
           if (id.includes("vue") || id.includes("vue-router") || id.includes("pinia")) {
             return "vue-vendor";
           }

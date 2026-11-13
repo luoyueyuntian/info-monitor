@@ -1,0 +1,11 @@
+# Per-route p95 latency (seconds)
+histogram_quantile(0.95, sum by (le, route) (rate(info_monitor_http_request_duration_seconds_bucket[5m])))
+# Requests per second
+sum by (route) (rate(info_monitor_http_requests_total[5m]))
+# Error rate
+sum(rate(info_monitor_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(info_monitor_http_requests_total[5m])), 0.001)
+# Database latency p95
+histogram_quantile(0.95, rate(info_monitor_database_query_duration_seconds_bucket[5m]))
+# Connection waiters / expired run leases
+info_monitor_database_pool_waiting
+info_monitor_worker_runs{state="expired"}

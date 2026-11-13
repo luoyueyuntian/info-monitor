@@ -6,6 +6,7 @@ github_releases, rss_feed, pbc_treasury_yield (now via ChinaBond HTML).
 from __future__ import annotations
 
 import pytest
+from types import SimpleNamespace
 
 from info_monitor_worker.adapters.github_releases import GithubReleasesAdapter
 from info_monitor_worker.adapters.pbc_treasury_yield import PbcTreasuryYieldAdapter
@@ -78,7 +79,7 @@ class TestSinaStockPriceMapToNormalizerInput:
 
     def test_parses_hk_format(self):
         fields = ["TENCENT", "腾讯控股", "", "", "", "", "380.00",
-                   "385", "378", "1000000", "380000000"] + [""] * 8 + ["15/06/2026", "16:08:00"]
+                   "385", "378", "1000000", "380000000"] + [""] * 6 + ["15/06/2026", "16:08:00"]
         raw = RawFetchResult(
             payload=f'var hq_str_rt_hk00700="{",".join(fields)}";\n',
             metadata={"symbols": ["rt_hk00700"]},
@@ -91,7 +92,7 @@ class TestSinaStockPriceMapToNormalizerInput:
 
     def test_parses_hk_format_with_day_first_dash_date(self):
         fields = ["TENCENT", "腾讯控股", "", "", "", "", "380.00",
-                   "385", "378", "1000000", "380000000"] + [""] * 8 + ["18-06-2026", "16:08:08"]
+                   "385", "378", "1000000", "380000000"] + [""] * 6 + ["18-06-2026", "16:08:08"]
         raw = RawFetchResult(
             payload=f'var hq_str_rt_hk00700="{",".join(fields)}";\n',
             metadata={"symbols": ["rt_hk00700"]},
@@ -130,11 +131,18 @@ class TestYahooFinancePriceMapToNormalizerInput:
         with pytest.raises(ValueError, match="no data"):
             self.adapter.map_to_normalizer_input(raw)
 
-    def test_yahoo_symbol_mapped_to_sina(self):
-        # Verify the adapter can map Yahoo symbols to Sina equivalents
+    def test_yahoo_symbol_mapped_to_sina(self, monkeypatch):
+        # Mapping is deterministic; network access is not part of this unit test.
+        requests = []
+        def get(url, **kwargs):
+            requests.append(url)
+            return SimpleNamespace(text='var hq_str_gb_inx="";')
+        monkeypatch.setattr("info_monitor_worker.adapters.yahoo_finance_price.get_http_client",
+                            lambda: SimpleNamespace(get=get))
         source = _source("yahoo_finance_price", {"symbol": "^GSPC"})
         raw = self.adapter.fetch(_theme(), source)
         assert "gb_inx" in str(raw.metadata.get("symbol", ""))
+        assert requests == ["https://hq.sinajs.cn?list=gb_inx"]
 
 
 # ─── GithubReleases ──────────────────────────────────────────────────────────

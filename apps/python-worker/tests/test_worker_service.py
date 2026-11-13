@@ -35,10 +35,11 @@ class WorkerServiceFailureHandlingTest(unittest.TestCase):
             "source_config": {},
             "run_id": "run-1",
             "trigger_type": "manual",
+            "claim_token": "owned",
         }
 
         with (
-            patch.object(service_module, "mark_run_running", lambda connection, run_id: None),
+            patch.object(service_module, "verify_run_claim", lambda connection, run_id, token: True),
             patch.object(
                 service_module,
                 "mark_run_failed",

@@ -1,12 +1,20 @@
 """Tests for the shared time normalization utilities."""
 from __future__ import annotations
 
+import pytest
+
 from info_monitor_worker.adapters.time_utils import (
     TZ_CST,
     ensure_iso_with_tz,
     has_tz_suffix,
     normalize_pub_date,
 )
+
+
+@pytest.mark.parametrize("normalize", [ensure_iso_with_tz, normalize_pub_date])
+@pytest.mark.parametrize("weekday", ["Tue", "Thu"])
+def test_rss_weekday_dates_are_converted_to_iso(normalize, weekday):
+    assert normalize(f"{weekday}, 12 Nov 2026 04:32:31 +0000") == "2026-11-12T04:32:31+00:00"
 
 
 class TestHasTzSuffix:

@@ -1,3 +1,4 @@
+import { isSourceOnboardingStatus } from "@info-monitor/shared-contracts";
 import { getDatabase } from "../db/client.js";
 import { hasSourcesOnboardingStatusColumn } from "../db/source-schema-compat.js";
 import { createId } from "../lib/ids.js";
@@ -151,60 +152,40 @@ export async function listSourceStatuses() {
     ? await baseQuery.select("s.onboarding_status as onboardingStatus").execute()
     : await baseQuery.execute();
 
-  const latestEvents = await Promise.all(
-    rows.map(async (row) => {
-      const latestEvent = await db
-        .selectFrom("events")
-        .select(["signal"])
-        .where("theme_id", "=", row.themeId)
-        .orderBy("occurred_at desc")
-        .limit(1)
-        .executeTakeFirst();
-
-      return {
-        sourceId: row.id,
-        latestEventSignal: latestEvent?.signal ?? null,
-      };
-    }),
-  );
-
-  const latestRuns = await Promise.all(
-    rows.map(async (row) => {
-      const latestRun = await db
-        .selectFrom("source_runs")
-        .select(["status", "finished_at as finishedAt", "started_at as startedAt", "error_message as errorMessage"])
-        .where("source_id", "=", row.id)
-        .where("trigger_type", "not in", ["test", "replay"])
-        .orderBy("created_at desc")
-        .limit(1)
-        .executeTakeFirst();
-
-      return {
-        sourceId: row.id,
-        latestRunStatus: latestRun?.status ?? null,
-        latestRunAt:
-          latestRun?.finishedAt?.toISOString?.() ??
-          latestRun?.startedAt?.toISOString?.() ??
-          null,
-        lastErrorMessage: latestRun?.errorMessage ?? null,
-      };
-    }),
-  );
+  const sourceIds = rows.map((row) => row.id);
+  const themeIds = [...new Set(rows.map((row) => row.themeId))];
+  const [eventRows, runRows] = rows.length ? await Promise.all([
+    db.selectFrom("events").distinctOn("theme_id")
+      .select(["theme_id as themeId", "signal as latestEventSignal"])
+      .where("theme_id", "in", themeIds)
+      .orderBy("theme_id").orderBy("occurred_at", "desc").orderBy("id", "desc").execute(),
+    // One indexed lookup per source inside a single query, avoiding sorting run history.
+    db.selectFrom("sources as lookup")
+      .leftJoinLateral((eb) => eb.selectFrom("source_runs as sr")
+        .select(["sr.status", "sr.finished_at", "sr.started_at", "sr.error_message"])
+        .whereRef("sr.source_id", "=", "lookup.id")
+        .where("sr.trigger_type", "not in", ["test", "replay"])
+        .orderBy("sr.created_at", "desc").orderBy("sr.id", "desc").limit(1).as("latest_run"),
+      (join) => join.onTrue())
+      .select(["lookup.id as sourceId", "latest_run.status as latestRunStatus", "latest_run.finished_at as finishedAt", "latest_run.started_at as startedAt", "latest_run.error_message as lastErrorMessage"])
+      .where("lookup.id", "in", sourceIds).execute(),
+  ]) : [[], []];
+  const latestEvents = new Map(eventRows.map((row) => [row.themeId, row]));
+  const latestRuns = new Map(runRows.map((row) => [row.sourceId, row]));
 
   return rows.map((row) => {
-    const latestRun = latestRuns.find((item) => item.sourceId === row.id);
-    const latestEvent = latestEvents.find((item) => item.sourceId === row.id);
+    const latestRun = latestRuns.get(row.id);
+    const latestEvent = latestEvents.get(row.themeId);
 
     return {
       ...row,
       onboardingStatus:
-        ("onboardingStatus" in row ? row.onboardingStatus : undefined) ??
-        (row.isPaused ? "draft" : "active"),
+        ("onboardingStatus" in row && isSourceOnboardingStatus(row.onboardingStatus) ? row.onboardingStatus : (row.isPaused ? "draft" : "active")),
       latestEventSignal: latestEvent?.latestEventSignal ?? null,
       latestSuccessAt: row.latestSuccessAt?.toISOString?.() ?? null,
       latestFailureAt: row.latestFailureAt?.toISOString?.() ?? null,
       latestRunStatus: latestRun?.latestRunStatus ?? null,
-      latestRunAt: latestRun?.latestRunAt ?? null,
+      latestRunAt: latestRun?.finishedAt?.toISOString?.() ?? latestRun?.startedAt?.toISOString?.() ?? null,
       lastErrorMessage: latestRun?.lastErrorMessage ?? null,
     };
   });
@@ -666,11 +647,11 @@ export const sourcePresets: SourcePreset[] = [
     adapterKey: "generic_html_price_list",
     infoType: "commodity_price",
     fields: [
-      { key: "url", label: "Page URL", type: "text", placeholder: "https://www.smzdm.com/fenlei/diannao/", required: true },
-      { key: "item_selector", label: "Item Selector", type: "text", placeholder: ".feed-row-wide", required: true },
-      { key: "title_selector", label: "Title Selector", type: "text", placeholder: ".feed-block-title", required: true },
-      { key: "price_selector", label: "Price Selector", type: "text", placeholder: ".z-highlight", required: true },
-      { key: "link_selector", label: "Link Selector", type: "text", placeholder: ".feed-block-title a" },
+      { key: "url", label: "Page URL", type: "text", placeholder: "https://www.smzdm.com/fenlei/diannaozhengji/", required: true },
+      { key: "item_selector", label: "Item Selector", type: "text", placeholder: ".side-jx-r", required: true },
+      { key: "title_selector", label: "Title Selector", type: "text", placeholder: ".side-line-title", required: true },
+      { key: "price_selector", label: "Price Selector", type: "text", placeholder: ".side-price", required: true },
+      { key: "link_selector", label: "Link Selector", type: "text", placeholder: "a.side-line-title" },
       { key: "time_selector", label: "Time Selector", type: "text", placeholder: "time" },
       { key: "include_title_keywords", label: "Include Title Keywords", type: "text", placeholder: "iphone,ipad" },
       { key: "exclude_title_keywords", label: "Exclude Title Keywords", type: "text", placeholder: "黄金,基金,金条,纪念币" },
@@ -678,11 +659,11 @@ export const sourcePresets: SourcePreset[] = [
       { key: "emit_events_on_latest_only", label: "Latest only", type: "boolean" },
     ],
     defaultConfig: {
-      url: "https://www.smzdm.com/fenlei/diannao/",
-      item_selector: ".feed-row-wide",
-      title_selector: ".feed-block-title",
-      price_selector: ".z-highlight",
-      link_selector: ".feed-block-title a",
+      url: "https://www.smzdm.com/fenlei/diannaozhengji/",
+      item_selector: ".side-jx-r",
+      title_selector: ".side-line-title",
+      price_selector: ".side-price",
+      link_selector: "a.side-line-title",
       exclude_title_keywords: "黄金,白银,金条,金币,纪念币,基金,ETF,股票,债券,期货,外汇,比特币,投资,理财",
       schedule_interval_seconds: 21600,
       emit_events_on_latest_only: true,

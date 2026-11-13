@@ -84,7 +84,7 @@ export type ThemeSummary = {
   latestFailureAt?: string | null;
   sourceHealth?: SourceHealth | string;
   latestEventTitle?: string | null;
-  latestEventSignal?: EventSignal | null;
+  latestEventSignal?: EventSignal | string | null;
   latestInsight?: string | null;
   latestBookmarkedAt?: string | null;
   reviewStatus?: string | null;
@@ -115,7 +115,25 @@ export type EventSummary = {
   summary: string;
   infoType?: InfoType | string | null;
   context?: Record<string, unknown> | null;
+  feedback?: "useful" | "noise" | "watch" | null;
 };
+
+export type EventPageQuery = {
+  limit?: number;
+  cursor?: string;
+  q?: string;
+  themeId?: string;
+  status?: string;
+  type?: string;
+  impact?: string;
+  read?: string;
+  bookmark?: string;
+  sort?: string;
+  recent?: string;
+  since?: string;
+};
+
+export type EventPage = { items: EventSummary[]; total: number; nextCursor: string | null };
 
 export type TriggerReason = {
   ruleKey: string;
@@ -155,7 +173,7 @@ export type SourceStatus = {
   themeId: string;
   themeName: string;
   themeType?: string;
-  latestEventSignal?: EventSignal | null;
+  latestEventSignal?: EventSignal | string | null;
   name: string;
   status: SourceHealth | string;
   sourceType?: string;
@@ -815,4 +833,17 @@ export type SSEMessage = {
   type: SSEEventType;
   payload: Record<string, unknown>;
   timestamp: string;
+};
+
+export * from "./workspaces.js";
+export { eventImpactTone } from "./impact.js";
+
+export type WorkspaceDataResponse = import("./workspaces.js").WorkspaceDataset & {
+  allThemes: ThemeSummary[];
+  allSources: SourceStatus[];
+  referenceNow: string;
+};
+export type WorkspaceIndexResponse = {
+  referenceNow: string;
+  workspaces: Array<{ id: WorkspaceId; summary: import("./workspaces.js").WorkspaceSummary; topEvents: EventSummary[] }>;
 };

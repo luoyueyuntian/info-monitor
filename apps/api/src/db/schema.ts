@@ -1,3 +1,4 @@
+import type { RunStatus } from "@info-monitor/shared-contracts";
 import type { ColumnType } from "kysely";
 
 type TimestampColumn = ColumnType<Date, string | Date | undefined, string | Date | undefined>;
@@ -36,7 +37,10 @@ export interface SourceRunsTable {
   theme_id: string;
   source_id: string;
   trigger_type: string;
-  status: string;
+  status: RunStatus;
+  claim_token: string | null;
+  lease_expires_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;
+  attempt_count: ColumnType<number, number | undefined, number>;
   replay_snapshot_id: string | null;
   config_version: number | null;
   started_at: ColumnType<Date | null, string | Date | null | undefined, string | Date | null | undefined>;

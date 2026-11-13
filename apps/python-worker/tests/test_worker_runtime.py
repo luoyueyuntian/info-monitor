@@ -63,6 +63,15 @@ class WorkerRuntimeTest(unittest.TestCase):
         traceback_mock.assert_called_once()
         print_mock.assert_any_call("Worker iteration failed: boom")
 
+    def test_stop_drains_service_and_prevents_more_polls(self):
+        worker = self._make_worker([0, 1])
+        closed = []
+        worker.service.close = lambda: closed.append(True)
+        with patch("builtins.print"):
+            worker.run_forever(iterations=2, sleep_fn=lambda _: worker.stop())
+        self.assertEqual(worker.service.calls, 1)
+        self.assertEqual(closed, [True])
+
 
 if __name__ == "__main__":
     unittest.main()

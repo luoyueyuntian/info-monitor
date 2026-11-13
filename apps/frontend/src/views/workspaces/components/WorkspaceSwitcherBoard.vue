@@ -91,31 +91,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 
-import { fetchEvents, fetchSourceStatuses, fetchThemes, type EventSummary, type SourceStatus, type ThemeSummary } from "../../../lib/api";
+import { fetchWorkspaceIndex } from "../../../lib/api";
+import type { WorkspaceIndexResponse } from "@info-monitor/shared-contracts";
 import { formatSmartDateTimeLabel, pillToneClass } from "../../../lib/presentation";
 import {
-  buildWorkspaceDataset,
   buildWorkspaceSummary,
-  sortWorkspaceEvents,
   workspaceDefinitions,
-  workspaceReferenceNow,
   workspaceStatusLabel,
   workspaceStatusTone,
 } from "../../../lib/workspaces";
 
-const themes = ref<ThemeSummary[]>([]);
-const events = ref<EventSummary[]>([]);
-const sources = ref<SourceStatus[]>([]);
-
-const referenceNow = computed(() => workspaceReferenceNow({ themes: themes.value, events: events.value, sources: sources.value }));
-
+const index = ref<WorkspaceIndexResponse | null>(null);
+const referenceNow = computed(() => index.value ? new Date(index.value.referenceNow) : new Date());
 const workspaceCards = computed(() => workspaceDefinitions.map((definition) => {
-  const dataset = buildWorkspaceDataset(definition.id, themes.value, events.value, sources.value);
-  return {
-    definition,
-    summary: buildWorkspaceSummary(dataset),
-    topEvents: sortWorkspaceEvents(dataset.events).slice(0, 3),
-  };
+  const card = index.value?.workspaces.find((item) => item.id === definition.id);
+  return { definition, summary: card?.summary ?? buildWorkspaceSummary({ themes: [], events: [], sources: [] }), topEvents: card?.topEvents ?? [] };
 }));
 
 const overallSummary = computed(() => {
@@ -140,15 +130,7 @@ const overallSummary = computed(() => {
 });
 
 async function loadWorkspaceIndex() {
-  const [nextThemes, nextEvents, nextSources] = await Promise.all([
-    fetchThemes(),
-    fetchEvents(),
-    fetchSourceStatuses(),
-  ]);
-
-  themes.value = nextThemes;
-  events.value = nextEvents;
-  sources.value = nextSources;
+  index.value = await fetchWorkspaceIndex();
 }
 
 onMounted(() => void loadWorkspaceIndex());

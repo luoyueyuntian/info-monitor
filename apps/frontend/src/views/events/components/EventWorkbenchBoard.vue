@@ -39,13 +39,13 @@
       @load-view="handleLoadView"
     />
 
-    <EventWorkbenchDiagnosticsCard :diagnostic="eventDiagnostics" />
+    <EventWorkbenchDiagnosticsCard v-if="ready" :diagnostic="eventDiagnostics" />
     <EventFeedbackDiagnosticsCard
-      v-if="feedbackAggregation"
+      v-if="ready && feedbackAggregation"
       :aggregation="feedbackAggregation"
     />
-    <EventWorkspaceActionsCard :workspace="eventWorkspaceActions" />
-    <EventThemeBucketsCard :items="themeBuckets" :event-workbench-target="eventWorkbenchTarget" />
+    <EventWorkspaceActionsCard v-if="ready" :workspace="eventWorkspaceActions" />
+    <EventThemeBucketsCard v-if="ready" :items="themeBuckets" :event-workbench-target="eventWorkbenchTarget" />
 
     <article
       v-if="operationNotice"
@@ -65,8 +65,21 @@
       </div>
     </article>
 
+    <p v-if="summaryLoading || pageLoading" role="status" class="p-4 text-ink-secondary">正在加载事件…</p>
+    <div v-if="summaryError || pageError" role="alert" class="p-4 text-red-700">
+      {{ summaryError || pageError }}
+      <button class="ml-3 underline" @click="summaryError ? loadWorkbench() : pager.refresh()">重试</button>
+    </div>
+    <nav v-if="ready" aria-label="事件分页" class="my-4 flex items-center justify-between gap-3">
+      <span class="text-sm text-ink-secondary">共 {{ pageTotal }} 条，第 {{ page }} 页，每页 50 条</span>
+      <div class="flex gap-3">
+        <button class="rounded-xl border px-4 py-2 disabled:opacity-40" :disabled="!canPrevious" @click="pager.previous()">上一页</button>
+        <button data-testid="events-next" class="rounded-xl border px-4 py-2 disabled:opacity-40" :disabled="!canNext" @click="pager.next()">下一页</button>
+      </div>
+    </nav>
     <EventWorkbenchListCard
-      :events="filteredEvents"
+      v-if="ready && !pageLoading && !pageError"
+      :events="pageEvents"
       :selected-event-ids="selectedEventIds"
       :saving-event-id="savingEventId"
       :pending-status="pendingStatus"
@@ -79,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
 
@@ -105,7 +118,8 @@ import {
   matchesEventWorkbenchPreset,
   readEventWorkbenchRouteFilters,
 } from "./event-workbench-query";
-import { fetchEvents, fetchFeedbackAggregation, type FeedbackAggregation, type EventSummary, updateEvent, updateEventStatus } from "../../../lib/api";
+import { createEventPager } from "../../../lib/event-pager";
+import { fetchEventPage, fetchEvents, fetchFeedbackAggregation, type FeedbackAggregation, type EventSummary, updateEvent, updateEventStatus } from "../../../lib/api";
 import { sameQuery } from "../../../lib/query";
 import { recordRecentEventOperation } from "../../../lib/recent-event-operation";
 import { toTimestamp } from "../../../lib/time";
@@ -116,6 +130,12 @@ import {
 } from "../../../lib/presentation";
 
 const events = ref<EventSummary[]>([]);
+const pager = createEventPager((query, signal) => fetchEventPage(query, signal));
+const { items: pageEvents, total: pageTotal, page, loading: pageLoading, error: pageError, canNext, canPrevious } = pager;
+const ready = ref(false);
+const summaryError = ref("");
+const summaryLoading = ref(true);
+let disposed = false;
 const feedbackAggregation = ref<FeedbackAggregation | null>(null);
 const query = ref("");
 const themeFilter = ref("all");
@@ -310,11 +330,11 @@ const themeContextLabel = computed(() => {
 });
 
 const allVisibleSelected = computed(() => {
-  if (!filteredEvents.value.length) {
+  if (!pageEvents.value.length) {
     return false;
   }
 
-  return filteredEvents.value.every((event) => selectedEventIds.value.includes(event.id));
+  return pageEvents.value.every((event) => selectedEventIds.value.includes(event.id));
 });
 
 const filteredEvents = computed(() => filterWorkbenchEvents(events.value, activeFilters.value));
@@ -358,8 +378,9 @@ function isIncrementalEvent(event: EventSummary) {
 }
 
 function toggleSelectAllVisible(event: Event) {
+  if (pageLoading.value) return;
   const checked = (event.target as HTMLInputElement | null)?.checked ?? false;
-  const visibleIds = filteredEvents.value.map((item) => item.id);
+  const visibleIds = pageEvents.value.map((item) => item.id);
 
   if (checked) {
     selectedEventIds.value = Array.from(new Set([...selectedEventIds.value, ...visibleIds]));
@@ -440,6 +461,7 @@ async function handleUpdateStatus(eventId: string, status: string) {
         status as "open" | "tracking" | "ignored",
       );
     }
+    await refreshAfterMutation();
   } finally {
     savingEventId.value = "";
     pendingStatus.value = "";
@@ -498,6 +520,7 @@ async function handleUpdateMeta(
             : "unread",
       );
     }
+    await refreshAfterMutation();
   } finally {
     savingEventId.value = "";
     pendingStatus.value = "";
@@ -534,6 +557,7 @@ async function handleBulkUpdateStatus(status: string) {
     );
     selectedEventIds.value = [];
     operationNotice.value = buildOperationNotice(status as "open" | "tracking" | "ignored", ids.length);
+    await refreshAfterMutation();
   } finally {
     bulkUpdating.value = false;
     pendingBulkStatus.value = "";
@@ -575,22 +599,47 @@ async function handleBulkUpdateMeta(
     );
     selectedEventIds.value = [];
     operationNotice.value = buildOperationNotice(pendingKey as "read" | "unread" | "bookmark" | "unbookmark", ids.length);
+    await refreshAfterMutation();
   } finally {
     bulkUpdating.value = false;
     pendingBulkStatus.value = "";
   }
 }
 
-onMounted(async () => {
-  const [eventsData, aggregationData] = await Promise.all([
-    fetchEvents(),
-    fetchFeedbackAggregation(),
-  ]);
+async function resetPage() {
+  selectedEventIds.value = [];
+  await pager.reset(buildEventWorkbenchManagedQuery(activeFilters.value));
+}
 
-  events.value = eventsData;
-  feedbackAggregation.value = aggregationData;
-  applyRouteFilters();
-});
+async function refreshAfterMutation() {
+  events.value = await fetchEvents();
+  await resetPage();
+}
+
+async function loadWorkbench() {
+  summaryLoading.value = true;
+  summaryError.value = "";
+  try {
+    const [eventsData, aggregationData] = await Promise.all([fetchEvents(), fetchFeedbackAggregation().catch(() => null)]);
+    if (disposed) return;
+    events.value = eventsData;
+    feedbackAggregation.value = aggregationData;
+    applyRouteFilters();
+    await nextTick();
+    if (disposed) return;
+    ready.value = true;
+    await resetPage();
+  } catch (error) {
+    if (!disposed) summaryError.value = error instanceof Error ? error.message : "事件加载失败";
+  } finally {
+    if (!disposed) summaryLoading.value = false;
+  }
+}
+onMounted(loadWorkbench);
+onBeforeUnmount(() => { disposed = true; pager.dispose(); });
+watch(activeFilters, () => { if (ready.value) void resetPage(); });
+watch(page, () => { selectedEventIds.value = []; });
+watch(pageLoading, (loading) => { if (loading) selectedEventIds.value = []; });
 
 watch(
   () => route.query,

@@ -1314,34 +1314,39 @@ function mapDatabaseThemeSummary(row: {
 }
 
 async function listThemesFromDb(db: Kysely<Database>) {
-  const rows = await db
-    .selectFrom("themes as t")
-    .leftJoin("sources as s", "s.theme_id", "t.id")
-    .leftJoin("source_runs as sr", (join) =>
-      join.onRef("sr.theme_id", "=", "t.id").on("sr.trigger_type", "!=", "test"),
-    )
-    .leftJoin("events as e", "e.theme_id", "t.id")
-    .select(({ fn }) => [
-      "t.id as id",
-      "t.name as name",
-      "t.theme_type as theme_type",
-      "t.status as status",
-      "t.metadata as metadata",
-      fn.max("sr.finished_at").as("latest_run_at"),
-      fn.max("e.occurred_at").as("latest_event_at"),
-      sql<number>`count(distinct s.id)`.as("source_count"),
-      sql<number>`count(distinct e.id) filter (where e.status = 'open')`.as("open_event_count"),
-      sql<number>`count(distinct e.id) filter (where e.status = 'tracking')`.as("tracking_event_count"),
-      sql<number>`count(distinct e.id) filter (where e.status = 'ignored')`.as("ignored_event_count"),
-      sql<number>`count(distinct e.id) filter (where coalesce(e.is_read, false) = false)`.as("unread_event_count"),
-      sql<number>`count(distinct e.id) filter (where coalesce(e.is_bookmarked, false) = true)`.as("bookmarked_event_count"),
-      fn.max("e.bookmarked_at").as("latest_bookmarked_at"),
-      fn.max("s.latest_success_at").as("latest_success_at"),
-      fn.max("s.latest_failure_at").as("latest_failure_at"),
-    ])
-    .groupBy(["t.id", "t.name", "t.theme_type", "t.status", "t.metadata"])
-    .orderBy("t.created_at desc")
-    .execute();
+  // Aggregate each one-to-many relation before joining to avoid multiplying rows.
+  const sourceStats = db.selectFrom("sources").select(({ fn }) => [
+    "theme_id", fn.countAll().as("source_count"),
+    fn.max("latest_success_at").as("latest_success_at"),
+    fn.max("latest_failure_at").as("latest_failure_at"),
+  ]).groupBy("theme_id").as("ss");
+  const runStats = db.selectFrom("source_runs").select(({ fn }) => [
+    "theme_id", fn.max("finished_at").as("latest_run_at"),
+  ]).where("trigger_type", "!=", "test").groupBy("theme_id").as("rs");
+  const eventStats = db.selectFrom("events").select(({ fn }) => [
+    "theme_id", fn.max("occurred_at").as("latest_event_at"),
+    sql<number>`count(*) filter (where status = 'open')`.as("open_event_count"),
+    sql<number>`count(*) filter (where status = 'tracking')`.as("tracking_event_count"),
+    sql<number>`count(*) filter (where status = 'ignored')`.as("ignored_event_count"),
+    sql<number>`count(*) filter (where coalesce(is_read, false) = false)`.as("unread_event_count"),
+    sql<number>`count(*) filter (where coalesce(is_bookmarked, false) = true)`.as("bookmarked_event_count"),
+    fn.max("bookmarked_at").as("latest_bookmarked_at"),
+  ]).groupBy("theme_id").as("es");
+  const rows = await db.selectFrom("themes as t")
+    .leftJoin(sourceStats, "ss.theme_id", "t.id")
+    .leftJoin(runStats, "rs.theme_id", "t.id")
+    .leftJoin(eventStats, "es.theme_id", "t.id")
+    .select([
+      "t.id", "t.name", "t.theme_type", "t.status", "t.metadata",
+      "rs.latest_run_at", "es.latest_event_at", "ss.latest_success_at", "ss.latest_failure_at",
+      "es.latest_bookmarked_at",
+      sql<number>`coalesce(ss.source_count, 0)`.as("source_count"),
+      sql<number>`coalesce(es.open_event_count, 0)`.as("open_event_count"),
+      sql<number>`coalesce(es.tracking_event_count, 0)`.as("tracking_event_count"),
+      sql<number>`coalesce(es.ignored_event_count, 0)`.as("ignored_event_count"),
+      sql<number>`coalesce(es.unread_event_count, 0)`.as("unread_event_count"),
+      sql<number>`coalesce(es.bookmarked_event_count, 0)`.as("bookmarked_event_count"),
+    ]).orderBy("t.created_at desc").execute();
 
   const summaries = rows.map((row) => {
     const base = mapDatabaseThemeSummary(row);
@@ -1363,51 +1368,27 @@ async function listThemesFromDb(db: Kysely<Database>) {
     };
   });
 
-  const latestEvents = await Promise.all(
-    summaries.map(async (summary) => {
-      const latestEvent = await db
-        .selectFrom("events")
-        .select(["title", "signal"])
-        .where("theme_id", "=", summary.id)
-        .orderBy("occurred_at desc")
-        .limit(1)
-        .executeTakeFirst();
-
-      return {
-        themeId: summary.id,
-        latestEventTitle: latestEvent?.title ?? null,
-        latestEventSignal: latestEvent?.signal ?? null,
-      };
-    }),
-  );
-
-  const latestRecords = await Promise.all(
-    summaries.map(async (summary) => {
-      const latestRecord = await db
-        .selectFrom("normalized_records")
-        .select(["content"])
-        .where("theme_id", "=", summary.id)
-        .orderBy("occurred_at desc")
-        .limit(1)
-        .executeTakeFirst();
-
-      return {
-        themeId: summary.id,
-        latestRecord: latestRecord ?? null,
-      };
-    }),
-  );
+  const [eventRows, recordRows] = await Promise.all([
+    db.selectFrom("events").distinctOn("theme_id")
+      .select(["theme_id as themeId", "title", "signal"])
+      .orderBy("theme_id").orderBy("occurred_at", "desc").orderBy("id", "desc").execute(),
+    db.selectFrom("normalized_records").distinctOn("theme_id")
+      .select(["theme_id as themeId", "content"])
+      .orderBy("theme_id").orderBy("occurred_at", "desc").orderBy("id", "desc").execute(),
+  ]);
+  const latestEvents = new Map(eventRows.map((row) => [row.themeId, row]));
+  const latestRecords = new Map(recordRows.map((row) => [row.themeId, row]));
 
   return summaries.map((summary) => {
-    const latestEvent = latestEvents.find((item) => item.themeId === summary.id);
-    const latestRecord = latestRecords.find((item) => item.themeId === summary.id)?.latestRecord ?? null;
+    const latestEvent = latestEvents.get(summary.id);
+    const latestRecord = latestRecords.get(summary.id) ?? null;
 
     return {
       ...summary,
-      latestEventTitle: latestEvent?.latestEventTitle ?? null,
-      latestEventSignal: latestEvent?.latestEventSignal ?? null,
+      latestEventTitle: latestEvent?.title ?? null,
+      latestEventSignal: latestEvent?.signal ?? null,
       latestInsight: buildLatestInsight(summary.type, latestRecord ?? undefined, {
-        signal: latestEvent?.latestEventSignal ?? null,
+        signal: latestEvent?.signal ?? null,
       }),
     };
   });

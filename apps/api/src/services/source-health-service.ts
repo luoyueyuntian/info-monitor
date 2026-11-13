@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 /**
  * Source health monitoring service.
  *
@@ -724,88 +725,41 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
   const themeMap = new Map(themes.map((t) => [t.id, t.name]));
 
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const recentRuns = await db
-    .selectFrom("source_runs")
-    .select([
-      "source_id as sourceId",
-      "status",
-      "started_at as startedAt",
-      "finished_at as finishedAt",
-      "error_message as errorMessage",
-    ])
-    .where("created_at", ">=", twentyFourHoursAgo as any)
-    .where("trigger_type", "not in", ["test", "replay"])
-    .orderBy("created_at", "desc")
-    .execute();
-
-  const sourceRunMap = new Map<string, typeof recentRuns>();
-  for (const run of recentRuns) {
-    const runs = sourceRunMap.get(run.sourceId) || [];
-    runs.push(run);
-    sourceRunMap.set(run.sourceId, runs);
-  }
-
+  const [runStats, recentErrorsRaw] = await Promise.all([
+    db.selectFrom("source_runs").select([
+      "source_id as sourceId", sql<string>`count(*)`.as("total"),
+      sql<string>`count(*) filter (where status='completed')`.as("successful"),
+      sql<string>`count(*) filter (where status='failed')`.as("failed"),
+      sql<string>`count(*) filter (where started_at is not null and finished_at is not null)`.as("durationCount"),
+      sql<number>`coalesce(sum(extract(epoch from (finished_at-started_at))*1000) filter (where started_at is not null and finished_at is not null),0)`.as("durationSum"),
+    ]).where("created_at", ">=", twentyFourHoursAgo).where("trigger_type", "not in", ["test", "replay"]).groupBy("source_id").execute(),
+    db.selectFrom("source_runs").select(["source_id as sourceId", "error_message as errorMessage", "finished_at as finishedAt"])
+      .where("created_at", ">=", twentyFourHoursAgo).where("trigger_type", "not in", ["test", "replay"])
+      .where("status", "=", "failed").where("error_message", "!=", "").orderBy("created_at", "desc").orderBy("id", "desc").limit(10).execute(),
+  ]);
+  const sourceRunMap = new Map(runStats.map((row) => [row.sourceId, row]));
   const totalSources = sources.length;
   const pausedSources = sources.filter((s) => s.isPaused).length;
   const activeSources = totalSources - pausedSources;
-
-  const totalRuns = recentRuns.length;
-  const successfulRuns = recentRuns.filter((r) => r.status === "completed").length;
-  const failedRuns = recentRuns.filter((r) => r.status === "failed").length;
-
-  // Calculate average run duration
-  const runsWithDuration = recentRuns.filter((r) => r.startedAt && r.finishedAt);
-  const totalDuration = runsWithDuration.reduce((sum, r) => {
-    const start = new Date(r.startedAt!).getTime();
-    const end = new Date(r.finishedAt!).getTime();
-    return sum + (end - start);
-  }, 0);
-  const averageRunDuration = runsWithDuration.length > 0
-    ? totalDuration / runsWithDuration.length
-    : null;
-
-  const recentErrors = recentRuns
-    .filter((r) => r.status === "failed" && r.errorMessage)
-    .slice(0, 10)
-    .map((r) => {
-      const source = sources.find((s) => s.id === r.sourceId);
-      return {
-        sourceId: r.sourceId,
-        sourceName: source?.name || "Unknown",
-        errorMessage: r.errorMessage!,
-        occurredAt: r.finishedAt?.toString() || new Date().toISOString(),
-      };
-    });
-
-  const latestRuns = await Promise.all(
-    sources.map(async (source) => {
-      const latestRun = await db
-        .selectFrom("source_runs")
-        .select([
-          "id",
-          "status",
-          "started_at as startedAt",
-          "finished_at as finishedAt",
-          "error_message as errorMessage",
-        ])
-        .where("source_id", "=", source.id)
-        .where("trigger_type", "not in", ["test", "replay"])
-        .orderBy("created_at", "desc")
-        .limit(1)
-        .executeTakeFirst();
-
-      return {
-        sourceId: source.id,
-        runId: latestRun?.id ?? null,
-        latestRunStatus: latestRun?.status ?? null,
-        latestRunAt:
-          latestRun?.finishedAt?.toISOString?.() ??
-          latestRun?.startedAt?.toISOString?.() ??
-          null,
-        lastErrorMessage: latestRun?.errorMessage ?? null,
-      };
-    }),
-  );
+  const totalRuns = runStats.reduce((sum, row) => sum + Number(row.total), 0);
+  const successfulRuns = runStats.reduce((sum, row) => sum + Number(row.successful), 0);
+  const failedRuns = runStats.reduce((sum, row) => sum + Number(row.failed), 0);
+  const durationCount = runStats.reduce((sum, row) => sum + Number(row.durationCount), 0);
+  const averageRunDuration = durationCount ? runStats.reduce((sum, row) => sum + Number(row.durationSum), 0)/durationCount : null;
+  const sourceLookup = new Map(sources.map((source) => [source.id, source]));
+  const recentErrors = recentErrorsRaw.map((row) => ({ sourceId: row.sourceId,
+    sourceName: sourceLookup.get(row.sourceId)?.name ?? "Unknown", errorMessage: row.errorMessage!,
+    occurredAt: row.finishedAt?.toString() ?? new Date().toISOString() }));
+  const latestRows = sources.length ? await db.selectFrom("sources as lookup")
+    .leftJoinLateral((eb) => eb.selectFrom("source_runs as sr")
+      .select(["sr.id", "sr.status", "sr.started_at", "sr.finished_at", "sr.error_message"])
+      .whereRef("sr.source_id", "=", "lookup.id").where("sr.trigger_type", "not in", ["test", "replay"])
+      .orderBy("sr.created_at", "desc").orderBy("sr.id", "desc").limit(1).as("latest"), (join) => join.onTrue())
+    .select(["lookup.id as sourceId", "latest.id as runId", "latest.status as latestRunStatus", "latest.finished_at as finishedAt",
+      "latest.started_at as startedAt", "latest.error_message as lastErrorMessage"])
+    .where("lookup.id", "in", sources.map((source) => source.id)).execute() : [];
+  const latestRuns = latestRows.map((row) => ({ ...row, latestRunAt: row.finishedAt?.toISOString?.() ?? row.startedAt?.toISOString?.() ?? null }));
+  const latestRunMap = new Map(latestRuns.map((row) => [row.sourceId, row]));
 
   const latestRunIds = latestRuns
     .map((run) => run.runId)
@@ -846,8 +800,8 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
   const eventCountMap = new Map(eventCounts.map((row) => [row.runId, Number(row.count)]));
 
   const sourceDetails = sources.map((s) => {
-    const runs = sourceRunMap.get(s.id) || [];
-    const latestRun = latestRuns.find((run) => run.sourceId === s.id);
+    const runs = sourceRunMap.get(s.id);
+    const latestRun = latestRunMap.get(s.id);
     const latestSnapshotCount = latestRun?.runId ? snapshotCountMap.get(latestRun.runId) ?? 0 : 0;
     const latestRecordCount = latestRun?.runId ? recordCountMap.get(latestRun.runId) ?? 0 : 0;
     const latestChangeCount = latestRun?.runId ? changeCountMap.get(latestRun.runId) ?? 0 : 0;
@@ -898,9 +852,9 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
       latestSuccessAt: s.latestSuccessAt?.toString() || null,
       latestFailureAt: s.latestFailureAt?.toString() || null,
       lastErrorMessage: latestRun?.lastErrorMessage ?? null,
-      runCount24h: runs.length,
-      successCount24h: runs.filter((r) => r.status === "completed").length,
-      failureCount24h: runs.filter((r) => r.status === "failed").length,
+      runCount24h: Number(runs?.total ?? 0),
+      successCount24h: Number(runs?.successful ?? 0),
+      failureCount24h: Number(runs?.failed ?? 0),
       healthScore,
       issueSummary: explanation.issue,
       latestSnapshotCount,
@@ -961,172 +915,49 @@ export async function getSourceHealthStats(): Promise<SourceHealthStats> {
 
 export async function getOperationalMetrics(): Promise<OperationalMetrics> {
   const db = requireDatabase();
-
-  // ─── DB Mode ───────────────────────────────────────────────────────────────
-
   const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  // Get all runs from last 7 days
-  const runs = await db
-    .selectFrom("source_runs")
-    .select([
-      "status",
-      "started_at as startedAt",
-      "finished_at as finishedAt",
-      "error_message as errorMessage",
-      "source_id as sourceId",
-      "created_at as createdAt",
-    ])
-    .where("created_at", ">=", sevenDaysAgo as any)
-    .where("trigger_type", "!=", "test")
-    .execute();
-
-  // ── Run Duration Trend (avg per day) ──────────────────────────────────────
-
-  const dailyRuns = new Map<string, typeof runs>();
-  for (const run of runs) {
-    const dateKey = run.createdAt
-      ? new Date(run.createdAt as any).toISOString().split("T")[0]
-      : "unknown";
-    const dayRuns = dailyRuns.get(dateKey) || [];
-    dayRuns.push(run);
-    dailyRuns.set(dateKey, dayRuns);
-  }
-
-  const runDurationTrend: DailyMetric[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split("T")[0];
-    const dayRuns = dailyRuns.get(dateStr) || [];
-
-    const runsWithDuration = dayRuns.filter((r) => r.startedAt && r.finishedAt);
-    const avgDuration =
-      runsWithDuration.length > 0
-        ? runsWithDuration.reduce((sum, r) => {
-            const start = new Date(r.startedAt as any).getTime();
-            const end = new Date(r.finishedAt as any).getTime();
-            return sum + (end - start);
-          }, 0) / runsWithDuration.length
-        : 0;
-
-    runDurationTrend.push({ date: dateStr, value: Math.round(avgDuration) });
-  }
-
-  // ── Failure Rate Trend (per day) ──────────────────────────────────────────
-
-  const failureRateTrend: DailyMetric[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split("T")[0];
-    const dayRuns = dailyRuns.get(dateStr) || [];
-
-    const total = dayRuns.length;
-    const failed = dayRuns.filter((r) => r.status === "failed").length;
-    failureRateTrend.push({
-      date: dateStr,
-      value: total > 0 ? Number((failed / total).toFixed(3)) : 0,
-    });
-  }
-
-  // ── Task Backlog ──────────────────────────────────────────────────────────
-
-  const pendingRuns = await db
-    .selectFrom("source_runs")
-    .select((eb) => eb.fn.count("id").as("count"))
-    .where("status", "=", "pending")
-    .where("trigger_type", "!=", "test")
-    .executeTakeFirst();
-
-  const runningRuns = await db
-    .selectFrom("source_runs")
-    .select((eb) => eb.fn.count("id").as("count"))
-    .where("status", "=", "running")
-    .where("trigger_type", "!=", "test")
-    .executeTakeFirst();
-
-  const oldestPending = await db
-    .selectFrom("source_runs")
-    .select("created_at as createdAt")
-    .where("status", "=", "pending")
-    .where("trigger_type", "!=", "test")
-    .orderBy("created_at", "asc")
-    .executeTakeFirst();
-
-  const oldestPendingAge = oldestPending?.createdAt
-    ? formatDuration(now.getTime() - new Date(oldestPending.createdAt as any).getTime())
-    : null;
-
-  // ── Recent Exception Aggregation ──────────────────────────────────────────
-
-  const recentErrors = runs.filter((r) => r.status === "failed" && r.errorMessage);
-
-  const errorMap = new Map<
-    string,
-    { count: number; lastOccurredAt: string; sourceIds: Set<string> }
-  >();
-
-  for (const run of recentErrors) {
-    const msg = run.errorMessage!;
-    const existing = errorMap.get(msg) || {
-      count: 0,
-      lastOccurredAt: "",
-      sourceIds: new Set<string>(),
-    };
-    existing.count++;
-    const runTime = run.finishedAt
-      ? new Date(run.finishedAt as any).toISOString()
-      : new Date(run.createdAt as any).toISOString();
-    if (runTime > existing.lastOccurredAt) {
-      existing.lastOccurredAt = runTime;
-    }
-    existing.sourceIds.add(run.sourceId);
-    errorMap.set(msg, existing);
-  }
-
-  const recentExceptions = [...errorMap.entries()]
-    .map(([errorMessage, data]) => ({
-      errorMessage,
-      count: data.count,
-      lastOccurredAt: data.lastOccurredAt,
-      sourceIds: [...data.sourceIds],
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
-
-  // ── Hourly Distribution (last 24h) ────────────────────────────────────────
-
-  const hourlyRuns = runs.filter((r) => {
-    const createdAt = r.createdAt ? new Date(r.createdAt as any) : null;
-    return createdAt && createdAt >= twentyFourHoursAgo;
-  });
-
-  const hourlyDistribution = Array.from({ length: 24 }, (_, hour) => {
-    const hourRuns = hourlyRuns.filter((r) => {
-      const h = new Date(r.createdAt as any).getUTCHours();
-      return h === hour;
-    });
-    return {
-      hour,
-      total: hourRuns.length,
-      successful: hourRuns.filter((r) => r.status === "completed").length,
-      failed: hourRuns.filter((r) => r.status === "failed").length,
-    };
-  });
-
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400_000);
+  const yesterday = new Date(now.getTime() - 86400_000);
+  const [daily, hourly, backlog, errors] = await Promise.all([
+    db.selectFrom("source_runs").select([
+      sql<string>`to_char(created_at at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`.as("date"),
+      sql<string>`count(*)`.as("total"), sql<string>`count(*) filter (where status='failed')`.as("failed"),
+      sql<number | null>`avg(extract(epoch from (finished_at-started_at))*1000) filter (where started_at is not null and finished_at is not null)`.as("duration"),
+    ]).where("created_at", ">=", sevenDaysAgo).where("trigger_type", "!=", "test").groupBy("date").execute(),
+    db.selectFrom("source_runs").select([
+      sql<number>`extract(hour from created_at at time zone 'Asia/Shanghai')::int`.as("hour"),
+      sql<string>`count(*)`.as("total"), sql<string>`count(*) filter (where status='completed')`.as("successful"),
+      sql<string>`count(*) filter (where status='failed')`.as("failed"),
+    ]).where("created_at", ">=", yesterday).where("trigger_type", "!=", "test").groupBy("hour").execute(),
+    db.selectFrom("source_runs").select([
+      sql<string>`count(*) filter (where status='pending')`.as("pending"),
+      sql<string>`count(*) filter (where status='running')`.as("running"),
+      sql<Date | null>`min(created_at) filter (where status='pending')`.as("oldest"),
+    ]).where("status", "in", ["pending", "running"]).where("trigger_type", "!=", "test").executeTakeFirstOrThrow(),
+    db.selectFrom("source_runs").select([
+      "error_message as errorMessage", sql<string>`count(*)`.as("count"),
+      sql<Date>`max(coalesce(finished_at,created_at))`.as("lastOccurredAt"),
+      sql<string[]>`array_agg(distinct source_id order by source_id)`.as("sourceIds"),
+    ]).where("created_at", ">=", sevenDaysAgo).where("trigger_type", "!=", "test")
+      .where("status", "=", "failed").where("error_message", "!=", "")
+      .groupBy("error_message").orderBy("count", "desc").orderBy("lastOccurredAt", "desc").limit(10).execute(),
+  ]);
+  const days = new Map(daily.map((row) => [row.date, row]));
+  const dates = Array.from({ length: 7 }, (_, i) => new Date(now.getTime() - (6-i)*86400_000)
+    .toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" }));
+  const hours = new Map(hourly.map((row) => [Number(row.hour), row]));
   return {
-    runDurationTrend,
-    failureRateTrend,
-    backlog: {
-      pendingRuns: Number(pendingRuns?.count ?? 0),
-      runningRuns: Number(runningRuns?.count ?? 0),
-      oldestPendingAge,
-    },
-    recentExceptions,
-    hourlyDistribution,
+    runDurationTrend: dates.map((date) => ({ date, value: Math.round(Number(days.get(date)?.duration ?? 0)) })),
+    failureRateTrend: dates.map((date) => {
+      const row = days.get(date); const total = Number(row?.total ?? 0);
+      return { date, value: total ? Number((Number(row?.failed ?? 0)/total).toFixed(3)) : 0 };
+    }),
+    backlog: { pendingRuns: Number(backlog.pending), runningRuns: Number(backlog.running),
+      oldestPendingAge: backlog.oldest ? formatDuration(now.getTime()-backlog.oldest.getTime()) : null },
+    recentExceptions: errors.map((row) => ({ errorMessage: row.errorMessage!, count: Number(row.count),
+      lastOccurredAt: row.lastOccurredAt.toISOString(), sourceIds: row.sourceIds })),
+    hourlyDistribution: Array.from({ length: 24 }, (_, hour) => ({ hour, total: Number(hours.get(hour)?.total ?? 0),
+      successful: Number(hours.get(hour)?.successful ?? 0), failed: Number(hours.get(hour)?.failed ?? 0) })),
   };
 }
 

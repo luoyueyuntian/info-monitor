@@ -1,4 +1,9 @@
+import { registerRuntimeMetrics } from "./lib/runtime-metrics.js";
+import { registerWorkspaceRoutes } from "./routes/workspaces.js";
+import { invalidateWorkspaceCache } from "./services/workspace-service.js";
 import cors from "@fastify/cors";
+import compress from "@fastify/compress";
+import { constants as zlibConstants } from "node:zlib";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import path from "path";
@@ -35,6 +40,18 @@ export async function buildApp() {
   await app.register(cors, {
     origin: config.corsOrigin,
   });
+  await app.register(compress, {
+    globalDecompression: false, encodings: ["br", "gzip"], threshold: 1024,
+    brotliOptions: { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } },
+    zlibOptions: { level: 4 },
+  });
+
+  app.addHook("onSend", async (request, reply, payload) => {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method) && reply.statusCode >= 200 && reply.statusCode < 300) invalidateWorkspaceCache();
+    return payload;
+  });
+  await registerRuntimeMetrics(app);
+  await registerWorkspaceRoutes(app);
 
   // Register API routes first
   await registerHealthRoutes(app);
@@ -69,12 +86,20 @@ export async function buildApp() {
       root: frontendDistPath,
       prefix: "/",
       decorateReply: true,
+      cacheControl: false,
+      setHeaders(response, filePath) {
+        if (filePath.startsWith(path.join(frontendDistPath, "assets") + path.sep)) {
+          response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else if (path.basename(filePath) === "index.html") {
+          response.setHeader("Cache-Control", "no-cache");
+        }
+      },
     });
 
     // SPA fallback - serve index.html for non-API routes
     app.setNotFoundHandler((request, reply) => {
       // If it's an API route, return 404
-      if (request.url.startsWith("/api/")) {
+      if (request.url.startsWith("/api/") || request.url.startsWith("/assets/")) {
         reply.code(404).send({
           message: `Route ${request.method}:${request.url} not found`,
           error: "Not Found",
@@ -85,7 +110,7 @@ export async function buildApp() {
 
       // For all other routes, serve index.html (SPA routing)
       const indexPath = path.join(frontendDistPath, "index.html");
-      reply.type("text/html").send(fs.readFileSync(indexPath, "utf-8"));
+      reply.header("Cache-Control", "no-cache").type("text/html").send(fs.readFileSync(indexPath, "utf-8"));
     });
   } else {
     app.log.warn(`Frontend dist path not found: ${frontendDistPath}`);

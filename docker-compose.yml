@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: info-monitor-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: info_monitor
       POSTGRES_USER: postgres
@@ -41,15 +42,35 @@ services:
       context: ./apps/python-worker
       dockerfile: Dockerfile
     container_name: info-monitor-worker
+    stop_grace_period: 90s
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
       MEILI_HOST: http://meilisearch:7700
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      WORKER_LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-600}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
+      WORKER_MAX_RUN_SECONDS: ${WORKER_MAX_RUN_SECONDS:-1800}
     depends_on:
       postgres:
         condition: service_healthy
       meilisearch:
         condition: service_started
     restart: unless-stopped
+
+  maintenance:
+    profiles: ["maintenance"]
+    image: info-monitor-maintenance:latest
+    build:
+      context: ./apps/python-worker
+      dockerfile: Dockerfile
+    entrypoint: ["python", "-m", "info_monitor_worker.maintenance"]
+    command: []
+    user: "${ARCHIVE_UID:-1000}:${ARCHIVE_GID:-1000}"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/info_monitor
+      INFO_MONITOR_ARCHIVE_ROOT: /archive
+    volumes:
+      - "${INFO_MONITOR_ARCHIVE_DIR:-./data/archive}:/archive"
 
   scheduler:
     image: info-monitor-scheduler:latest
