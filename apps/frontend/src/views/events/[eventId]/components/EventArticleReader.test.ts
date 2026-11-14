@@ -22,6 +22,16 @@ describe('news original reader', () => {
     expect(wrapper.get('a').attributes('href')).toBe('https://example.com/news');
     wrapper.unmount();
   });
+  it('shows a direct PDF action instead of claiming a missing news link', async () => {
+    api.requestEventArticle.mockResolvedValue(state('unsupported', { url:'https://example.com/a.PDF?download=1', errorMessage:'这条公告原文是 PDF 文件。' }));
+    const wrapper = mount(EventArticleReader, { props:{eventId:'pdf'} });
+    await flushPromises();
+    expect(wrapper.get('h3').text()).toBe('公告原文（PDF）');
+    expect(wrapper.get('a').text()).toContain('打开公告 PDF');
+    expect(wrapper.get('a').attributes('href')).toBe('https://example.com/a.PDF?download=1');
+    expect(wrapper.find('.article-body').exists()).toBe(false);
+    wrapper.unmount();
+  });
   it('polls queued work and stops after ready', async () => {
     vi.useFakeTimers();
     api.requestEventArticle.mockResolvedValue(state('pending'));

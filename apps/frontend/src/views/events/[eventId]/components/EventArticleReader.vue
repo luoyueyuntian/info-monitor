@@ -1,8 +1,8 @@
 <template>
   <article class="card news-reader" aria-labelledby="news-reader-title" :aria-busy="busy">
     <div class="reader-heading">
-      <h3 id="news-reader-title">新闻原文</h3>
-      <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer">打开原始网页 ↗</a>
+      <h3 id="news-reader-title">{{ isPdf ? '公告原文（PDF）' : '新闻原文' }}</h3>
+      <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer">{{ isPdf ? '打开公告 PDF ↗' : '打开原始网页 ↗' }}</a>
     </div>
     <template v-if="article?.status === 'ready' && article.contentText">
       <p class="reader-meta">从原始网页提取的正文 · 保存于 {{ formatDateTimeLabel(article.fetchedAt) }}（北京时间）</p>
@@ -39,6 +39,7 @@ const sourceUrl = computed(() => {
     return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
   } catch { return null; }
 });
+const isPdf = computed(() => sourceUrl.value ? new URL(sourceUrl.value).pathname.toLowerCase().endsWith('.pdf') : false);
 let start: (retry?: boolean) => Promise<void> = async () => {};
 
 watch(() => props.eventId, (eventId, _, onCleanup) => {

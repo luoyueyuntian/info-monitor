@@ -8,7 +8,7 @@ import type { Database } from '../db/schema.js';
 import { registerEventRoutes } from '../routes/events.js';
 const { getDatabase } = vi.hoisted(() => ({ getDatabase: vi.fn() }));
 vi.mock('../db/client.js', () => ({ getDatabase }));
-import { articleTarget, getEventArticle } from './article-service.js';
+import { articleSource, articleTarget, getEventArticle } from './article-service.js';
 
 describe('article target', () => {
   it('uses stored news URL and ignores fragments', () => {
@@ -17,6 +17,16 @@ describe('article target', () => {
   });
   it.each(['javascript:alert(1)', 'file:///etc/passwd', 'https://u:p@example.com', 'https://example.com/a.pdf', 'https://example.com:22/a'])('rejects unsupported link %s', (url) => {
     expect(articleTarget({ infoType: 'news_announcement', context: { url } })).toBeNull();
+  });
+});
+
+describe('unsupported article reasons', () => {
+  it('retains PDF source link and explains format rather than missing data', () => {
+    expect(articleSource({ infoType:'news_announcement', context:{url:'https://example.com/a.PDF?x=1'} })).toMatchObject({url:'https://example.com/a.PDF?x=1',reason:expect.stringContaining('PDF')});
+  });
+  it('distinguishes missing and invalid links from PDF', () => {
+    expect(articleSource({ infoType:'news_announcement', context:{} })).toMatchObject({url:null,reason:expect.stringContaining('未保存')});
+    expect(articleSource({ infoType:'news_announcement', context:{url:'javascript:alert(1)'} })).toMatchObject({url:null,reason:expect.stringContaining('链接格式')});
   });
 });
 
@@ -72,5 +82,14 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('article PostgreSQL / routes', (
     const queued = (await pool.query('select attempt_count,requested_at from news_articles')).rows[0];
     expect(queued.attempt_count).toBe(0);
     expect(queued.requested_at).not.toBeNull();
+  });  it('returns a PDF link without queueing and distinguishes records without links', async () => {
+    const before = (await pool.query('select count(*) from news_articles')).rows[0].count;
+    await pool.query(`update normalized_records set content='{"url":"https://example.com/report.PDF"}' where id='n'`);
+    const result = await app.inject({ method:'POST',url:'/api/events/e/article',payload:{} });
+    expect(result.json()).toMatchObject({status:'unsupported',url:'https://example.com/report.PDF',errorMessage:expect.stringContaining('PDF 文件')});
+    expect((await pool.query('select count(*) from news_articles')).rows[0].count).toBe(before);
+    await pool.query(`update normalized_records set content='{}' where id='n'`);
+    expect(await getEventArticle('e')).toMatchObject({status:'unsupported',url:null,errorMessage:expect.stringContaining('未保存')});
   });
+
 });
