@@ -6,6 +6,8 @@ export const router = createRouter({
     return { top: 0 };
   },
   routes: [
+    { path: "/workspace/:workspaceId/content/:recordId", name: "workspace-content-detail", component: () => import("../views/content/detail.vue") },
+    { path: "/content/:recordId", name: "collected-content-detail", component: () => import("../views/content/detail.vue") },
     { path: "/", name: "workspace-switcher", component: () => import("../views/workspaces/index.vue") },
     { path: "/workspace/:workspaceId", redirect: (to) => `/workspace/${to.params.workspaceId}/dashboard` },
     { path: "/workspace/:workspaceId/dashboard", name: "workspace-dashboard", component: () => import("../views/workspace/[workspaceId]/dashboard/index.vue") },

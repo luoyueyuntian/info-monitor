@@ -5,8 +5,14 @@ import { getDatabase } from '../db/client.js';
 
 type ArticleRecord = { infoType: string | null; context: unknown };
 
+export function isStructuredContent(row: ArticleRecord) {
+  const context=row.context && typeof row.context==='object' ? row.context as Record<string,unknown> : {};
+  return !['news_announcement','financial_event','content_update'].includes(row.infoType??'') ||
+    (row.infoType==='financial_event' && ['yield_curve','daily_billboard','market_overview'].includes(String(context.event_class??'')));
+}
+
 export function articleSource(row: ArticleRecord): { url: string | null; reason: string | null } {
-  if (row.infoType !== 'news_announcement') return { url: null, reason: '此事件属于结构化数据，未提供网页新闻正文。' };
+  if (isStructuredContent(row)) return { url: null, reason: '此事件属于结构化数据，未提供网页新闻正文。' };
   const raw = row.context && typeof row.context === 'object' ? (row.context as Record<string, unknown>).url : null;
   if (typeof raw !== 'string' || !raw.trim()) return { url: null, reason: '此事件未保存原文链接，暂时无法读取正文。' };
   const url = raw.trim().split('#', 1)[0];
@@ -35,6 +41,16 @@ export async function getEventArticle(eventId: string, options: { request?: bool
     .select(['e.title', 'nr.info_type as infoType', 'nr.content as context'])
     .where('e.id', '=', eventId).executeTakeFirst();
   if (!event) return null;
+  return getArticleForRecord(event, options);
+}
+
+export async function getRecordArticle(recordId: string, options: { request?: boolean; retry?: boolean } = {}): Promise<NewsArticle | null> {
+  const event = await getDatabase().selectFrom('normalized_records').select(['title','info_type as infoType','content as context']).where('id','=',recordId).executeTakeFirst();
+  return event ? getArticleForRecord(event, options) : null;
+}
+
+async function getArticleForRecord(event: ArticleRecord & { title: string }, options: { request?: boolean; retry?: boolean }): Promise<NewsArticle> {
+  const db = getDatabase();
   const target = articleTarget(event);
   if (!target) {
     const source = articleSource(event);

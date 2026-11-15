@@ -25,10 +25,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { NewsArticle } from '@info-monitor/shared-contracts';
-import { fetchEventArticle, requestEventArticle } from '../../../../lib/api';
+import { fetchEventArticle, requestEventArticle, fetchRecordArticle, requestRecordArticle } from '../../../../lib/api';
 import { formatDateTimeLabel } from '../../../../lib/presentation';
 
-const props = defineProps<{ eventId: string }>();
+const props = defineProps<{ eventId?: string; recordId?: string }>();
 const article = ref<NewsArticle | null>(null);
 const busy = ref(false);
 const error = ref('');
@@ -42,7 +42,10 @@ const sourceUrl = computed(() => {
 const isPdf = computed(() => sourceUrl.value ? new URL(sourceUrl.value).pathname.toLowerCase().endsWith('.pdf') : false);
 let start: (retry?: boolean) => Promise<void> = async () => {};
 
-watch(() => props.eventId, (eventId, _, onCleanup) => {
+watch(() => [props.eventId, props.recordId], (_, __, onCleanup) => {
+  const recordId = props.recordId;
+  const eventId = recordId ?? props.eventId ?? '';
+  if (!eventId) return;
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let polls = 0;
@@ -58,8 +61,8 @@ watch(() => props.eventId, (eventId, _, onCleanup) => {
     error.value = '';
     try {
       const result = request
-        ? await requestEventArticle(eventId, retry, controller.signal)
-        : await fetchEventArticle(eventId, controller.signal);
+        ? await (recordId ? requestRecordArticle : requestEventArticle)(eventId, retry, controller.signal)
+        : await (recordId ? fetchRecordArticle : fetchEventArticle)(eventId, controller.signal);
       if (controller.signal.aborted || current !== version) return;
       article.value = result;
       if (['pending', 'running'].includes(result.status)) {

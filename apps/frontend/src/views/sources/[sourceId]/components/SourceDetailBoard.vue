@@ -10,6 +10,8 @@
       :handle-back="handleBack"
     />
 
+    <CollectedContentBrowser :source-id="detail.source.id" />
+
     <article class="card">
       <div class="card-topline">
         <h3>关联主题信号</h3>
@@ -103,6 +105,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import CollectedContentBrowser from "../../../../components/CollectedContentBrowser.vue";
 import SourceDetailAnalysisCard from "./SourceDetailAnalysisCard.vue";
 import SourceConfigHistoryCard from "./SourceConfigHistoryCard.vue";
 import SourceDetailConfigCard from "./SourceDetailConfigCard.vue";

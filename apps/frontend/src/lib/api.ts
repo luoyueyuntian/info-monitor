@@ -2579,3 +2579,20 @@ export async function triggerBacktest(
 
   return (await response.json()) as BacktestResult;
 }
+
+export async function fetchCollectedContent(query: { sourceId?: string; themeId?: string; q?: string; page?: number }, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  for (const [key,value] of Object.entries(query)) if(value !== undefined && value !== '') params.set(key,String(value));
+  return requestJsonStrict<import('@info-monitor/shared-contracts').CollectedContentPage>(`/content?${params}`,0,signal);
+}
+export async function fetchCollectedContentDetail(id:string,signal?:AbortSignal) {
+  return requestJsonStrict<import('@info-monitor/shared-contracts').CollectedContentDetail>(`/content/${encodeURIComponent(id)}`,0,signal);
+}
+export async function fetchRecordArticle(id:string,signal?:AbortSignal) {
+  return requestJsonStrict<import('@info-monitor/shared-contracts').NewsArticle>(`/content/${encodeURIComponent(id)}/article`,0,signal);
+}
+export async function requestRecordArticle(id:string,retry=false,signal?:AbortSignal) {
+  const response=await fetch(`${API_BASE_URL}/content/${encodeURIComponent(id)}/article`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({retry}),signal});
+  if(!response.ok) throw new Error(`正文加载失败 (${response.status})`);
+  return await response.json() as import('@info-monitor/shared-contracts').NewsArticle;
+}

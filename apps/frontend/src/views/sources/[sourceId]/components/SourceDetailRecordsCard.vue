@@ -1,6 +1,6 @@
 <template>
   <article class="card">
-    <h3>最近记录</h3>
+    <h3>最近采集字段</h3>
     <div v-if="records.length" class="grid gap-3">
       <article v-for="record in records" :key="record.id" class="rounded-2xl border border-slate-400/15 bg-slate-50/90 px-4 py-3.5">
         <span :class="pillToneClass()">{{ themeTypeLabel(record.infoType) }}</span>

@@ -2,7 +2,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NewsArticle } from '@info-monitor/shared-contracts';
-const api = vi.hoisted(() => ({ fetchEventArticle: vi.fn(), requestEventArticle: vi.fn() }));
+const api = vi.hoisted(() => ({ fetchEventArticle: vi.fn(), requestEventArticle: vi.fn(), fetchRecordArticle: vi.fn(), requestRecordArticle: vi.fn() }));
 vi.mock('../../../../lib/api', () => api);
 import EventArticleReader from './EventArticleReader.vue';
 const state = (status: NewsArticle['status'], extra = {}): NewsArticle => ({
@@ -30,6 +30,14 @@ describe('news original reader', () => {
     expect(wrapper.get('a').text()).toContain('打开公告 PDF');
     expect(wrapper.get('a').attributes('href')).toBe('https://example.com/a.PDF?download=1');
     expect(wrapper.find('.article-body').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('reads a collected record directly without an event', async () => {
+    api.requestRecordArticle.mockResolvedValue(state('ready',{contentText:'政策原文'}));
+    const wrapper=mount(EventArticleReader,{props:{recordId:'policy-record'}});
+    await flushPromises();
+    expect(wrapper.text()).toContain('政策原文');
+    expect(api.requestRecordArticle).toHaveBeenCalledWith('policy-record',false,expect.any(AbortSignal));
     wrapper.unmount();
   });
   it('polls queued work and stops after ready', async () => {

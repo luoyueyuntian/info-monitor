@@ -1,3 +1,4 @@
+import { registerContentRoutes } from "./routes/content.js";
 import { registerRuntimeMetrics } from "./lib/runtime-metrics.js";
 import { registerWorkspaceRoutes } from "./routes/workspaces.js";
 import { invalidateWorkspaceCache } from "./services/workspace-service.js";
@@ -57,6 +58,7 @@ export async function buildApp() {
   await registerHealthRoutes(app);
   await registerDashboardRoutes(app);
   await registerThemeRoutes(app);
+  await registerContentRoutes(app);
   await registerEventRoutes(app);
   await registerNotificationRoutes(app);
   await registerNotificationAuditRoutes(app);

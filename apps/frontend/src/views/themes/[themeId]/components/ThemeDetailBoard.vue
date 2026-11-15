@@ -8,6 +8,8 @@
       :on-back="handleBack"
     />
 
+    <div :ref="setSectionRef('content')"><CollectedContentBrowser :theme-id="detail.theme.id" :sources="detail.sources" /></div>
+
     <ThemeDetailActionsBar
       :running-all-sources="runningAllSources"
       :saving-theme-archive="savingThemeArchive"
@@ -171,6 +173,7 @@
 </template>
 
 <script setup lang="ts">
+import CollectedContentBrowser from "../../../../components/CollectedContentBrowser.vue";
 import { computed, nextTick, onMounted, ref, type ComponentPublicInstance, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";

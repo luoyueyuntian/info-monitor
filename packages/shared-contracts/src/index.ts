@@ -857,3 +857,11 @@ export type WorkspaceIndexResponse = {
   referenceNow: string;
   workspaces: Array<{ id: WorkspaceId; summary: import("./workspaces.js").WorkspaceSummary; topEvents: EventSummary[] }>;
 };
+
+export type CollectedContentStatus = NewsArticle['status'] | 'pdf' | 'data_only' | 'no_link';
+export type CollectedContentItem = {
+  id: string; title: string; themeId: string; themeName: string; sourceId: string; sourceName: string;
+  infoType: string; occurredAt: string; sourceUrl: string | null; articleStatus: CollectedContentStatus;
+};
+export type CollectedContentPage = { items: CollectedContentItem[]; total: number; page: number; limit: number };
+export type CollectedContentDetail = CollectedContentItem & { context: Record<string, unknown> };
